@@ -1,19 +1,16 @@
 [package]
-name = "eure-codegen"
+name = "eure-codegen-ir"
 version.workspace = true
 edition.workspace = true
-description = "Code generation from Eure schemas"
+description = "Canonical intermediate representation for Eure code generation"
 readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["codegen", "eure", "schema"]
+keywords = ["eure", "codegen", "ir", "schema"]
 
 [dependencies]
 bon = "3"
-eure-codegen-ir = { workspace = true }
-eure-document = { workspace = true }
-eure-macros = { workspace = true }
-eure-schema = { workspace = true }
 indexmap = { workspace = true, features = ["std"] }
+num-bigint = { workspace = true }
 thiserror = { workspace = true }

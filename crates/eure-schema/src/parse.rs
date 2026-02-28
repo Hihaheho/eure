@@ -25,7 +25,7 @@ use indexmap::{IndexMap, IndexSet};
 use num_bigint::BigInt;
 
 use crate::interop::UnionInterop;
-use crate::{BindingStyle, Description, TextSchema, TypeReference};
+use crate::{BindingStyle, Description, FieldCodegen, TextSchema, TypeReference};
 
 impl FromEure<'_> for TypeReference {
     type Error = ParseError;
@@ -180,6 +180,9 @@ pub struct ParsedRecordFieldSchema {
     /// Binding style for this field
     #[eure(default)]
     pub binding_style: Option<BindingStyle>,
+    /// Field-level codegen metadata.
+    #[eure(default)]
+    pub codegen: Option<FieldCodegen>,
 }
 
 /// Policy for handling fields not defined in record properties.
@@ -437,6 +440,8 @@ pub struct ParsedSchemaNode {
     pub metadata: ParsedSchemaMetadata,
     /// Extension type definitions for this node
     pub ext_types: IndexMap<Identifier, ParsedExtTypeSchema>,
+    /// Optional type-level codegen extension node.
+    pub codegen: Option<NodeId>,
 }
 
 // ============================================================================
@@ -664,6 +669,7 @@ impl FromEure<'_> for ParsedSchemaNode {
         // Parse schema-level extensions - marks $ext-type, $description, etc. as accessed
         let ext_types = parse_ext_types(&flatten_ctx)?;
         let metadata = ParsedSchemaMetadata::parse_from_extensions(&flatten_ctx)?;
+        let codegen = flatten_ctx.ext_optional("codegen").map(|ctx| ctx.node_id());
 
         // Content parsing uses the flattened context
         let content = flatten_ctx.parse::<ParsedSchemaNodeContent>()?;
@@ -677,6 +683,7 @@ impl FromEure<'_> for ParsedSchemaNode {
             content,
             metadata,
             ext_types,
+            codegen,
         })
     }
 }

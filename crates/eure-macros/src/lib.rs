@@ -7,14 +7,16 @@ use crate::context::MacroContext;
 
 mod attrs;
 mod build_schema;
+pub(crate) mod codegen_ir_adapter;
 pub(crate) mod config;
 pub(crate) mod context;
+mod emit_ir_common;
 mod from_eure;
 mod into_eure;
 mod ir;
+mod ir_spans;
 mod must_be_text;
 mod object_key;
-mod util;
 
 #[proc_macro_derive(IntoEure, attributes(eure))]
 pub fn into_eure_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {

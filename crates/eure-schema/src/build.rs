@@ -25,7 +25,8 @@ use eure_document::Text;
 use indexmap::IndexMap;
 
 use crate::{
-    SchemaDocument, SchemaMetadata, SchemaNode, SchemaNodeContent, SchemaNodeId, TextSchema,
+    CodegenDefaults, RootCodegen, SchemaDocument, SchemaMetadata, SchemaNode, SchemaNodeContent,
+    SchemaNodeId, TextSchema, TypeCodegen,
 };
 
 /// Trait for types that can build their schema representation.
@@ -86,6 +87,8 @@ impl SchemaBuilder {
                 nodes: Vec::new(),
                 root: SchemaNodeId(0), // Will be set in finish()
                 types: Default::default(),
+                root_codegen: RootCodegen::default(),
+                codegen_defaults: CodegenDefaults::default(),
             },
             cache: HashMap::new(),
         }
@@ -157,6 +160,7 @@ impl SchemaBuilder {
             content,
             metadata: SchemaMetadata::default(),
             ext_types: Default::default(),
+            type_codegen: TypeCodegen::None,
         });
         id
     }
@@ -172,6 +176,7 @@ impl SchemaBuilder {
             content,
             metadata,
             ext_types: Default::default(),
+            type_codegen: TypeCodegen::None,
         });
         id
     }
@@ -186,6 +191,7 @@ impl SchemaBuilder {
             content: SchemaNodeContent::Any, // Placeholder
             metadata: SchemaMetadata::default(),
             ext_types: Default::default(),
+            type_codegen: TypeCodegen::None,
         });
         id
     }

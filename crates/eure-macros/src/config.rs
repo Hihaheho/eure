@@ -17,12 +17,6 @@ pub struct MacroConfig {
     pub document_crate: TokenStream,
     pub rename_all: Option<RenameAll>,
     pub rename_all_fields: Option<RenameAll>,
-    /// Parse fields from extension namespace instead of record fields.
-    pub parse_ext: bool,
-    /// Allow unknown fields instead of denying them.
-    pub allow_unknown_fields: bool,
-    /// Allow unknown extensions instead of denying them.
-    pub allow_unknown_extensions: bool,
     /// Custom error type for the FromEure impl.
     pub parse_error: Option<TokenStream>,
     /// Custom error type for the IntoEure impl.
@@ -83,9 +77,6 @@ impl MacroConfig {
             document_crate,
             rename_all: attrs.rename_all,
             rename_all_fields: attrs.rename_all_fields,
-            parse_ext: attrs.parse_ext,
-            allow_unknown_fields: attrs.allow_unknown_fields,
-            allow_unknown_extensions: attrs.allow_unknown_extensions,
             parse_error,
             write_error,
             type_name: attrs.type_name,

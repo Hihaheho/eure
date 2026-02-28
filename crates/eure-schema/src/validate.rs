@@ -368,8 +368,8 @@ mod tests {
     use crate::convert::document_to_schema_with_layout;
     use crate::type_path_trace::{ResolvedTypeTrace, TypeTraceUnresolvedReason};
     use crate::{
-        ArraySchema, Bound, IntegerSchema, RecordFieldSchema, RecordSchema, TextSchema,
-        UnionSchema, UnknownFieldsPolicy,
+        ArraySchema, Bound, CodegenDefaults, FieldCodegen, IntegerSchema, RecordFieldSchema,
+        RecordSchema, RootCodegen, TextSchema, UnionSchema, UnknownFieldsPolicy,
     };
     use eure_document::text::Text;
     use eure_document::value::{ObjectKey, PrimitiveValue};
@@ -381,6 +381,8 @@ mod tests {
             nodes: Vec::new(),
             root: SchemaNodeId(0),
             types: IndexMap::new(),
+            root_codegen: RootCodegen::default(),
+            codegen_defaults: CodegenDefaults::default(),
         };
         let id = schema.create_node(content);
         schema.root = id;
@@ -494,6 +496,7 @@ mod tests {
                 schema: name_schema_id,
                 optional: false,
                 binding_style: None,
+                field_codegen: FieldCodegen::default(),
             },
         );
         properties.insert(
@@ -502,6 +505,7 @@ mod tests {
                 schema: age_schema_id,
                 optional: true,
                 binding_style: None,
+                field_codegen: FieldCodegen::default(),
             },
         );
 
@@ -685,6 +689,7 @@ mod tests {
                 schema: type_schema_id,
                 optional: false,
                 binding_style: None,
+                field_codegen: FieldCodegen::default(),
             },
         );
         let success_record_id = schema.create_node(SchemaNodeContent::Record(RecordSchema {

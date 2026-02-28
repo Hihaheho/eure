@@ -10,6 +10,7 @@ pub struct MacroContext {
     pub input: DeriveInput,
 }
 
+#[allow(dead_code)]
 impl MacroContext {
     pub fn new(config: MacroConfig, input: DeriveInput) -> Self {
         Self { config, input }

@@ -22,13 +22,17 @@ pub fn extract_eure_attr_spans(attrs: &[Attribute]) -> HashMap<String, Span> {
         // Parse the nested meta items from the attribute
         let _ = attr.parse_nested_meta(|meta| {
             if let Some(ident) = meta.path.get_ident() {
-                spans.insert(ident.to_string(), meta.path.span());
-            }
-            // Skip any value (like `via = "..."`)
-            if meta.input.peek(syn::Token![=]) {
-                let _: syn::Token![=] = meta.input.parse()?;
-                // Skip the value
-                let _: syn::Expr = meta.input.parse()?;
+                let key = ident.to_string();
+                spans.insert(key.clone(), meta.path.span());
+
+                if meta.input.peek(syn::Token![=]) {
+                    let _: syn::Token![=] = meta.input.parse()?;
+                    let expr: syn::Expr = meta.input.parse()?;
+                    if key == "via" {
+                        // Keep both spans: key span (`via`) and value span (`"TypePath"`).
+                        spans.insert("via_value".to_string(), expr.span());
+                    }
+                }
             }
             Ok(())
         });

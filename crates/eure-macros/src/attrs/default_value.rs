@@ -14,6 +14,7 @@ pub enum DefaultValue {
 }
 
 impl DefaultValue {
+    #[cfg(test)]
     pub fn is_some(&self) -> bool {
         !matches!(self, DefaultValue::None)
     }

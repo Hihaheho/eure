@@ -1,918 +1,713 @@
-# eure-codegen-ir Design Draft
+# eure-codegen-ir Design Draft (v2)
 
-## Purpose
+## 1. Purpose
 
-`eure-codegen-ir` is an intermediate representation (IR) that serves as the canonical bridge
-between Rust's type system and Eure's schema/document model. It captures all information
-needed for bidirectional code generation:
+`eure-codegen-ir` is the canonical intermediate representation (IR) for bidirectional conversion between:
 
-```
-Rust Data Type  ──(eure-macros)──>  IR  ──(codegen)──>  impl FromEure / IntoEure / BuildSchema
-Eure Schema     ──(eure-codegen)──> IR  ──(codegen)──>  Rust Data Type definitions
-(Schema, IR, EureDoc)               ──(codegen)──>  Rust literal expression
-```
+1. Rust data types and derive attributes
+2. Eure schema data (including optional codegen metadata)
+3. Generated code for `FromEure` / `IntoEure` / `BuildSchema`
+4. Rust literal expressions generated from `(EureSchema, IR, EureDoc)`
 
-Interop path (separate concern from native union semantics):
+Target flows:
 
-```
-json <-> serde <-> Rust Data Type <-> Eure
-```
+```text
+Rust Data Type
+  -> (eure-macros) IR
+  -> emit FromEure / IntoEure / BuildSchema
 
-Interop metadata consumption rule:
+Eure Schema (+ optional codegen metadata)
+  -> (eure-codegen) IR
+  -> emit Rust Data Type (+ attributes)
+  -> (optional) IR -> BuildSchema -> Eure Schema (semantic roundtrip)
 
-- `UnionDef.interop.variant_repr` is consumed only when
-  `GenerationConfig.serde_serialize || GenerationConfig.serde_deserialize` is `true`.
-- If both serde flags are `false`, IR may keep the metadata but code emission must ignore it.
-- This does not alter native Eure union semantics.
-
-### Effects on Architecture
-
-- **eure-macros** depends on `eure-codegen-ir`: derive attributes → IR conversion.
-  The three derive macros (FromEure, IntoEure, BuildSchema) share a single IR instead of
-  independently re-analyzing `syn::DeriveInput`. This eliminates duplicated logic in
-  `parse_record.rs`, `write_record.rs`, `build_record.rs` etc.
-
-- **eure-codegen** depends on `eure-codegen-ir`: schema + codegen metadata → IR conversion.
-  Enables schema-to-Rust-code generation with roundtrip guarantees.
-
-- **Consistency**: All three trait implementations are derived from the same IR, making it
-  impossible for FromEure and IntoEure to disagree on wire names, field modes, or variant tags.
-
----
-
-## Requirements
-
-### Primary Requirements
-
-**P1: Derive Macro Input → IR**
-
-The IR must be constructable from Rust derive macro input (`syn::DeriveInput` with `#[eure(...)]`
-attributes). This conversion happens in `eure-macros` and produces an IR value that captures
-all attribute information. The IR itself must NOT depend on `syn`, `proc_macro2`, or `darling`.
-
-Currently captured attributes:
-- Container: `crate`, `rename_all`, `rename_all_fields`, `parse_ext`, `allow_unknown_fields`,
-  `allow_unknown_extensions`, `parse_error`, `write_error`, `type_name`, `non_exhaustive`,
-  `proxy`, `opaque`
-- Field: `rename`, `ext`, `flatten`, `flatten_ext`, `default`, `via`
-- Variant: `rename`, `allow_unknown_fields`
-
-**P2: IR → FromEure / IntoEure / BuildSchema Code Generation**
-
-Given an IR value, a code generator must be able to produce implementations for all three
-traits. The generated code must be semantically identical to what the current per-trait derive
-macros produce. The IR must contain sufficient information so that no additional analysis
-of the original Rust AST is needed during code emission.
-
-**P3: Eure Schema + Codegen Metadata → IR**
-
-The IR must be constructable from a `SchemaDocument` augmented with `$codegen` / `$codegen-defaults`
-extensions (as defined in `eure-codegen::parse`). The schema-to-IR conversion determines
-Rust type names, field names, derive lists, and structural mappings.
-
-**P4: IR → Rust Data Type Definition**
-
-Given an IR value (produced from schema), a code generator must be able to emit complete Rust
-source code: `struct`/`enum` definitions with appropriate `#[derive(...)]` and `#[eure(...)]`
-attributes.
-
-**P5: Roundtrip Guarantee**
-
-The following roundtrips must preserve structural equivalence:
-- `Rust type → IR → BuildSchema code → (compile & run) → Schema → IR → Rust type`
-- `Schema → IR → Rust type → IR → BuildSchema code → (compile & run) → Schema`
-
-"Structural equivalence" means: same fields, same wire names, same types, same modes,
-same optionality, same variant structure. Cosmetic differences (formatting, ordering of
-derives, exact type paths) are acceptable.
-
-**P6: Proc-Macro Independence**
-
-The IR crate must have zero dependency on `syn`, `proc_macro2`, `darling`, or `quote`.
-It must be usable from both proc-macro context (eure-macros) and runtime context
-(eure-codegen). All types must be plain Rust data structures using `String`, `Vec`,
-`IndexMap`, etc.
-
-**P7: Eure–Rust Type Bridge**
-
-The IR must encode the complete mapping between Eure's type system and Rust's type system.
-Specifically, it must capture:
-- Which Eure schema type each Rust type corresponds to
-- How compound types decompose (Vec<T> → array, HashMap<K,V> → map, Option<T> → optional, etc.)
-- How named types reference each other ($types.X → another TypeDef)
-- Which types are opaque/extern (have their own trait impls, not decomposed)
-
-### Secondary Requirements
-
-**S1: Literal Expression Generation**
-
-Given a triple of (Schema, IR, EureDocument), a code generator should be able to produce
-a Rust literal expression that constructs the Rust value represented by the document.
-
-Example:
-```eure
-name = "Alice"
-age = 30
-```
-With IR for `struct User { name: String, age: i32 }`, produces:
-```rust
-User { name: "Alice".to_string(), age: 30 }
+(EureSchema, IR, EureDoc)
+  -> emit Rust literal expression
 ```
 
-This requires the IR to carry enough type information to determine construction patterns
-for each type (struct literal, enum variant, Vec constructor, etc.).
+## 2. Request Fulfillment Checklist
+
+This draft explicitly includes:
+
+1. Complete requirement list (Section 5)
+2. Design considerations (Section 6)
+3. Rough design ideas with met/not-met lists (Section 7)
+4. Test items linked to requirements (Section 10)
+5. Recommended design and migration plan (Sections 8 and 11)
+
+## 3. Scope and Non-Goals
+
+### In Scope
+
+1. A dependency-light IR crate consumable by both proc-macro and runtime codegen paths.
+2. Lossless semantic representation for:
+   - derive attributes used by current macros,
+   - schema node content and constraints,
+   - schema metadata and extension type metadata,
+   - optional codegen metadata from schema.
+3. Deterministic structural equality and structural diff.
+4. Typed, explicit invariants to reject contradictory states.
+
+### Non-Goals
+
+1. Preserving original token text, comments, or Rust spans.
+2. Preserving textual schema formatting/order where semantics are unchanged.
+3. Embedding `syn`, `proc_macro2`, `darling`, `eure-document`, or `eure-schema` types directly in IR public APIs.
+4. Guaranteeing textual identity after roundtrip (structural equivalence only).
+
+## 4. Ground Truth Constraints from Current Workspace
+
+This design must encode existing behavior already present in this repository:
+
+1. Derive container attrs include:
+   `crate`, `rename_all`, `rename_all_fields`, `parse_ext`, `allow_unknown_fields`,
+   `allow_unknown_extensions`, `parse_error`, `write_error`, `type_name`,
+   `non_exhaustive`, `proxy`, `opaque`.
+2. Derive field attrs include:
+   `rename`, `ext`, `flatten`, `flatten_ext`, `default`, `via`.
+3. Derive variant attrs include:
+   `rename`, `allow_unknown_fields` (restricted to named struct variants).
+4. Schema node semantics include full constraints:
+   `Text/Integer/Float/Array/Map/Record/Tuple/Union/Reference/Literal`, unknown field policies, binding styles, ext_types, metadata, interop.
+5. Codegen metadata exists at root/type/field levels:
+   root-codegen, codegen-defaults, union-codegen, record-codegen, field-codegen.
+6. Eure value semantics include non-string map keys and large integer values; IR must avoid lossy narrowing.
+
+## 5. Complete Requirement List
+
+Normative keywords (`MUST`, `SHOULD`, `MAY`) are used below.
+
+### 5.1 Core Requirements
+
+1. `CR1` IR `MUST` be constructable from derive input.
+2. `CR2` IR `MUST` be constructable from schema input.
+3. `CR3` IR `MUST` retain enough information to emit behaviorally equivalent
+   `FromEure`, `IntoEure`, and `BuildSchema`.
+4. `CR4` IR `MUST` retain enough information to emit Rust type definitions from schema.
+5. `CR5` IR `MUST` support schema -> IR -> Rust -> IR -> schema structural roundtrip checks.
+6. `CR6` IR `MUST` separate native Eure union matching semantics from interop serialization policy.
+7. `CR7` IR `MUST` support deterministic structural equality and structural diff.
+8. `CR8` IR `MUST` use typed invariants to reject invalid/contradictory states.
+9. `CR9` IR `SHOULD` remain dependency-light (`indexmap` acceptable; avoid heavy parser/runtime coupling).
+
+### 5.2 Derive Fidelity Requirements
+
+1. `DR1` `MUST` capture all container attrs listed in Section 4.
+2. `DR2` `MUST` capture all field attrs listed in Section 4.
+3. `DR3` `MUST` capture all variant attrs listed in Section 4.
+4. `DR4` `MUST` capture generic params and where predicates without requiring downstream `syn` re-analysis.
+5. `DR5` `MUST` capture resolved and unresolved naming:
+   raw rename policy + resolved wire names.
+6. `DR6` `MUST` encode proxy/opaque mode and their mutual exclusivity.
+7. `DR7` `MUST` encode field mode semantics: record, ext, flatten, flatten_ext.
+8. `DR8` `MUST` encode default semantics exactly:
+   none, default trait, default function path.
+9. `DR9` `MUST` encode `type_name` used for `BuildSchema` registration.
+10. `DR10` `MUST` preserve enough information for compile-time validation errors to remain deterministic.
+
+### 5.3 Schema Fidelity Requirements
+
+1. `SR1` `MUST` represent all schema node kinds used by `eure-schema`.
+2. `SR2` `MUST` preserve all constraints for:
+   - text (`language`, `min_length`, `max_length`, `pattern`, unknown text fields),
+   - integer (`min`, `max`, `multiple_of`),
+   - float (`min`, `max`, `multiple_of`, `precision`),
+   - array (`item`, `min_length`, `max_length`, `unique`, `contains`, `binding_style`),
+   - map (`key`, `value`, `min_size`, `max_size`),
+   - record (`properties`, `flatten`, `unknown_fields`),
+   - tuple (`elements`, `binding_style`),
+   - union (`variants`, `unambiguous`, `deny_untagged`, `interop`).
+3. `SR3` `MUST` preserve reference namespace semantics (`namespace + name`).
+4. `SR4` `MUST` preserve node metadata (`description`, `deprecated`, `default`, `examples`).
+5. `SR5` `MUST` preserve `ext_types` metadata including optionality and binding style.
+6. `SR6` `MUST` preserve record unknown field policy (`deny`, `allow`, schema).
+7. `SR7` `MUST` preserve layout/binding style values used by schema writing.
+8. `SR8` `MUST` preserve literal/default/example values without integer or key-type loss.
+9. `SR9` until `ValueIr` is extended, adapters `MUST` reject extension-bearing value nodes in
+   literal/default/example payloads with typed errors (no silent drop).
+
+### 5.4 Codegen Metadata Requirements
 
-**S2: Extensibility**
+1. `CG1` `MUST` represent root-level codegen metadata (`$codegen`).
+2. `CG2` `MUST` represent module defaults (`$codegen-defaults`).
+3. `CG3` `MUST` represent union type-level codegen metadata.
+4. `CG4` `MUST` represent record type-level codegen metadata.
+5. `CG5` `MUST` represent field-level codegen metadata (field rename override).
+6. `CG6` `MUST` support per-type emission overrides with deterministic fallback.
+7. `CG7` `MUST` support filtering/gating derives by effective emission policy.
+8. `CG8` root-level and root-type `$codegen` data `MUST` be merged through a single root
+   extension payload with coherent shared keys (`type`).
 
-The IR should be designed to accommodate future additions:
-- New Eure schema types
-- New derive attributes
-- New codegen metadata extensions
-- Schema constraints (min/max, pattern, etc.) for documentation or validation codegen
+### 5.5 Interop / Emission Requirements
 
----
+1. `IO1` `MUST` preserve optional union interop policy (`variant_repr`).
+2. `IO2` emitters `MUST` consume interop policy only when effective serde emit is enabled.
+3. `IO3` for serde-disabled targets, emitters `MUST` ignore interop policy in emitted serde attrs.
+4. `IO4` native Eure semantics `MUST NOT` depend on interop metadata.
 
-## Design Considerations
+### 5.6 Literal Generation Requirements
 
-### C1: TypeRef — The Central Challenge
+1. `LR1` IR `SHOULD` support literal expression generation from `(Schema, IR, EureDoc)`.
+2. `LR2` literal generation `MUST` preserve schema-valid value structure and types.
+3. `LR3` literal generation `MUST` fail with typed errors on unsupported/ambiguous constructs.
 
-The core challenge is how to reference types within the IR.
+### 5.7 Error and Stability Requirements
 
-**From derive macros**: Types are Rust paths (`String`, `Vec<u32>`, `my_crate::MyType`).
-At proc-macro time, we can pattern-match on known types (Option, Vec, HashMap) but cannot
-resolve type aliases or determine trait implementations.
+1. `ER1` all IR validation/conversion errors `MUST` be typed enums (`thiserror` style), not raw strings.
+2. `ER2` converters `MUST NOT` silently fall back on invalid states.
+3. `ER3` structural equality and structural diff `MUST` be deterministic.
+4. `ER4` IR versions `SHOULD` evolve compatibly (additive-first policy).
 
-**From schemas**: Types are schema structures (text, integer, array, record, union, $types.X).
-The Rust type is derived from the schema type + codegen configuration.
+## 6. Design Considerations
 
-**For code generation**: We need exact Rust type paths to emit in generated code (e.g.,
-`ctx.parse::<Vec<String>>()`, `ctx.build::<u32>()`).
+1. **Single Source of Semantics**:
+   Derive and schema paths currently encode overlapping semantics in different places.
+   IR should be the shared semantic center.
+2. **Lossless vs Minimal Tension**:
+   "Minimal info" here means minimal *complete* info. Any lossy shortcut breaks roundtrip guarantees.
+3. **Dependency Boundary**:
+   Keep IR independent from parser/runtime crates; use adapters in producer/consumer crates.
+4. **Deterministic Equality**:
+   Equality must compare structural IR state without hidden default-application or normalization.
+5. **Interop Isolation**:
+   Keep serde/interoperability policy orthogonal to native Eure semantics.
+6. **Current Macro Behavior Compatibility**:
+   IR invariants must represent already enforced compile-time rules to avoid behavior drift.
+7. **Future Extensibility**:
+   Support adding schema constraints or codegen metadata fields without redesigning core IR.
 
-**For schema generation**: We need to know the schema structure (is it an array? a map?
-a record?) to generate the correct `SchemaNodeContent` variant.
+## 7. Rough Design Ideas
 
-**For literal generation**: We need to know construction patterns (struct literal, `vec![]`,
-`.to_string()`, etc.).
+### 7.1 Candidate A: Unified Semantic Graph + Rust Binding Overlay (Recommended)
 
-The TypeRef must serve all three purposes. It needs structural decomposition for schema/literal
-generation while retaining the Rust type identity for code emission.
+**Idea**
 
-### C2: Generic Type Parameters
+1. Model schema semantics as a complete graph (`SchemaNodeIr`-like).
+2. Attach Rust-facing binding metadata for derive/codegen emission (field modes, attrs, generics, proxy, etc).
+3. Keep codegen metadata in dedicated IR blocks at module/type/field scopes.
 
-Derive macros support generic types (`struct Foo<T>`). Schemas have no concept of generics.
-The IR must handle generics for the derive → IR → code path but doesn't need them for
-the schema → IR → code path. Generic parameters appear as opaque type references that
-constrain trait bounds in generated impls.
+**Meets**
 
-### C3: Proxy / Opaque Pattern
+1. Full schema fidelity (`SR1`-`SR8`).
+2. Full derive fidelity (`DR1`-`DR10`).
+3. Strong roundtrip and structural-comparison foundation (`CR5`, `CR7`, `ER3`).
+4. Clean separation between native semantics and interop policy (`CR6`, `IO1`-`IO4`).
 
-The `proxy = "T"` and `opaque = "T"` attributes implement FromEure/IntoEure for a remote
-type. These are purely Rust-side concerns with no schema equivalent. The IR must capture
-this information for code generation but it has no effect on schema structure.
+**Does Not Fully Meet / Risks**
 
-### C4: Custom Error Types
+1. Higher upfront implementation complexity.
+2. Requires careful invariant layering to avoid duplication between semantic and binding layers.
 
-`parse_error` and `write_error` configure the associated `Error` type in generated trait
-impls. These are Rust-specific and only affect code generation, not schema structure.
+### 7.2 Candidate B: Rust-First Type IR with Reduced Schema Projection
 
-### C5: Via Types
+**Idea**
 
-`via = "MarkerType"` enables conversion through an intermediate type for remote types.
-This affects both FromEure (parse via marker) and IntoEure (write via marker) code generation
-but has no schema equivalent. The via type is a Rust path.
+1. Center IR on Rust shape (struct/enum/fields/generics).
+2. Represent schema mostly as simplified `TypeRef` and metadata projection.
 
-### C6: Flatten Semantics
+**Meets**
 
-Flatten exists in both domains:
-- **Rust**: `#[eure(flatten)]` spreads fields of a nested struct into the parent record
-- **Schema**: `$flatten` merges schemas into a record
+1. Fast path for derive macro consolidation.
+2. Lower initial complexity for trait impl emitters.
 
-The IR must align these. A flatten field has no wire name — its fields are merged into the
-parent's field space. The IR tracks which fields are flattened so that:
-- FromEure generates `rec.flatten()` calls
-- IntoEure generates `rec.flatten::<T>()` calls
-- BuildSchema adds to the `flatten: Vec<SchemaNodeId>` list
+**Does Not Meet**
 
-### C7: Default Values
+1. Fails complete schema fidelity (`SR2`, `SR6`, `SR7`, `SR8`).
+2. Risks lossy schema roundtrip (`CR5`).
+3. Harder literal generation correctness (`LR2`).
 
-Two origins, fundamentally different representations:
-- **From derive**: `Default::default()` or `path::to::function()`
-- **From schema**: An `EureDocument` representing the default value
+### 7.3 Candidate C: Separate Derive IR and Schema IR with Bridge Transform
 
-The IR must unify these. For derive→IR, defaults are `DefaultTrait` or `Function(path)`.
-For schema→IR, defaults are `Value(doc)` which would need literal generation to emit code.
+**Idea**
 
-### C8: Optional Fields
+1. Keep two specialized IRs and define conversion bridge(s).
 
-Two detection mechanisms:
-- **From derive**: `Option<T>` type detection (heuristic on last path segment)
-- **From schema**: `$ext-type.optional = true` on record field
+**Meets**
 
-The IR normalizes this to a boolean `optional` flag, independent of whether the Rust type
-is `Option<T>`. When generating code from schema, optional fields become `Option<T>` in Rust.
-When generating schema from derive, `Option<T>` fields get `optional: true` in schema.
+1. Optimized models per producer.
+2. Lower cognitive load per individual adapter.
 
-### C9: Name Mapping
+**Does Not Fully Meet / Risks**
 
-Eure uses kebab-case (`user-name`), Rust uses snake_case/PascalCase (`user_name`/`UserName`).
-The IR stores both the Rust name and the wire name for every field, variant, and type.
-Rename rules (`rename_all`) are resolved during IR construction — the IR contains
-fully-resolved names, not rename rules.
+1. Duplicate invariants and semantics in two IRs.
+2. Bridge becomes new single point of semantic drift.
+3. More test burden to prove equivalence.
 
-### C10: Extension Fields
+### 7.4 Candidate Comparison
 
-Eure has two field namespaces: record fields and extension fields (`$ext-name`).
-The IR captures the field mode (Record vs Extension) which determines:
-- FromEure: `rec.parse_field()` vs `ctx.parse_ext()`
-- IntoEure: `rec.field()` vs `rec.set_extension()`
-- BuildSchema: Extension fields are modeled via `ext_types` on schema nodes
+| Requirement Group | Candidate A | Candidate B | Candidate C |
+|---|---|---|---|
+| Core (`CR*`) | High | Medium | Medium |
+| Derive (`DR*`) | High | High | High |
+| Schema (`SR*`) | High | Low | High |
+| Codegen metadata (`CG*`) | High | Medium | Medium |
+| Interop separation (`IO*`) | High | Medium | Medium |
+| Literal generation (`LR*`) | High | Low | Medium |
+| Long-term maintainability | Medium | Medium | Low |
 
-### C11: parse_ext Mode
+Conclusion: Candidate A is preferred.
 
-When `#[eure(parse_ext)]` is set on a container, ALL fields are parsed from the extension
-namespace. This is a container-level flag, not a per-field flag. In this mode,
-`#[eure(flatten)]` is disallowed (only `#[eure(flatten_ext)]` is valid).
-
-### C12: Arena vs Tree for IR Structure
-
-Schema uses arena-based storage (`SchemaNodeId`). The IR has two options:
-- **Tree**: TypeDefs own their fields/variants directly. Simpler, natural for derive input.
-- **Arena**: TypeDefs reference each other by ID. Matches schema structure, enables cycles.
-
-Tree structure is simpler and sufficient — type references between TypeDefs use names
-(resolved at code generation time), avoiding the need for an arena.
-
----
-
-## Test Items
-
-### Roundtrip Tests
-
-1. **Simple struct roundtrip**: `struct User { name: String, age: u32 }` → IR → Schema → IR → struct
-2. **Enum roundtrip**: `enum Shape { Circle(f64), Rect { w: f64, h: f64 } }` → IR → Schema → IR → enum
-3. **Schema → IR → Rust → IR → Schema**: schema with record, union, nested types
-
-### TypeRef Tests
-
-4. **Primitive decomposition**: `String` → `Primitive(String)`, `i32` → `Primitive(I32)`, etc.
-5. **Compound decomposition**: `Vec<String>` → `Array(Primitive(String))`
-6. **Nested compounds**: `Option<Vec<u32>>` → `Optional(Array(Primitive(U32)))`
-7. **HashMap decomposition**: `HashMap<String, i32>` → `Map(Primitive(String), Primitive(I32))`
-8. **Opaque types**: `MyCustomType` → `Extern("MyCustomType")`
-9. **Generic params**: `T` → `GenericParam("T")`
-10. **Named type refs**: reference to another TypeDef → `Named("user")`
-
-### Field Mode Tests
-
-11. **Record field**: `name: String` with `#[eure(rename = "user-name")]`
-12. **Extension field**: `#[eure(ext)] version: String`
-13. **Flatten field**: `#[eure(flatten)] inner: InnerType`
-14. **FlattenExt field**: `#[eure(flatten_ext)] exts: ExtType`
-15. **Mode conflicts**: reject `flatten + ext`, `flatten + flatten_ext`, etc.
+## 8. Recommended Design (Candidate A)
 
-### Default Value Tests
+### 8.1 Architectural Boundary
 
-16. **No default**: field without `#[eure(default)]`
-17. **Default trait**: `#[eure(default)]` → `DefaultTrait`
-18. **Custom function**: `#[eure(default = "my_fn")]` → `Function("my_fn")`
-19. **Schema default value**: schema with `$ext-type.default` → `Value(doc)`
-
-### Rename Tests
-
-20. **Container rename_all**: `#[eure(rename_all = "kebab-case")]` resolves field wire names
-21. **Field rename**: `#[eure(rename = "custom-name")]` overrides container rule
-22. **Variant rename**: `#[eure(rename = "custom")]` on enum variant
-23. **Enum rename_all_fields**: affects struct variant field names
-
-### Struct Shape Tests
-
-24. **Named struct**: `struct Foo { a: T, b: U }` → `Record`
-25. **Newtype struct**: `struct Foo(T)` → `Newtype`
-26. **Tuple struct**: `struct Foo(T, U)` → `Tuple`
-27. **Unit struct**: `struct Foo` → `Unit`
-
-### Variant Shape Tests
-
-28. **Unit variant**: `enum E { A }` → variant with `Unit` shape
-29. **Newtype variant**: `enum E { A(T) }` → variant with `Newtype` shape
-30. **Tuple variant**: `enum E { A(T, U) }` → variant with `Tuple` shape
-31. **Struct variant**: `enum E { A { x: T } }` → variant with `Record` shape
-
-### Proxy / Opaque Tests
-
-32. **Proxy config**: `#[eure(proxy = "ext::Type")]` captured in IR
-33. **Opaque config**: `#[eure(opaque = "ext::Type")]` captured in IR
-34. **Mutual exclusion**: reject `proxy + opaque` on same type
-
-### Via Type Tests
-
-35. **Field via**: `#[eure(via = "Marker")]` on record field
-36. **Newtype via**: `#[eure(via = "Marker")]` on newtype inner field
-37. **Variant via**: `#[eure(via = "Marker")]` on enum variant field
-38. **Via + flatten conflict**: reject `via + flatten`
-
-### Schema → IR Tests
-
-39. **Text schema → String TypeRef**
-40. **Integer schema → integer TypeRef (i64 default, configurable)**
-41. **Float schema → f64/f32 TypeRef based on precision**
-42. **Record schema → TypeDef with Record shape**
-43. **Union schema → TypeDef with Union shape**
-44. **Array schema → Array TypeRef**
-45. **Map schema → Map TypeRef**
-46. **Tuple schema → Tuple TypeRef**
-47. **Optional field → field with optional=true and Optional TypeRef**
-48. **$types reference → Named TypeRef**
-49. **Codegen type name override**: `$codegen.type = "MyType"` → rust_name
-50. **Codegen field name override**: `$codegen.name = "my_field"` → rust_name
-51. **Codegen variant_types**: union codegen settings captured
-51a. **Union interop metadata**: `$interop.variant-repr` → `UnionDef.interop.variant_repr`
-51b. **Legacy extension rejection**: `$variant-repr` is rejected before IR construction
-51c. **Serde disabled ignores interop**: with `serde_serialize=false` and
-     `serde_deserialize=false`, `variant_repr` does not affect emitted code
-51d. **Serialize-only consumes interop**: with `serde_serialize=true`,
-     `serde_deserialize=false`, mapping is applied
-51e. **Deserialize-only consumes interop**: with `serde_serialize=false`,
-     `serde_deserialize=true`, mapping is applied
-51f. **External mapping**: `None` and `External` both emit no enum-level tag attribute
-51g. **Internal mapping**: emits `#[serde(tag = \"...\")]`
-51h. **Adjacent mapping**: emits `#[serde(tag = \"...\", content = \"...\")]`
-51i. **Untagged mapping**: emits `#[serde(untagged)]`
-
-### Code Generation Tests
-
-52. **IR → FromEure impl**: correct parse calls, field assignments, unknown field checks
-53. **IR → IntoEure impl**: correct write calls, flatten support, variant matching
-54. **IR → BuildSchema impl**: correct schema node construction, type registration
-55. **IR → Rust type definition**: struct/enum with derives and eure attributes
-
-### Literal Generation Tests
-
-56. **Primitive literals**: `"hello"` → `"hello".to_string()`, `42` → `42i32`
-57. **Record literal**: `{ name = "Alice" }` → `User { name: "Alice".to_string() }`
-58. **Enum literal**: `$variant = "circle"` + `0.5` → `Shape::Circle(0.5)`
-59. **Array literal**: `[1, 2, 3]` → `vec![1, 2, 3]`
-60. **Nested literal**: record containing array of records
-
-### Edge Cases
-
-61. **Empty struct**: no fields
-62. **Single-field struct vs newtype**: named vs unnamed
-63. **Recursive types**: `struct Node { children: Vec<Node> }` → Named self-reference
-64. **Generic type with bounds**: `struct Foo<T: Display>`
-65. **Multiple flatten fields**: flatten + flatten_ext on same struct
-
----
-
-## Design Proposal
-
-### Module Structure
-
-```
-crates/eure-codegen-ir/
-├── Cargo.toml
-├── src/
-│   ├── lib.rs          # Public API: TypeDef, TypeRef, FieldDef, etc.
-│   ├── types.rs        # TypeRef, PrimitiveKind, CompoundType
-│   ├── typedef.rs      # TypeDef, TypeShape, RecordDef, UnionDef
-│   ├── field.rs        # FieldDef, FieldMode, DefaultDef
-│   ├── config.rs       # ContainerConfig, CodegenConfig
-│   └── visit.rs        # Visitor trait for IR traversal
-```
-
-### Core Types
+1. `eure-codegen-ir` contains only IR model + invariants + structural equality/diff utilities.
+2. `eure-macros` owns derive-ast -> IR adapter.
+3. `eure-codegen` owns schema -> IR adapter.
+4. Emitters consume IR and live in consumer crates (`eure-macros`, `eure-codegen`, or dedicated emit crate).
+
+### 8.2 Data Model Sketch
 
 ```rust
-/// A module of type definitions — the top-level IR unit.
-/// Contains one or more related type definitions that can reference each other.
+use indexmap::{IndexMap, IndexSet};
+
 pub struct IrModule {
-    /// All type definitions in this module.
-    pub types: Vec<TypeDef>,
-    /// Module-level codegen defaults (from $codegen-defaults).
-    pub defaults: CodegenDefaults,
+    pub types: IndexMap<TypeId, TypeDefIr>,
+    pub roots: Vec<TypeId>,
+    pub name_index: IndexMap<QualifiedTypeName, TypeId>,
+
+    // Root-level schema codegen metadata
+    pub root_codegen: RootCodegenIr,
+    pub codegen_defaults: CodegenDefaultsIr,
+
+    // Runtime/CLI emission defaults (e.g. serde on/off)
+    pub emission_defaults: EmissionDefaultsIr,
 }
 
-/// A single type definition mapping a Rust type to an Eure structure.
-pub struct TypeDef {
-    /// Rust type name (PascalCase). e.g., "UserProfile"
-    pub rust_name: String,
-    /// Schema type name for $types registration (kebab-case). e.g., "user-profile"
-    /// None for anonymous/inline types.
-    pub schema_name: Option<String>,
-    /// The structural shape of this type.
-    pub shape: TypeShape,
-    /// Container-level configuration.
-    pub config: ContainerConfig,
-    /// Codegen-specific configuration (derives, visibility, etc.)
-    pub codegen: TypeCodegenConfig,
-}
-
-/// The structural shape of a type definition.
-pub enum TypeShape {
-    /// Named struct with fields → Eure record.
-    /// `struct Foo { name: String, age: u32 }`
-    Record(RecordDef),
-
-    /// Newtype struct → delegates to inner type.
-    /// `struct Foo(Bar)`
-    Newtype(NewtypeDef),
-
-    /// Tuple struct → Eure tuple.
-    /// `struct Foo(String, u32)`
-    Tuple(TupleDef),
-
-    /// Unit struct → Eure null.
-    /// `struct Foo;`
-    Unit,
-
-    /// Enum → Eure union.
-    /// `enum Foo { A, B(String), C { x: i32 } }`
-    Union(UnionDef),
+pub struct TypeDefIr {
+    pub id: TypeId,
+    pub names: TypeNamesIr,               // rust name + optional schema qualified name
+    pub semantic_root: SchemaNodeIrId,    // complete schema semantics
+    pub rust_binding: RustBindingIr,      // derive/codegen-facing rust surface
+    pub type_codegen: TypeCodegenIr,      // union/record type-level codegen metadata
+    pub origin: TypeOriginIr,             // Derive / Schema / Mixed
 }
 ```
 
-### Record and Field Types
-
 ```rust
-pub struct RecordDef {
-    pub fields: Vec<FieldDef>,
+pub struct SchemaNodeIr {
+    pub content: SchemaNodeContentIr,
+    pub metadata: SchemaMetadataIr,
+    pub ext_types: IndexMap<String, ExtTypeIr>,
 }
 
-/// A single field in a record or struct variant.
-pub struct FieldDef {
-    /// Rust field name (snake_case). e.g., "user_name"
-    pub rust_name: String,
-    /// Wire name in Eure document (kebab-case). e.g., "user-name"
-    /// Fully resolved (rename_all already applied).
-    pub wire_name: String,
-    /// Type of this field.
-    pub ty: TypeRef,
-    /// Where this field lives in the Eure document.
-    pub mode: FieldMode,
-    /// Whether this field is optional (maps to Option<T> in Rust,
-    /// `$ext-type.optional = true` in schema).
+pub enum SchemaNodeContentIr {
+    Any,
+    Text(TextSchemaIr),
+    Integer(IntegerSchemaIr),
+    Float(FloatSchemaIr),
+    Boolean,
+    Null,
+    Literal(ValueIr),
+    Array(ArraySchemaIr),
+    Map(MapSchemaIr),
+    Record(RecordSchemaIr),
+    Tuple(TupleSchemaIr),
+    Union(UnionSchemaIr),
+    Reference(QualifiedTypeName),
+}
+
+pub struct TextSchemaIr {
+    pub language: Option<String>,
+    pub min_length: Option<u32>,
+    pub max_length: Option<u32>,
+    pub pattern: Option<String>, // regex source text
+    pub unknown_fields: IndexMap<String, ValueIr>,
+}
+
+pub struct IntegerSchemaIr {
+    pub min: BoundIr<DecimalInt>,
+    pub max: BoundIr<DecimalInt>,
+    pub multiple_of: Option<DecimalInt>,
+}
+
+pub struct FloatSchemaIr {
+    pub min: BoundIr<f64>,
+    pub max: BoundIr<f64>,
+    pub multiple_of: Option<f64>,
+    pub precision: FloatPrecisionIr,
+}
+
+pub struct ArraySchemaIr {
+    pub item: SchemaNodeRefIr,
+    pub min_length: Option<u32>,
+    pub max_length: Option<u32>,
+    pub unique: bool,
+    pub contains: Option<SchemaNodeRefIr>,
+    pub binding_style: Option<BindingStyleIr>,
+}
+
+pub struct MapSchemaIr {
+    pub key: SchemaNodeRefIr,
+    pub value: SchemaNodeRefIr,
+    pub min_size: Option<u32>,
+    pub max_size: Option<u32>,
+}
+
+pub struct RecordSchemaIr {
+    pub properties: IndexMap<String, RecordFieldSchemaIr>,
+    pub flatten: Vec<SchemaNodeRefIr>,
+    pub unknown_fields: UnknownFieldsPolicyIr,
+}
+
+pub struct RecordFieldSchemaIr {
+    pub schema: SchemaNodeRefIr,
     pub optional: bool,
-    /// Default value specification.
-    pub default: DefaultDef,
-    /// Via type for remote type conversion.
-    /// The string is a Rust type path (e.g., "crate::MyMarker").
-    pub via: Option<String>,
+    pub binding_style: Option<BindingStyleIr>,
+    pub field_codegen: FieldCodegenIr,
 }
 
-/// Where a field's data comes from in an Eure document.
-pub enum FieldMode {
-    /// Regular record field (key-value in map).
-    Record,
-    /// Extension field ($ext-name).
-    Extension,
-    /// Flatten: merge nested record fields into parent.
-    Flatten,
-    /// Flatten extensions: merge nested extension fields into parent.
-    FlattenExt,
+pub struct TupleSchemaIr {
+    pub elements: Vec<SchemaNodeRefIr>,
+    pub binding_style: Option<BindingStyleIr>,
 }
 
-/// Default value specification for a field.
-pub enum DefaultDef {
-    /// No default — field is required (unless optional).
-    None,
-    /// Use `Default::default()`.
-    DefaultTrait,
-    /// Call a named function. e.g., "crate::defaults::my_default"
-    Function(String),
-    /// A constant value from schema. Contains the Eure source text
-    /// for the default value (to be parsed or used for literal generation).
-    Value(String),
+pub struct UnionSchemaIr {
+    pub variants: IndexMap<String, SchemaNodeRefIr>,
+    pub unambiguous: IndexSet<String>,
+    pub deny_untagged: IndexSet<String>,
+    pub interop: UnionInteropIr,
 }
 ```
 
-### Union and Variant Types
-
 ```rust
-pub struct UnionDef {
-    pub variants: Vec<VariantDef>,
-    /// Interop-only metadata (does not affect native Eure union semantics).
-    /// Consumed by codegen only when serde derive is enabled.
-    pub interop: UnionInteropDef,
+pub struct RustBindingIr {
+    pub kind: RustTypeKindIr,           // record/newtype/tuple/unit/enum
+    pub container: ContainerAttrsIr,
+    pub fields: Vec<RustFieldIr>,       // for record/newtype/tuple as applicable
+    pub variants: Vec<RustVariantIr>,   // for enums
+    pub generics: RustGenericsIr,
+    pub where_clause: WhereClauseIr,
+    pub emission: TypeEmissionConfigIr,
 }
 
-pub struct VariantDef {
-    /// Rust variant name (PascalCase). e.g., "Circle"
-    pub rust_name: String,
-    /// Wire name / variant tag (kebab-case). e.g., "circle"
-    /// Fully resolved (rename_all already applied).
-    pub wire_name: String,
-    /// Shape of this variant's data.
-    pub shape: VariantShape,
-    /// Allow unknown fields (only meaningful for Record variants).
-    pub allow_unknown_fields: bool,
-}
-
-pub enum VariantShape {
-    /// `Variant` — no data, serialized as literal text.
-    Unit,
-    /// `Variant(T)` — single inner value.
-    Newtype {
-        ty: TypeRef,
-        via: Option<String>,
-    },
-    /// `Variant(T1, T2)` — positional fields.
-    Tuple(Vec<TupleElement>),
-    /// `Variant { field: T }` — named fields.
-    Record(Vec<FieldDef>),
-}
-
-pub struct TupleElement {
-    pub ty: TypeRef,
-    pub via: Option<String>,
-}
-
-/// Interop metadata for unions.
-pub struct UnionInteropDef {
-    /// Optional external representation hint.
-    /// None means: no interop override specified and serde default behavior
-    /// (externally tagged) is used.
-    pub variant_repr: Option<VariantRepr>,
-}
-
-/// How union variants are represented for interop bridges
-/// (JSON/Serde/codegen targets).
-/// Mirrors `eure_schema::interop::VariantRepr`.
-pub enum VariantRepr {
-    External,
-    Internal { tag: String },
-    Adjacent { tag: String, content: String },
-    Untagged,
-}
-```
-
-### Newtype and Tuple Struct Types
-
-```rust
-pub struct NewtypeDef {
-    /// The inner type.
-    pub inner: TypeRef,
-    /// Via type for remote type conversion.
-    pub via: Option<String>,
-}
-
-pub struct TupleDef {
-    /// Elements of the tuple struct.
-    pub elements: Vec<TupleElement>,
-}
-```
-
-### TypeRef — The Type Bridge
-
-```rust
-/// Reference to a type, bridging Eure's type system and Rust's type system.
-///
-/// TypeRef captures enough structure to:
-/// 1. Emit Rust type paths in generated code
-/// 2. Determine the corresponding Eure schema type
-/// 3. Generate literal construction expressions
-///
-/// When constructed from derive macros, known types (String, Vec, Option, etc.)
-/// are decomposed into structural variants. Unknown types become `Extern`.
-///
-/// When constructed from schemas, all types are fully structural (no Extern).
-pub enum TypeRef {
-    // ── Primitives ──────────────────────────────────────────────
-    /// `String` or `&str` ↔ Eure text
-    String,
-    /// `bool` ↔ Eure boolean
-    Bool,
-    /// Integer types ↔ Eure integer
-    Integer(IntegerKind),
-    /// Float types ↔ Eure float
-    Float(FloatKind),
-    /// `()` ↔ Eure null
-    Unit,
-    /// `eure_document::Text` ↔ Eure text (with language tag)
-    Text,
-
-    // ── Compounds ───────────────────────────────────────────────
-    /// `Vec<T>` ↔ Eure array
-    Array(Box<TypeRef>),
-    /// `HashMap<K, V>` / `BTreeMap<K, V>` / `IndexMap<K, V>` ↔ Eure map
-    Map {
-        key: Box<TypeRef>,
-        value: Box<TypeRef>,
-        impl_type: MapImplType,
-    },
-    /// `(T1, T2, ...)` ↔ Eure tuple
-    Tuple(Vec<TypeRef>),
-    /// `Option<T>` ↔ optional field / union { some(T), none(null) }
-    Optional(Box<TypeRef>),
-    /// `Result<T, E>` ↔ union { ok(T), err(E) }
-    Result {
-        ok: Box<TypeRef>,
-        err: Box<TypeRef>,
-    },
-    /// `Box<T>`, `Rc<T>`, `Arc<T>` — transparent wrappers
-    Wrapper {
-        inner: Box<TypeRef>,
-        wrapper: WrapperKind,
-    },
-
-    // ── References ──────────────────────────────────────────────
-    /// Reference to a named TypeDef in this IrModule.
-    /// Corresponds to `$types.X` in schema.
-    Named(String),
-
-    /// Opaque Rust type path — not decomposed by the IR.
-    /// Used for user-defined types that have their own FromEure/IntoEure/BuildSchema impls.
-    /// e.g., "my_crate::CustomType", "chrono::NaiveDate"
-    Extern(String),
-
-    /// Generic type parameter. e.g., "T"
-    /// Only used in derive macro context.
-    GenericParam(String),
-}
-
-pub enum IntegerKind {
-    I8, I16, I32, I64, I128,
-    U8, U16, U32, U64, U128,
-    Isize, Usize,
-}
-
-pub enum FloatKind {
-    F32,
-    F64,
-}
-
-pub enum MapImplType {
-    HashMap,
-    BTreeMap,
-    IndexMap,
-}
-
-pub enum WrapperKind {
-    Box,
-    Rc,
-    Arc,
-}
-```
-
-### Container Configuration
-
-```rust
-/// Container-level configuration affecting code generation behavior.
-/// These settings come from `#[eure(...)]` on the container type or from
-/// codegen metadata in schemas.
-pub struct ContainerConfig {
-    /// Parse all fields from extension namespace instead of record fields.
+pub struct ContainerAttrsIr {
+    pub rename_all: Option<RenameRuleIr>,
+    pub rename_all_fields: Option<RenameRuleIr>,
     pub parse_ext: bool,
-    /// Allow unknown record fields (instead of denying).
     pub allow_unknown_fields: bool,
-    /// Allow unknown extensions (instead of denying).
     pub allow_unknown_extensions: bool,
-    /// Custom error type path for FromEure impl.
-    pub parse_error: Option<String>,
-    /// Custom error type path for IntoEure impl.
-    pub write_error: Option<String>,
-    /// Proxy configuration for implementing traits on remote types.
-    pub proxy: Option<ProxyDef>,
-    /// Treat enum as non-exhaustive (adds wildcard arm in IntoEure).
+    pub parse_error: Option<RustPathIr>,
+    pub write_error: Option<RustPathIr>,
+    pub type_name: Option<String>,
     pub non_exhaustive: bool,
+    pub proxy: Option<ProxyModeIr>, // Transparent(target) or Opaque(target)
 }
 
-pub struct ProxyDef {
-    /// The target type to implement traits for.
-    pub target: String,
-    /// If true, uses From conversion (opaque). If false, uses direct struct literal (proxy).
-    pub is_opaque: bool,
+pub struct RustFieldIr {
+    pub rust_name: String,
+    pub wire_name: String,
+    pub mode: FieldModeIr,              // Record / Ext / Flatten / FlattenExt
+    pub ty: RustTypeExprIr,
+    pub default: DefaultValueIr,        // None / DefaultTrait / Function(path)
+    pub via: Option<RustPathIr>,
+}
+
+pub struct RustVariantIr {
+    pub rust_name: String,
+    pub wire_name: String,
+    pub allow_unknown_fields: bool,
+    pub shape: VariantShapeIr,
 }
 ```
 
-### Codegen Configuration
+```rust
+pub enum ValueIr {
+    Null,
+    Bool(bool),
+    Integer(DecimalInt),          // string form to avoid width loss
+    Float(f64),
+    Text(TextValueIr),
+    Array(Vec<ValueIr>),
+    Tuple(Vec<ValueIr>),
+    Map(IndexMap<ObjectKeyIr, ValueIr>),
+}
+
+pub enum ObjectKeyIr {
+    String(String),
+    Integer(DecimalInt),
+    Tuple(Vec<ObjectKeyIr>),
+}
+```
+
+### 8.3 Codegen Metadata IR
 
 ```rust
-/// Codegen-specific settings that affect Rust source generation (from schemas).
-/// These come from `$codegen` and `$codegen-defaults` extensions.
-pub struct CodegenDefaults {
-    /// Default derive macros for all generated types.
-    pub derive: Vec<String>,
-    /// Prefix for extension type field names. e.g., "ext_"
+pub struct RootCodegenIr {
+    pub type_name: Option<String>,
+}
+
+pub struct CodegenDefaultsIr {
+    pub derive: Option<Vec<String>>,
     pub ext_types_field_prefix: Option<String>,
-    /// Prefix for extension type names. e.g., "Ext"
     pub ext_types_type_prefix: Option<String>,
-    /// Field name for storing document node ID.
     pub document_node_id_field: Option<String>,
 }
 
-/// Per-type codegen settings.
-pub struct TypeCodegenConfig {
-    /// Override derive macros for this type.
+pub enum TypeCodegenIr {
+    None,
+    Record(RecordCodegenIr),
+    Union(UnionCodegenIr),
+}
+
+pub struct RecordCodegenIr {
+    pub type_name: Option<String>,
     pub derive: Option<Vec<String>>,
-    /// For unions: generate separate types for each variant.
+}
+
+pub struct UnionCodegenIr {
+    pub type_name: Option<String>,
+    pub derive: Option<Vec<String>>,
     pub variant_types: Option<bool>,
-    /// For unions: suffix for generated variant type names.
     pub variant_types_suffix: Option<String>,
 }
-```
 
-### Serde Attribute Mapping for `variant_repr`
-
-Apply this mapping only when
-`GenerationConfig.serde_serialize || GenerationConfig.serde_deserialize` is `true`.
-If both serde flags are `false`, keep IR metadata but do not emit serde tagging attributes.
-
-- `None` or `Some(VariantRepr::External)`:
-  no enum-level serde tag attribute (serde default externally tagged)
-- `Some(VariantRepr::Internal { tag })`:
-  `#[serde(tag = "...")]`
-- `Some(VariantRepr::Adjacent { tag, content })`:
-  `#[serde(tag = "...", content = "...")]`
-- `Some(VariantRepr::Untagged)`:
-  `#[serde(untagged)]`
-
-### Generic Type Parameters (derive-only)
-
-```rust
-/// Generic type parameter information (only relevant for derive macros).
-/// Captured from `struct Foo<T: Bound>`.
-pub struct GenericParam {
-    /// Parameter name. e.g., "T"
-    pub name: String,
-    /// Trait bounds as Rust path strings. e.g., ["Display", "Clone"]
-    pub bounds: Vec<String>,
+pub struct FieldCodegenIr {
+    pub name: Option<String>,
 }
 ```
 
-### TypeRef Conversion from syn::Type (in eure-macros)
+### 8.4 Conversion Rules
 
-The conversion from `syn::Type` to `TypeRef` is best-effort pattern matching:
+#### Derive Input -> IR
 
-```rust
-// Pseudocode for syn::Type → TypeRef conversion (lives in eure-macros, not in IR crate)
-fn syn_type_to_typeref(ty: &syn::Type) -> TypeRef {
-    match last_segment_name(ty) {
-        "String"    => TypeRef::String,
-        "str"       => TypeRef::String,
-        "bool"      => TypeRef::Bool,
-        "i32"       => TypeRef::Integer(IntegerKind::I32),
-        // ... other primitives ...
-        "Vec"       => TypeRef::Array(Box::new(convert_first_generic_arg(ty))),
-        "Option"    => TypeRef::Optional(Box::new(convert_first_generic_arg(ty))),
-        "HashMap"   => TypeRef::Map { ... },
-        "Box"       => TypeRef::Wrapper { inner: ..., wrapper: WrapperKind::Box },
-        // ... other known types ...
-        "Text"      => TypeRef::Text,
-        name        => {
-            if is_single_ident_uppercase(name) && is_generic_param(name) {
-                TypeRef::GenericParam(name.to_string())
-            } else {
-                TypeRef::Extern(type_to_path_string(ty))
-            }
-        }
-    }
-}
-```
+1. Parse all container/field/variant attrs into `RustBindingIr`.
+2. Resolve wire names using rename rules; keep both raw policy and resolved names.
+3. Build semantic nodes from Rust type analysis for `BuildSchema`-equivalent semantics.
+4. Apply derive invariants at IR construction time (Section 8.7).
 
-### TypeRef Conversion from SchemaNodeContent (in eure-codegen)
+#### Schema -> IR
 
-```rust
-// Pseudocode for SchemaNodeContent → TypeRef conversion (lives in eure-codegen)
-fn schema_to_typeref(content: &SchemaNodeContent, codegen: &CodegenConfig) -> TypeRef {
-    match content {
-        SchemaNodeContent::Text(_)    => TypeRef::String,  // or TypeRef::Text based on config
-        SchemaNodeContent::Integer(_) => TypeRef::Integer(codegen.default_integer_kind()),
-        SchemaNodeContent::Float(f)   => match f.precision {
-            FloatPrecision::F32 => TypeRef::Float(FloatKind::F32),
-            FloatPrecision::F64 => TypeRef::Float(FloatKind::F64),
-        },
-        SchemaNodeContent::Boolean    => TypeRef::Bool,
-        SchemaNodeContent::Null       => TypeRef::Unit,
-        SchemaNodeContent::Array(a)   => TypeRef::Array(Box::new(convert(a.item))),
-        SchemaNodeContent::Map(m)     => TypeRef::Map { key: convert(m.key), value: convert(m.value), .. },
-        SchemaNodeContent::Tuple(t)   => TypeRef::Tuple(t.elements.iter().map(convert).collect()),
-        SchemaNodeContent::Record(_)  => TypeRef::Named(infer_type_name(...)),
-        SchemaNodeContent::Union(_)   => TypeRef::Named(infer_type_name(...)),
-        SchemaNodeContent::Reference(r) => TypeRef::Named(r.name.to_string()),
-        SchemaNodeContent::Any        => TypeRef::Extern("eure_document::document::EureDocument".into()),
-    }
-}
-```
+1. Convert each schema node and preserve full constraints in `SchemaNodeContentIr`.
+2. Preserve metadata/default/examples as structured `ValueIr`.
+3. Preserve ext_types, binding styles, unknown field policies, union interop data.
+4. Parse and attach root/type/field codegen metadata.
 
-For union definitions, schema → IR conversion also copies interop metadata from
-`UnionSchema.interop.variant_repr` into `UnionDef.interop.variant_repr`.
-This metadata is for JSON/Serde/codegen bridges only and does not alter native Eure
-union semantics. Code emitters consume it only when
-`serde_serialize || serde_deserialize` is `true`.
+#### IR -> Trait Impl Emission
 
-### TypeRef → Rust Type Path (for code emission)
+1. `FromEure`: consume `RustBindingIr` modes/default/via/error policies.
+2. `IntoEure`: same semantic modes in reverse.
+3. `BuildSchema`: consume semantic graph + type registration data (`type_name`).
 
-```rust
-impl TypeRef {
-    /// Returns the Rust type path string for use in generated code.
-    pub fn to_rust_path(&self) -> String {
-        match self {
-            TypeRef::String => "String".into(),
-            TypeRef::Bool => "bool".into(),
-            TypeRef::Integer(IntegerKind::I32) => "i32".into(),
-            // ...
-            TypeRef::Array(inner) => format!("Vec<{}>", inner.to_rust_path()),
-            TypeRef::Optional(inner) => format!("Option<{}>", inner.to_rust_path()),
-            TypeRef::Map { key, value, impl_type: MapImplType::HashMap } =>
-                format!("std::collections::HashMap<{}, {}>", key.to_rust_path(), value.to_rust_path()),
-            TypeRef::Named(name) => to_pascal_case(name),
-            TypeRef::Extern(path) => path.clone(),
-            TypeRef::GenericParam(name) => name.clone(),
-            // ...
-        }
-    }
-}
-```
+#### IR -> Rust Type Emission
 
----
+1. Use semantic graph + codegen metadata + emission defaults.
+2. Compute effective emission per type.
+3. Apply serde interop attrs only when effective serde policy allows.
 
-## Analysis: Requirements Satisfaction
+#### `(Schema, IR, Doc) -> Rust Literal`
 
-### What this design satisfies
+1. Validate doc against schema path target.
+2. Use type binding and semantic node shapes to emit typed literal expression.
+3. Emit typed errors when value cannot be represented safely.
 
-| Requirement | Status | Notes |
+### 8.5 Structural Equality and Diff
+
+1. IR equality is strict structural equality (`==`) only.
+2. Comparison utilities `MUST NOT` apply defaults, normalization, or semantic collapsing.
+3. Distinct representational states remain distinct:
+   - `None` vs explicit values are different,
+   - `examples = None` vs `examples = Some([])` are different,
+   - `variant_repr = None` vs `variant_repr = Some(External)` are different.
+4. Any desired normalization must happen during IR construction/validation, not in comparison APIs.
+
+### 8.6 Typed Error Model
+
+1. IR construction/validation/conversion errors are explicit enums.
+2. Errors carry:
+   - stable error kind,
+   - location path (`type`, `field`, `variant`, `schema node`),
+   - short machine-readable code.
+3. No silent fallback on invariant violations.
+
+### 8.7 Invariants (Hard Rules)
+
+1. `I1` `proxy` and `opaque` are mutually exclusive.
+2. `I2` `allow_unknown_fields` on variants is valid only for named struct variants.
+3. `I3` `flatten` and `flatten_ext` cannot coexist on the same field.
+4. `I4` `flatten` and `ext` cannot coexist on the same field.
+5. `I5` `ext` and `flatten_ext` cannot coexist on the same field.
+6. `I6` `via` is invalid with `flatten` or `flatten_ext`.
+7. `I7` `default` is invalid with `flatten` and `flatten_ext`.
+8. `I8` in `parse_ext` container context, `flatten` is invalid; `flatten_ext` is required.
+9. `I9` `name_index` must be unique and consistent with type table.
+10. `I10` semantic node references must resolve to existing nodes.
+11. `I11` union interop data must not mutate native match policy.
+12. `I12` effective derive emission must honor allow/gating policy.
+13. `I13` value conversion to `ValueIr` must fail when source values contain extensions
+    (until IR adds extension-bearing value support).
+14. `I14` if root-level and root-type codegen both provide `type`, values must match;
+    mismatches are typed errors.
+
+## 9. Requirement Coverage for Recommended Design
+
+| Requirement Group | Status in Candidate A | Notes |
 |---|---|---|
-| P1: Derive → IR | **Satisfied** | `syn::Type` → `TypeRef`, attrs → `FieldDef`/`ContainerConfig` |
-| P2: IR → trait impls | **Satisfied** | All info for FromEure/IntoEure/BuildSchema is captured |
-| P3: Schema → IR | **Satisfied** | `SchemaNodeContent` → `TypeRef`, codegen → `TypeDef` |
-| P4: IR → Rust type def | **Satisfied** | `TypeDef` + `TypeRef.to_rust_path()` + `CodegenConfig` |
-| P5: Roundtrip | **Satisfied** | Same IR from both directions; structural equivalence |
-| P6: No proc-macro deps | **Satisfied** | All types are plain Rust (`String`, `Vec`, enums) |
-| P7: Type bridge | **Satisfied** | `TypeRef` encodes full Eure↔Rust mapping |
-| S1: Literal generation | **Partially** | `TypeRef` structure enables it; `DefaultDef::Value` needs work |
-| S2: Extensibility | **Satisfied** | Enum-based design allows adding variants |
+| `CR*` | Met | Single canonical model for both producers |
+| `DR*` | Met | Explicit binding layer for macro attrs and generics |
+| `SR*` | Met | Schema node model mirrors runtime schema semantics |
+| `CG*` | Met | Root/type/field metadata included |
+| `IO*` | Met | Interop stored separately and gated at emission |
+| `LR*` | Met (design), Pending (implementation) | Literal emitter still to implement |
+| `ER*` | Met (design), Pending (implementation) | Requires concrete error enums + structural diff util |
 
-### What needs further design work
+## 10. Test Plan (Requirement-Linked)
 
-1. **Literal generation (S1)**: The `DefaultDef::Value(String)` stores Eure source text.
-   For literal generation, we need to actually parse the Eure document and walk the IR
-   to produce Rust expressions. This requires a separate visitor/emitter that pairs IR
-   nodes with document nodes. The IR itself provides the structural info; the algorithm
-   is in the consumer.
+### T01 Derive Attribute Capture Matrix
 
-2. **Extension type schemas**: The current schema has `ext_types: IndexMap<Identifier, ExtTypeSchema>`
-   on each node. The IR doesn't model this directly. For types parsed with `parse_ext`,
-   the fields already capture extension access. For schema codegen, extension type
-   definitions would need to be generated as part of the schema metadata. This could be
-   added to `TypeDef` if needed:
-   ```rust
-   pub struct TypeDef {
-       // ...
-       pub ext_type_schemas: Vec<ExtTypeDef>,
-   }
-   ```
+1. Covers: `DR1`, `DR2`, `DR3`, `DR5`, `DR6`, `DR7`, `DR8`, `DR9`.
+2. Cases:
+   - each container attr alone and in valid combinations,
+   - each field mode with rename/default/via permutations,
+   - variant rename and `allow_unknown_fields`.
+3. Checks: IR snapshot + behavior parity with existing macro output.
 
-3. **Schema constraints**: The IR currently doesn't capture validation constraints
-   (min/max length, pattern, range, unique, etc.). These are schema-only concerns and
-   don't affect Rust type structure or FromEure/IntoEure codegen. For BuildSchema, they
-   would need to be passed through to `SchemaNodeContent`. This could be added as an
-   optional `constraints` field on TypeRef or as metadata on TypeDef.
+### T02 Derive Invariant Rejection (Compile-Fail + IR Validation)
 
-4. **Union interop metadata in derive macros (settled)**: Native Eure semantics do not
-   require `variant-repr`. For derive → IR, `UnionDef.interop.variant_repr` defaults to
-   `None`. This metadata is consumed only when
-   `serde_serialize || serde_deserialize` is `true`, and remains non-semantic for native
-   Eure parsing/validation.
+1. Covers: `CR8`, `DR10`, `ER1`, `ER2`, `I1`-`I8`.
+2. Cases:
+   - invalid attr combinations and context misuse.
+3. Checks: deterministic typed errors and stable messages.
 
-5. **Schema metadata passthrough**: `SchemaMetadata` (description, deprecated, default,
-   examples) is not modeled in the IR. For schema→IR→Rust generation, descriptions could
-   become doc comments. For IR→BuildSchema, metadata needs to be emitted. Adding optional
-   metadata to `TypeDef` and `FieldDef`:
-   ```rust
-   pub struct TypeDef {
-       // ...
-       pub description: Option<String>,
-       pub deprecated: bool,
-   }
-   ```
+### T03 Generics / Where-Clause Fidelity
 
----
+1. Covers: `DR4`.
+2. Cases: type/lifetime/const generics, complex where predicates.
+3. Checks: emitted impls do not require re-reading `syn::DeriveInput`.
 
-## Dependencies
+### T04 Schema Node Coverage by Kind
 
-```toml
-[package]
-name = "eure-codegen-ir"
-version = "0.1.0"
-edition = "2024"
+1. Covers: `SR1`.
+2. Cases: all schema node variants (`Any`..`Reference`).
+3. Checks: schema -> IR -> schema structural equality.
 
-[dependencies]
-indexmap = "2"
-```
+### T05 Schema Constraint Fidelity
 
-The crate should be minimal — no `syn`, no `eure-document`, no `eure-schema`.
-Conversions to/from those types live in the consumer crates (`eure-macros`, `eure-codegen`).
+1. Covers: `SR2`, `SR6`, `SR7`.
+2. Cases:
+   - text constraints + unknown text fields,
+   - integer/float bounds and multiples,
+   - array/map/tuple constraints,
+   - record flatten + unknown field policy,
+   - union unambiguous + deny_untagged.
+3. Checks: no field-level loss after roundtrip.
 
----
+### T06 Metadata and ext_types Fidelity
 
-## Migration Path
+1. Covers: `SR4`, `SR5`, `SR8`.
+2. Cases: description variants, deprecated, default, examples, ext type optionality/binding-style.
+3. Checks: structural equality including nested literal/default/example values.
+4. Additional case: extension-bearing default/example/literal values must fail with typed error.
 
-1. **Create `eure-codegen-ir`** with the types described above.
-2. **Add conversion in `eure-macros`**: `syn::DeriveInput` → `IrModule` (replaces current
-   `analyze_common_named_fields` + per-macro dispatch).
-3. **Add code emitters in `eure-macros`**: `IrModule` → `TokenStream` for each trait.
-   Initially these replicate existing behavior exactly.
-4. **Add conversion in `eure-codegen`**: `SchemaDocument` + codegen config → `IrModule`.
-5. **Add Rust type emitter in `eure-codegen`**: `IrModule` → Rust source code.
-6. **Verify roundtrip**: schema → IR → Rust → IR → schema produces equivalent schemas.
-7. **Add literal generation**: `(IrModule, EureDocument)` → Rust expression source.
+### T07 Codegen Metadata Fidelity
+
+1. Covers: `CG1`-`CG5`.
+2. Cases: root-codegen, codegen-defaults, union/record type codegen, field codegen rename.
+   - root record/union with combined root+type `$codegen` payload.
+   - conflicting root/type `type` names rejected with typed error.
+3. Checks: schema -> IR -> codegen metadata -> schema parity.
+
+### T08 Emission Policy and Interop Gating
+
+1. Covers: `CG6`, `CG7`, `IO1`, `IO2`, `IO3`, `IO4`.
+2. Cases:
+   - module defaults + per-type overrides,
+   - mixed serde-on and serde-off types in one module,
+   - each `variant_repr` value.
+3. Checks: emitted attrs and derives obey effective policy.
+
+### T09 End-to-End Trait Parity
+
+1. Covers: `CR3`.
+2. Cases: representative record/enum/newtype/tuple/unit types, proxy/opaque, parse_ext scenarios.
+3. Checks: old and IR-based emitters produce behaviorally equivalent parsing/writing/schema.
+
+### T10 Roundtrip Structural Equality
+
+1. Covers: `CR5`, `CR7`, `ER3`.
+2. Flows:
+   - Rust -> IR -> BuildSchema -> Schema -> IR -> Rust
+   - Schema -> IR -> Rust -> IR -> Schema
+3. Checks: structural equality utility only.
+
+### T11 Literal Generation
+
+1. Covers: `LR1`, `LR2`, `LR3`.
+2. Cases: primitive, record, union, map with non-string keys, tuple, nested defaults/examples.
+3. Checks: expression compiles, runtime value equality, typed error on unsupported cases.
+
+### T12 Error Typing and No-Fallback
+
+1. Covers: `ER1`, `ER2`.
+2. Cases: invalid references, unresolved names, impossible mode combinations.
+3. Checks: no panic/silent fallback; all errors are typed enums.
+
+## 11. Migration / Implementation Plan
+
+1. Create `eure-codegen-ir` crate with model types, validators, structural-diff util.
+2. Implement derive adapter (`eure-macros`: `syn` -> IR).
+3. Implement schema adapter (`eure-codegen` + `eure-schema`: schema -> IR).
+4. Implement IR-based emitters for `FromEure`, `IntoEure`, `BuildSchema`.
+5. Implement schema-to-Rust emitter with codegen metadata + emission policy handling.
+6. Implement literal expression emitter.
+7. Add tests T01-T12 and parity gates.
+8. Remove legacy duplicated analysis paths only after parity and roundtrip gates pass.
+
+## 12. Open Questions
+
+1. Should IR constructors normalize representational variants up front, or preserve source shape exactly?
+2. Should `TextSchema.unknown_fields` be represented as raw values only, or as full node fragments with extension retention?
+3. For literal generation, which subset (if any) should be explicitly unsupported in v1?
+
+## 13. Acceptance Criteria for This Draft
+
+This design draft is considered ready for implementation if:
+
+1. all requirement groups in Section 5 are represented in IR structures or explicit invariants,
+2. candidate comparison and rationale are accepted,
+3. test plan T01-T12 is accepted as release-gating for IR migration.
+
+## 14. Implementation Findings (Test-Proven)
+
+### F01 Value Extensions Not Representable in `ValueIr` (v1)
+
+1. Failing/regression test reference:
+   - `crates/eure-codegen/src/ir_adapter.rs` test:
+     `rejects_value_extensions_that_ir_cannot_represent`
+2. Code path reference:
+   - `crates/eure-codegen/src/ir_adapter.rs` in `convert_node_value`
+3. Spec delta applied:
+   - Added `SR9` in Section 5.3.
+   - Added `I13` in Section 8.7.
+   - Added explicit typed-error case under T06.
+
+### F02 Root and Root-Type `$codegen` Share One Wire Location
+
+1. Failing/regression test reference:
+   - `crates/eure-schema/src/write.rs` test:
+     `roundtrips_root_type_and_field_codegen_metadata`
+   - `crates/eure-schema/src/write.rs` test:
+     `rejects_conflicting_root_codegen_type_names`
+2. Code path reference:
+   - `crates/eure-schema/src/write.rs` in `write_root_codegen_extension`
+     and root write validation.
+   - `crates/eure-schema/src/convert.rs` in `convert_root_codegen`.
+3. Spec delta applied:
+   - Added `CG8` in Section 5.4.
+   - Added `I14` in Section 8.7.
+   - Expanded T07 cases with merged root/type `$codegen` roundtrip and mismatch rejection.
+
+### F03 Comparison Utilities Must Stay Structural
+
+1. Failing/regression test reference:
+   - `crates/eure-codegen-ir/tests/structural_eq.rs` test:
+     `none_and_external_variant_repr_are_not_structurally_equal`
+   - `crates/eure-codegen-ir/tests/structural_eq.rs` test:
+     `metadata_examples_none_and_empty_are_not_structurally_equal`
+   - `crates/eure-codegen-ir/tests/structural_eq.rs` test:
+     `emission_override_equivalent_to_default_is_not_structurally_equal`
+2. Code path reference:
+   - `crates/eure-codegen-ir/src/structural.rs`
+3. Spec delta applied:
+   - Replaced Section 8.5 with strict structural equality rules.
+   - Updated T10 from semantic equality to structural equality.

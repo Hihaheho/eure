@@ -29,6 +29,7 @@
 //! - `Reference` - Type reference (local or cross-schema)
 
 pub mod build;
+pub mod codegen;
 pub mod convert;
 pub mod identifiers;
 pub mod interop;
@@ -39,6 +40,9 @@ pub mod validate;
 pub mod write;
 
 pub use build::{BuildSchema, SchemaBuilder};
+pub use codegen::{
+    CodegenDefaults, FieldCodegen, RecordCodegen, RootCodegen, TypeCodegen, UnionCodegen,
+};
 
 use eure_document::Text;
 use eure_document::constructor::DocumentConstructor;
@@ -66,6 +70,10 @@ pub struct SchemaDocument {
     pub root: SchemaNodeId,
     /// Named type definitions ($types)
     pub types: IndexMap<Identifier, SchemaNodeId>,
+    /// Root-level codegen settings from `$codegen`.
+    pub root_codegen: RootCodegen,
+    /// Root-level default codegen settings from `$codegen-defaults`.
+    pub codegen_defaults: CodegenDefaults,
 }
 
 /// Extension type definition with optionality
@@ -92,6 +100,8 @@ pub struct SchemaNode {
     pub metadata: SchemaMetadata,
     /// Extension type definitions for this node ($ext-type.X)
     pub ext_types: IndexMap<Identifier, ExtTypeSchema>,
+    /// Type-level codegen settings (`$codegen`) when this node is a record/union type.
+    pub type_codegen: TypeCodegen,
 }
 
 // ============================================================================
@@ -470,6 +480,8 @@ pub struct RecordFieldSchema {
     pub optional: bool,
     /// Binding style for this field
     pub binding_style: Option<BindingStyle>,
+    /// Field-level codegen settings from `$codegen`.
+    pub field_codegen: FieldCodegen,
 }
 
 /// Record type with fixed named fields
@@ -634,9 +646,12 @@ impl SchemaDocument {
                 content: SchemaNodeContent::Any,
                 metadata: SchemaMetadata::default(),
                 ext_types: IndexMap::new(),
+                type_codegen: TypeCodegen::None,
             }],
             root: SchemaNodeId(0),
             types: IndexMap::new(),
+            root_codegen: RootCodegen::default(),
+            codegen_defaults: CodegenDefaults::default(),
         }
     }
 
@@ -657,6 +672,7 @@ impl SchemaDocument {
             content,
             metadata: SchemaMetadata::default(),
             ext_types: IndexMap::new(),
+            type_codegen: TypeCodegen::None,
         });
         id
     }

@@ -19,6 +19,7 @@ clap = "4.5"
 eros = "0.5"
 eure = { path = "crates/eure", version = "0.1.7" }
 eure-codegen = { path = "crates/eure-codegen", version = "0.1.7" }
+eure-codegen-ir = { path = "crates/eure-codegen-ir", version = "0.1.7" }
 eure-env = { path = "crates/eure-env", version = "0.1.7" }
 eure-document = { path = "crates/eure-document", version = "0.1.7" }
 eure-fmt = { path = "crates/eure-fmt", version = "0.1.7" }

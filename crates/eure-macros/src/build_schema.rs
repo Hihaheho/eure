@@ -1,12 +1,10 @@
 //! BuildSchema derive macro implementation
 
-mod build_record;
-mod build_union;
+mod emit_ir;
 
 use proc_macro2::TokenStream;
-use quote::quote;
-use syn::Data;
 
+use crate::codegen_ir_adapter::{self, DeriveIrArtifacts};
 use crate::context::MacroContext;
 
 pub fn derive(context: MacroContext) -> TokenStream {
@@ -14,9 +12,10 @@ pub fn derive(context: MacroContext) -> TokenStream {
 }
 
 fn derive_inner(context: &MacroContext) -> syn::Result<TokenStream> {
-    match &context.input.data {
-        Data::Struct(data) => build_record::generate_record_schema(context, data),
-        Data::Union(_) => Ok(quote! { compile_error!("Union is not supported for BuildSchema") }),
-        Data::Enum(data) => build_union::generate_union_schema(context, data),
-    }
+    let artifacts = codegen_ir_adapter::derive_input_to_ir_artifacts(&context.input)?;
+    derive_ir(&artifacts)
+}
+
+pub(crate) fn derive_ir(artifacts: &DeriveIrArtifacts) -> syn::Result<TokenStream> {
+    emit_ir::derive(&artifacts.module, &artifacts.spans)
 }

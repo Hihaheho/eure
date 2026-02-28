@@ -21,7 +21,11 @@
 //! - [`FieldCodegen`] - Codegen settings for individual record fields
 
 mod config;
+mod emit_rust;
+mod ir_adapter;
 mod parse;
 
 pub use config::*;
+pub use emit_rust::*;
+pub use ir_adapter::*;
 pub use parse::*;

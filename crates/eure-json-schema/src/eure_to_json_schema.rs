@@ -845,6 +845,7 @@ mod tests {
                 schema: text_id,
                 optional: false,
                 binding_style: None,
+                field_codegen: Default::default(),
             },
         );
         properties.insert(
@@ -853,6 +854,7 @@ mod tests {
                 schema: int_id,
                 optional: false,
                 binding_style: None,
+                field_codegen: Default::default(),
             },
         );
 

@@ -3,9 +3,10 @@
 use crate::identifiers::{CONTENT, EXT_TYPE, OPTIONAL, TAG, VARIANT, VARIANT_REPR};
 use crate::interop::VariantRepr;
 use crate::{
-    ArraySchema, BindingStyle, Bound, Description, ExtTypeSchema, FloatPrecision, FloatSchema,
-    IntegerSchema, MapSchema, RecordFieldSchema, RecordSchema, SchemaDocument, SchemaMetadata,
-    SchemaNodeContent, SchemaNodeId, TupleSchema, TypeReference, UnionSchema, UnknownFieldsPolicy,
+    ArraySchema, BindingStyle, Bound, CodegenDefaults, Description, ExtTypeSchema, FieldCodegen,
+    FloatPrecision, FloatSchema, IntegerSchema, MapSchema, RecordCodegen, RecordFieldSchema,
+    RecordSchema, RootCodegen, SchemaDocument, SchemaMetadata, SchemaNodeContent, SchemaNodeId,
+    TupleSchema, TypeCodegen, TypeReference, UnionCodegen, UnionSchema, UnknownFieldsPolicy,
 };
 use eure_document::document::constructor::DocumentConstructor;
 use eure_document::document::node::NodeValue;
@@ -31,6 +32,8 @@ const IDENT_EXAMPLES: Identifier = Identifier::new_unchecked("examples");
 const IDENT_DENY_UNTAGGED: Identifier = Identifier::new_unchecked("deny-untagged");
 const IDENT_UNAMBIGUOUS: Identifier = Identifier::new_unchecked("unambiguous");
 const IDENT_INTEROP: Identifier = Identifier::new_unchecked("interop");
+const IDENT_CODEGEN: Identifier = Identifier::new_unchecked("codegen");
+const IDENT_CODEGEN_DEFAULTS: Identifier = Identifier::new_unchecked("codegen-defaults");
 
 const KEY_VARIANTS: &str = "variants";
 
@@ -41,6 +44,13 @@ pub enum SchemaWriteError {
     Write(#[from] WriteError),
     #[error("literal root cannot be a hole")]
     LiteralRootIsHole,
+    #[error(
+        "conflicting root $codegen type names: root={root_type_name}, type_codegen={type_codegen_type_name}"
+    )]
+    ConflictingRootCodegenTypeName {
+        root_type_name: String,
+        type_codegen_type_name: String,
+    },
 }
 
 /// Emit an [`EureDocument`] from a [`SchemaDocument`].
@@ -78,6 +88,16 @@ fn validate_schema_for_write(schema: &SchemaDocument) -> Result<(), SchemaWriteE
         }
     }
 
+    if let Some(root_type_name) = schema.root_codegen.type_name.as_deref()
+        && let Some(type_codegen_type_name) = root_type_codegen_type_name(schema)
+        && root_type_name != type_codegen_type_name
+    {
+        return Err(SchemaWriteError::ConflictingRootCodegenTypeName {
+            root_type_name: root_type_name.to_string(),
+            type_codegen_type_name: type_codegen_type_name.to_string(),
+        });
+    }
+
     Ok(())
 }
 
@@ -85,8 +105,10 @@ fn write_schema_document(
     schema: &SchemaDocument,
     c: &mut DocumentConstructor,
 ) -> Result<(), WriteError> {
-    write_schema_node(schema, schema.root, c)?;
+    write_schema_node_internal(schema, schema.root, false, c)?;
     write_types_extension(schema, c)?;
+    write_root_codegen_extension(schema, c)?;
+    write_codegen_defaults_extension(&schema.codegen_defaults, c)?;
     Ok(())
 }
 
@@ -95,10 +117,22 @@ fn write_schema_node(
     schema_id: SchemaNodeId,
     c: &mut DocumentConstructor,
 ) -> Result<(), WriteError> {
+    write_schema_node_internal(schema, schema_id, true, c)
+}
+
+fn write_schema_node_internal(
+    schema: &SchemaDocument,
+    schema_id: SchemaNodeId,
+    write_type_codegen: bool,
+    c: &mut DocumentConstructor,
+) -> Result<(), WriteError> {
     let node = schema.node(schema_id);
     write_schema_content(schema, &node.content, c)?;
     write_ext_types(schema, &node.ext_types, c)?;
     write_metadata(&node.metadata, c)?;
+    if write_type_codegen {
+        write_type_codegen_extension(&node.type_codegen, c)?;
+    }
     Ok(())
 }
 
@@ -306,7 +340,83 @@ fn write_record_field_extensions(
     if let Some(style) = schema.binding_style {
         write_binding_style_extension(style, c)?;
     }
+    write_field_codegen_extension(&schema.field_codegen, c)?;
     Ok(())
+}
+
+fn write_root_codegen_extension(
+    schema: &SchemaDocument,
+    c: &mut DocumentConstructor,
+) -> Result<(), WriteError> {
+    match &schema.node(schema.root).type_codegen {
+        TypeCodegen::None => {
+            if schema.root_codegen == RootCodegen::default() {
+                return Ok(());
+            }
+            write_extension(c, IDENT_CODEGEN, |c| c.write(schema.root_codegen.clone()))
+        }
+        TypeCodegen::Record(record_codegen) => {
+            let merged = RecordCodegen {
+                type_name: merge_root_type_name(
+                    schema.root_codegen.type_name.as_deref(),
+                    record_codegen.type_name.as_deref(),
+                )?,
+                derive: record_codegen.derive.clone(),
+            };
+            if merged == RecordCodegen::default() {
+                return Ok(());
+            }
+            write_extension(c, IDENT_CODEGEN, |c| c.write(merged))
+        }
+        TypeCodegen::Union(union_codegen) => {
+            let merged = UnionCodegen {
+                type_name: merge_root_type_name(
+                    schema.root_codegen.type_name.as_deref(),
+                    union_codegen.type_name.as_deref(),
+                )?,
+                derive: union_codegen.derive.clone(),
+                variant_types: union_codegen.variant_types,
+                variant_types_suffix: union_codegen.variant_types_suffix.clone(),
+            };
+            if merged == UnionCodegen::default() {
+                return Ok(());
+            }
+            write_extension(c, IDENT_CODEGEN, |c| c.write(merged))
+        }
+    }
+}
+
+fn write_codegen_defaults_extension(
+    defaults: &CodegenDefaults,
+    c: &mut DocumentConstructor,
+) -> Result<(), WriteError> {
+    if defaults == &CodegenDefaults::default() {
+        return Ok(());
+    }
+    write_extension(c, IDENT_CODEGEN_DEFAULTS, |c| c.write(defaults.clone()))
+}
+
+fn write_type_codegen_extension(
+    codegen: &TypeCodegen,
+    c: &mut DocumentConstructor,
+) -> Result<(), WriteError> {
+    match codegen {
+        TypeCodegen::None => Ok(()),
+        TypeCodegen::Record(record) => {
+            write_extension(c, IDENT_CODEGEN, |c| c.write(record.clone()))
+        }
+        TypeCodegen::Union(union) => write_extension(c, IDENT_CODEGEN, |c| c.write(union.clone())),
+    }
+}
+
+fn write_field_codegen_extension(
+    codegen: &FieldCodegen,
+    c: &mut DocumentConstructor,
+) -> Result<(), WriteError> {
+    if codegen == &FieldCodegen::default() {
+        return Ok(());
+    }
+    write_extension(c, IDENT_CODEGEN, |c| c.write(codegen.clone()))
 }
 
 fn write_union_schema(
@@ -559,6 +669,28 @@ fn binding_style_as_str(style: BindingStyle) -> &'static str {
     }
 }
 
+fn root_type_codegen_type_name(schema: &SchemaDocument) -> Option<&str> {
+    match &schema.node(schema.root).type_codegen {
+        TypeCodegen::None => None,
+        TypeCodegen::Record(codegen) => codegen.type_name.as_deref(),
+        TypeCodegen::Union(codegen) => codegen.type_name.as_deref(),
+    }
+}
+
+fn merge_root_type_name(
+    root_type_name: Option<&str>,
+    type_codegen_type_name: Option<&str>,
+) -> Result<Option<String>, WriteError> {
+    match (root_type_name, type_codegen_type_name) {
+        (Some(root), Some(ty)) if root != ty => Err(WriteError::InvalidIdentifier(format!(
+            "conflicting root $codegen type names: root={root}, type_codegen={ty}"
+        ))),
+        (Some(root), _) => Ok(Some(root.to_string())),
+        (None, Some(ty)) => Ok(Some(ty.to_string())),
+        (None, None) => Ok(None),
+    }
+}
+
 fn write_extension<F>(
     c: &mut DocumentConstructor,
     ident: Identifier,
@@ -720,8 +852,12 @@ fn format_f64(value: &f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::convert::document_to_schema;
     use crate::interop::UnionInterop;
-    use crate::{TextSchema, UnknownFieldsPolicy};
+    use crate::{
+        CodegenDefaults, FieldCodegen, RecordCodegen, RootCodegen, TextSchema, TypeCodegen,
+        UnknownFieldsPolicy,
+    };
     use eure_document::document::node::NodeMap;
     use eure_document::value::ObjectKey;
 
@@ -806,6 +942,7 @@ mod tests {
                     schema: x_schema,
                     optional: false,
                     binding_style: None,
+                    field_codegen: Default::default(),
                 },
             )]),
             flatten: Vec::new(),
@@ -936,5 +1073,81 @@ mod tests {
             .parse::<&str>(*variant_id)
             .expect("variant parse");
         assert_eq!(variant, "text");
+    }
+
+    #[test]
+    fn roundtrips_root_type_and_field_codegen_metadata() {
+        let mut schema = SchemaDocument::new();
+        schema.root_codegen = RootCodegen {
+            type_name: Some("User".to_string()),
+        };
+        schema.codegen_defaults = CodegenDefaults {
+            derive: Some(vec!["Debug".to_string(), "Clone".to_string()]),
+            ext_types_field_prefix: Some("ext_".to_string()),
+            ext_types_type_prefix: Some("Ext".to_string()),
+            document_node_id_field: Some("node_id".to_string()),
+        };
+
+        let text_id = schema.create_node(SchemaNodeContent::Text(TextSchema::default()));
+        schema.root = schema.create_node(SchemaNodeContent::Record(RecordSchema {
+            properties: indexmap::IndexMap::from([(
+                "user-name".to_string(),
+                RecordFieldSchema {
+                    schema: text_id,
+                    optional: false,
+                    binding_style: None,
+                    field_codegen: FieldCodegen {
+                        name: Some("user_name".to_string()),
+                    },
+                },
+            )]),
+            flatten: Vec::new(),
+            unknown_fields: UnknownFieldsPolicy::Deny,
+        }));
+        schema.node_mut(schema.root).type_codegen = TypeCodegen::Record(RecordCodegen {
+            type_name: Some("User".to_string()),
+            derive: Some(vec!["Debug".to_string()]),
+        });
+
+        let doc = schema_to_document(&schema).expect("write schema");
+        let (roundtrip, _) = document_to_schema(&doc).expect("parse schema");
+
+        assert_eq!(roundtrip.root_codegen.type_name.as_deref(), Some("User"));
+        assert_eq!(
+            roundtrip.codegen_defaults.document_node_id_field.as_deref(),
+            Some("node_id")
+        );
+        let TypeCodegen::Record(record_codegen) = &roundtrip.node(roundtrip.root).type_codegen
+        else {
+            panic!("expected record codegen")
+        };
+        assert_eq!(record_codegen.type_name.as_deref(), Some("User"));
+        let record = match &roundtrip.node(roundtrip.root).content {
+            SchemaNodeContent::Record(record) => record,
+            _ => panic!("expected record root"),
+        };
+        assert_eq!(
+            record.properties["user-name"].field_codegen.name.as_deref(),
+            Some("user_name")
+        );
+    }
+
+    #[test]
+    fn rejects_conflicting_root_codegen_type_names() {
+        let mut schema = SchemaDocument::new();
+        schema.root_codegen = RootCodegen {
+            type_name: Some("Root".to_string()),
+        };
+        schema.root = schema.create_node(SchemaNodeContent::Record(RecordSchema::default()));
+        schema.node_mut(schema.root).type_codegen = TypeCodegen::Record(RecordCodegen {
+            type_name: Some("User".to_string()),
+            derive: None,
+        });
+
+        let error = schema_to_document(&schema).expect_err("conflict must be rejected");
+        assert!(matches!(
+            error,
+            SchemaWriteError::ConflictingRootCodegenTypeName { .. }
+        ));
     }
 }

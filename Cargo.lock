@@ -1998,8 +1998,22 @@ name = "eure-codegen"
 version = "0.1.7"
 dependencies = [
  "bon",
+ "eure-codegen-ir",
  "eure-document",
  "eure-macros",
+ "eure-schema",
+ "indexmap",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "eure-codegen-ir"
+version = "0.1.7"
+dependencies = [
+ "bon",
+ "indexmap",
+ "num-bigint",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -2165,6 +2179,7 @@ dependencies = [
  "convert_case 0.10.0",
  "darling 0.23.0",
  "eure",
+ "eure-codegen-ir",
  "eure-document",
  "eure-schema",
  "indexmap",

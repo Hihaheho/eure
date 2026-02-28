@@ -1,10 +1,7 @@
-use std::collections::HashMap;
-
 use darling::FromField;
-use proc_macro2::Span;
 use syn::spanned::Spanned;
 
-use crate::attrs::{DefaultValue, FieldAttrs, extract_eure_attr_spans};
+use crate::attrs::{FieldAttrs, extract_eure_attr_spans};
 use crate::context::MacroContext;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,9 +24,6 @@ pub(crate) struct CommonFieldIr {
     pub ty: syn::Type,
     pub mode: FieldMode,
     pub wire_name: String,
-    pub via: Option<syn::Type>,
-    pub default: DefaultValue,
-    pub attr_spans: HashMap<String, Span>,
 }
 
 pub(crate) fn analyze_common_named_fields(
@@ -109,9 +103,6 @@ pub(crate) fn analyze_common_named_fields(
             ty,
             mode,
             wire_name,
-            via: attrs.via.clone(),
-            default: attrs.default.clone(),
-            attr_spans,
         });
     }
 

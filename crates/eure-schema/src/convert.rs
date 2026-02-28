@@ -49,9 +49,10 @@ use crate::parse::{
 };
 use crate::type_path_trace::LayoutStrategies;
 use crate::{
-    ArraySchema, Bound, ExtTypeSchema, FloatPrecision, FloatSchema, IntegerSchema, MapSchema,
-    RecordFieldSchema, RecordSchema, SchemaDocument, SchemaMetadata, SchemaNodeContent,
-    SchemaNodeId, TupleSchema, UnionSchema, UnknownFieldsPolicy,
+    ArraySchema, Bound, CodegenDefaults, ExtTypeSchema, FloatPrecision, FloatSchema, IntegerSchema,
+    MapSchema, RecordCodegen, RecordFieldSchema, RecordSchema, RootCodegen, SchemaDocument,
+    SchemaMetadata, SchemaNodeContent, SchemaNodeId, TupleSchema, TypeCodegen, UnionCodegen,
+    UnionSchema, UnknownFieldsPolicy,
 };
 use eure_document::document::node::{Node, NodeValue};
 use eure_document::document::{EureDocument, NodeId};
@@ -87,6 +88,14 @@ pub enum ConversionError {
     #[error("non-productive reference cycle detected: {0}")]
     NonProductiveReferenceCycle(String),
 
+    #[error(
+        "invalid `$codegen` extension at node {node_id:?}: supported only for record/union, got {schema_kind}"
+    )]
+    InvalidTypeCodegenTarget {
+        node_id: NodeId,
+        schema_kind: String,
+    },
+
     #[error("Parse error: {0}")]
     ParseError(#[from] ParseError),
 }
@@ -119,15 +128,37 @@ impl<'a> Converter<'a> {
 
         // Convert all type definitions from $types extension
         self.convert_types(root_node)?;
+        self.convert_root_codegen(root_node)?;
 
         // Convert root node
-        self.schema.root = self.convert_node(root_id)?;
+        // Root-level `$codegen` is handled separately via `convert_root_codegen`.
+        // If root content is not record/union, keep it as root metadata instead of
+        // treating it as invalid type-level codegen.
+        self.schema.root = self.convert_node_allow_non_type_codegen(root_id)?;
 
         // Validate all type references exist
         self.validate_type_references()?;
         self.validate_non_productive_reference_cycles()?;
 
         Ok((self.schema, self.source_map))
+    }
+
+    fn convert_root_codegen(&mut self, node: &Node) -> Result<(), ConversionError> {
+        let codegen_ident: Identifier = "codegen".parse().unwrap();
+        let codegen_defaults_ident: Identifier = "codegen-defaults".parse().unwrap();
+
+        if let Some(node_id) = node.extensions.get(&codegen_ident) {
+            let rec = self.doc.parse_record(*node_id)?;
+            self.schema.root_codegen = RootCodegen {
+                type_name: rec.parse_field_optional::<String>("type")?,
+            };
+        }
+
+        if let Some(node_id) = node.extensions.get(&codegen_defaults_ident) {
+            self.schema.codegen_defaults = self.doc.parse::<CodegenDefaults>(*node_id)?;
+        }
+
+        Ok(())
     }
 
     /// Convert all type definitions from $types extension
@@ -239,22 +270,76 @@ impl<'a> Converter<'a> {
 
     /// Convert a document node to a schema node using FromEure trait
     fn convert_node(&mut self, node_id: NodeId) -> Result<SchemaNodeId, ConversionError> {
+        self.convert_node_inner(node_id, false)
+    }
+
+    fn convert_node_allow_non_type_codegen(
+        &mut self,
+        node_id: NodeId,
+    ) -> Result<SchemaNodeId, ConversionError> {
+        self.convert_node_inner(node_id, true)
+    }
+
+    fn convert_node_inner(
+        &mut self,
+        node_id: NodeId,
+        allow_non_type_codegen: bool,
+    ) -> Result<SchemaNodeId, ConversionError> {
         // Parse the node using FromEure trait
         let parsed: ParsedSchemaNode = self.doc.parse(node_id)?;
+        let ParsedSchemaNode {
+            content: parsed_content,
+            metadata: parsed_metadata,
+            ext_types: parsed_ext_types,
+            codegen: parsed_codegen,
+        } = parsed;
 
         // Convert the parsed node to final schema
-        let content = self.convert_content(parsed.content)?;
-        let metadata = self.convert_metadata(parsed.metadata)?;
-        let ext_types = self.convert_ext_types(parsed.ext_types)?;
+        let content = self.convert_content(parsed_content)?;
+        let metadata = self.convert_metadata(parsed_metadata)?;
+        let ext_types = self.convert_ext_types(parsed_ext_types)?;
+        let type_codegen =
+            self.convert_type_codegen(parsed_codegen, &content, allow_non_type_codegen)?;
 
         // Create the final schema node
         let schema_id = self.schema.create_node(content);
-        self.schema.node_mut(schema_id).metadata = metadata;
-        self.schema.node_mut(schema_id).ext_types = ext_types;
+        let schema_node = self.schema.node_mut(schema_id);
+        schema_node.metadata = metadata;
+        schema_node.ext_types = ext_types;
+        schema_node.type_codegen = type_codegen;
 
         // Record source mapping for span resolution
         self.source_map.insert(schema_id, node_id);
         Ok(schema_id)
+    }
+
+    fn convert_type_codegen(
+        &self,
+        codegen_node_id: Option<NodeId>,
+        content: &SchemaNodeContent,
+        allow_non_type_codegen: bool,
+    ) -> Result<TypeCodegen, ConversionError> {
+        let Some(codegen_node_id) = codegen_node_id else {
+            return Ok(TypeCodegen::None);
+        };
+
+        if allow_non_type_codegen
+            && !matches!(
+                content,
+                SchemaNodeContent::Record(_) | SchemaNodeContent::Union(_)
+            )
+        {
+            return Ok(TypeCodegen::None);
+        }
+
+        match content {
+            SchemaNodeContent::Union(_) => Ok(TypeCodegen::Union(
+                self.doc.parse::<UnionCodegen>(codegen_node_id)?,
+            )),
+            _ => Ok(TypeCodegen::Record(
+                self.doc.parse::<RecordCodegen>(codegen_node_id)?,
+            )),
+        }
     }
 
     /// Convert parsed schema node content to final schema node content
@@ -405,13 +490,14 @@ impl<'a> Converter<'a> {
         let mut properties = IndexMap::new();
 
         for (field_name, field_parsed) in parsed.properties {
-            let schema = self.convert_node(field_parsed.schema)?;
+            let schema = self.convert_node_allow_non_type_codegen(field_parsed.schema)?;
             properties.insert(
                 field_name,
                 RecordFieldSchema {
                     schema,
                     optional: field_parsed.optional,
                     binding_style: field_parsed.binding_style,
+                    field_codegen: field_parsed.codegen.unwrap_or_default(),
                 },
             );
         }
@@ -1323,6 +1409,46 @@ mod tests {
             .get(&EurePath::root())
             .expect("root order rule");
         assert_eq!(*root_order, expected);
+    }
+
+    #[test]
+    fn preserves_type_codegen_on_non_record_non_union_type_nodes() {
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+
+        let type_node = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::inline_implicit("text"),
+        )));
+        let type_name_node = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::plaintext("BadTypeName"),
+        )));
+
+        let mut codegen_map = NodeMap::default();
+        codegen_map.insert(ObjectKey::String("type".to_string()), type_name_node);
+        let codegen_node = doc.create_node(NodeValue::Map(codegen_map));
+        doc.node_mut(type_node)
+            .extensions
+            .insert("codegen".parse().unwrap(), codegen_node);
+
+        let mut types_map = NodeMap::default();
+        types_map.insert(ObjectKey::String("bad".to_string()), type_node);
+        let types_node = doc.create_node(NodeValue::Map(types_map));
+        doc.node_mut(root_id)
+            .extensions
+            .insert("types".parse().unwrap(), types_node);
+        doc.node_mut(root_id).content =
+            NodeValue::Primitive(PrimitiveValue::Text(Text::inline_implicit("text")));
+
+        let (schema, _source_map) = document_to_schema(&doc)
+            .expect("type-level $codegen on non-union type nodes should be preserved");
+
+        let bad_ident: Identifier = "bad".parse().unwrap();
+        let bad_type_id = schema.types.get(&bad_ident).expect("type `bad`");
+        let type_node = schema.node(*bad_type_id);
+        let TypeCodegen::Record(record) = &type_node.type_codegen else {
+            panic!("expected non-union type codegen to use Record variant");
+        };
+        assert_eq!(record.type_name.as_deref(), Some("BadTypeName"));
     }
 
     #[test]
