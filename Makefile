@@ -13,7 +13,7 @@ check: fmt-check clippy test-no-default-features test test-suite eure-check eure
 	@echo "All checks passed."
 
 clippy:
-	@cargo clippy -q --offline -- -D warnings && echo "clippy passed"
+	@cargo clippy -q --offline --all-targets --all-features -- -D warnings && echo "clippy passed"
 
 eure-ls-wasm:
 	@rustup target add wasm32-unknown-unknown && cargo clippy -p eure-ls --target wasm32-unknown-unknown --offline -- -D warnings && echo "eure-ls-wasm passed"

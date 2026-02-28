@@ -850,7 +850,7 @@ mod tests {
             record
                 .properties()
                 .get("name")
-                .map(|field| field.binding_style().clone()),
+                .map(|field| field.binding_style()),
             Some(Some(BindingStyleIr::Binding))
         );
 
