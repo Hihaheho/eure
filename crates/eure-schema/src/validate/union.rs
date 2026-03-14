@@ -26,6 +26,13 @@ pub struct UnionValidator<'a, 'doc, 's> {
     pub schema_node_id: SchemaNodeId,
 }
 
+#[derive(Copy, Clone)]
+struct VariantValidationOptions {
+    propagate_errors: bool,
+    requires_explicit_tag: bool,
+    has_explicit_tag: bool,
+}
+
 impl<'a, 'doc, 's> DocumentParser<'doc> for UnionValidator<'a, 'doc, 's> {
     type Output = ();
     type Error = ValidatorError;
@@ -77,7 +84,6 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for UnionValidator<'a, 'doc, 's> {
 
         let deny_untagged = &self.schema.deny_untagged;
         let unambiguous = &self.schema.unambiguous;
-
         // Register all variants
         // Default: short-circuit (first match wins)
         // Opt-in: unambiguous (try all, detect conflicts)
@@ -85,18 +91,14 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for UnionValidator<'a, 'doc, 's> {
             let ctx = self.ctx;
             let schema_node_id = variant_schema_id;
             let variant_name = name.clone();
-            let requires_explicit = deny_untagged.contains(name);
+            let options = VariantValidationOptions {
+                propagate_errors: is_tagged,
+                requires_explicit_tag: deny_untagged.contains(name),
+                has_explicit_tag,
+            };
 
             let validator = move |parse_ctx: &ParseContext<'_>| {
-                validate_variant(
-                    ctx,
-                    parse_ctx,
-                    schema_node_id,
-                    is_tagged,
-                    &variant_name,
-                    requires_explicit,
-                    has_explicit_tag,
-                )
+                validate_variant(ctx, parse_ctx, schema_node_id, &variant_name, options)
             };
 
             if unambiguous.contains(name) {
@@ -161,10 +163,8 @@ fn validate_variant<'doc>(
     ctx: &ValidationContext<'doc>,
     parse_ctx: &ParseContext<'doc>,
     schema_node_id: SchemaNodeId,
-    propagate_errors: bool,
     variant_name: &str,
-    requires_explicit_tag: bool,
-    has_explicit_tag: bool,
+    options: VariantValidationOptions,
 ) -> Result<(), ValidatorError> {
     // Fork state for trial validation
     let forked_state = ctx.fork_state();
@@ -179,7 +179,7 @@ fn validate_variant<'doc>(
 
     if result.is_ok() && !trial_ctx.has_errors() {
         // Check deny_untagged constraint: variant requires explicit tag but none was provided
-        if requires_explicit_tag && !has_explicit_tag {
+        if options.requires_explicit_tag && !options.has_explicit_tag {
             ctx.record_error(ValidationError::RequiresExplicitVariant {
                 variant: variant_name.to_string(),
                 path: ctx.path(),
@@ -197,7 +197,7 @@ fn validate_variant<'doc>(
         // Validation failed
         let trial_state = trial_ctx.state.into_inner();
 
-        if propagate_errors && !trial_state.errors.is_empty() {
+        if options.propagate_errors && !trial_state.errors.is_empty() {
             // Tagged mode: propagate errors to parent context
             ctx.merge_state(trial_state);
             // Signal that inner errors were propagated - no additional error needed

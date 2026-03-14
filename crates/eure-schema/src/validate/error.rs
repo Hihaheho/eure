@@ -5,7 +5,7 @@
 //! - `ValidatorError`: Internal validator errors that cause fail-fast behavior
 
 use eure_document::document::NodeId;
-use eure_document::parse::ParseError;
+use eure_document::parse::{BestParseVariantMatch, ParseError, UnionParseError};
 use eure_document::path::EurePath;
 use eure_document::value::ObjectKey;
 use thiserror::Error;
@@ -53,6 +53,30 @@ impl ValidatorError {
         match self {
             ValidatorError::DocumentParseError(e) => Some(e),
             _ => None,
+        }
+    }
+}
+
+impl UnionParseError for ValidatorError {
+    fn as_parse_error(&self) -> Option<&ParseError> {
+        ValidatorError::as_parse_error(self)
+    }
+
+    fn from_no_matching_variant(
+        _node_id: NodeId,
+        variant: Option<String>,
+        _best_match: Option<BestParseVariantMatch>,
+        failures: &[(String, Self)],
+    ) -> Self {
+        if failures
+            .iter()
+            .any(|(_, error)| matches!(error, ValidatorError::InnerErrorsPropagated))
+        {
+            return ValidatorError::InnerErrorsPropagated;
+        }
+        ValidatorError::InvalidVariantTag {
+            tag: variant.unwrap_or_default(),
+            reason: "type mismatch".to_string(),
         }
     }
 }

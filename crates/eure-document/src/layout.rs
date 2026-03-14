@@ -403,6 +403,13 @@ impl<'a> LayoutBuilder<'a> {
         let child_is_map = matches!(self.doc.node(child_id).content, NodeValue::Map(_));
         let mut style = self.normalize_style(style, child_is_map, ctx.allow_sections);
 
+        if style == LayoutStyle::Binding
+            && child_is_map
+            && self.inline_binding_hides_descendant_entries(child_id, &child_node_path)
+        {
+            style = LayoutStyle::SectionBinding;
+        }
+
         if style == LayoutStyle::Section && self.has_section_entries(child_id, &child_node_path) {
             style = LayoutStyle::Nested;
         }
@@ -544,6 +551,49 @@ impl<'a> LayoutBuilder<'a> {
         }
 
         style
+    }
+
+    fn inline_binding_hides_descendant_entries(
+        &self,
+        node_id: NodeId,
+        node_path: &[PathSegment],
+    ) -> bool {
+        let NodeValue::Map(map) = &self.doc.node(node_id).content else {
+            return false;
+        };
+
+        for (key, &child_id) in map.iter() {
+            let child_node_path = concat_path(node_path, &PathSegment::Value(key.clone()));
+            if self.subtree_has_deferred_entries(child_id, &child_node_path) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    fn subtree_has_deferred_entries(&self, node_id: NodeId, node_path: &[PathSegment]) -> bool {
+        let node = self.doc.node(node_id);
+        if !node.extensions.is_empty() {
+            return true;
+        }
+
+        if self.has_section_entries(node_id, node_path) {
+            return true;
+        }
+
+        let NodeValue::Map(map) = &node.content else {
+            return false;
+        };
+
+        for (key, &child_id) in map.iter() {
+            let child_node_path = concat_path(node_path, &PathSegment::Value(key.clone()));
+            if self.subtree_has_deferred_entries(child_id, &child_node_path) {
+                return true;
+            }
+        }
+
+        false
     }
 
     fn has_section_entries(&self, node_id: NodeId, node_path: &[PathSegment]) -> bool {
@@ -916,5 +966,36 @@ mod tests {
                 ] if first.as_ref() == "a" && second.as_ref() == "x"
             )
         }));
+    }
+
+    #[test]
+    fn auto_promotes_inline_map_when_nested_extensions_would_be_lost() {
+        let mut c = DocumentConstructor::new();
+        c.bind_empty_map().unwrap();
+
+        let outer_scope = c.begin_scope();
+        c.navigate(PathSegment::Value(ObjectKey::String("outer".to_string())))
+            .unwrap();
+        c.bind_empty_map().unwrap();
+
+        let inner_scope = c.begin_scope();
+        c.navigate(PathSegment::Value(ObjectKey::String("inner".to_string())))
+            .unwrap();
+        c.bind_primitive(crate::value::PrimitiveValue::Integer(1.into()))
+            .unwrap();
+        c.set_extension("flag", true).unwrap();
+        c.end_scope(inner_scope).unwrap();
+        c.end_scope(outer_scope).unwrap();
+
+        let doc = c.finish();
+        let source = project_with_layout(&doc, &DocLayout::new());
+        let root = source.root_source();
+
+        assert_eq!(root.bindings.len(), 1);
+        let BindSource::Block(outer_block_id) = &root.bindings[0].bind else {
+            panic!("expected outer map to be promoted to a block binding");
+        };
+        let outer_block = source.source(*outer_block_id);
+        assert_eq!(outer_block.bindings.len(), 2);
     }
 }

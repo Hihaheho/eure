@@ -108,7 +108,7 @@ pub(crate) fn derive_input_to_ir_artifacts(
                             rust_field.wire_name().to_string(),
                             RecordFieldSchemaIr::new(
                                 node_id,
-                                is_option_type(&field.ty),
+                                field_is_optional(&field.ty, &attrs),
                                 None,
                                 FieldCodegenIr::default(),
                             ),
@@ -294,7 +294,7 @@ pub(crate) fn derive_input_to_ir_artifacts(
                                     rust_field.wire_name().to_string(),
                                     RecordFieldSchemaIr::new(
                                         node_id,
-                                        is_option_type(&field.ty),
+                                        field_is_optional(&field.ty, &attrs),
                                         None,
                                         FieldCodegenIr::default(),
                                     ),
@@ -641,6 +641,10 @@ fn is_option_type(ty: &syn::Type) -> bool {
         return segment.ident == "Option";
     }
     false
+}
+
+fn field_is_optional(ty: &syn::Type, attrs: &FieldAttrs) -> bool {
+    is_option_type(ty) || !matches!(&attrs.default, DefaultValue::None)
 }
 
 fn schema_node_any() -> SchemaNodeIr {

@@ -1,0 +1,131 @@
+= `$types.case-file`
+$types {
+  unimplemented-reason {
+    $variant = "union"
+    variants = { Boolean => `boolean`, Text => `text` }
+  }
+  completion-item {
+    label = `text`
+    kind = { variants => { some => `text`, none => `null` } }
+    kind.$variant = "union"
+    kind.$optional = true
+  }
+  diagnostic-item {
+    severity = { variants => { some => `text`, none => `null` } }
+    severity.$variant = "union"
+    severity.$optional = true
+    source = { variants => { some => `text`, none => `null` } }
+    source.$variant = "union"
+    source.$optional = true
+    message = { variants => { some => `text`, none => `null` } }
+    message.$variant = "union"
+    message.$optional = true
+    code = { variants => { some => `text`, none => `null` } }
+    code.$variant = "union"
+    code.$optional = true
+    span = { variants => { some => `text`, none => `null` } }
+    span.$variant = "union"
+    span.$optional = true
+    span_index = { variants => { some => `integer`, none => `null` } }
+    span_index.$variant = "union"
+    span_index.$optional = true
+  }
+  semantic-token-item {
+    $variant = "union"
+    variants = { WithModifiers => (`text`, `text`, [`text`]), Plain => (`text`, `text`) }
+  }
+  scenario-error-item {
+    scenario = `text`
+    output = `text`
+  }
+  json-data {
+    $variant = "union"
+    variants {
+      Both = { json => `text` }
+      Separate {
+        input_json = { variants => { some => `text`, none => `null` } }
+        input_json.$variant = "union"
+        input_json.$optional = true
+        output_json = { variants => { some => `text`, none => `null` } }
+        output_json.$variant = "union"
+        output_json.$optional = true
+      }
+    }
+  }
+  json-schema-data {
+    $variant = "union"
+    variants {
+      Both = { json_schema => `text` }
+      Separate {
+        input_json_schema = { variants => { some => `text`, none => `null` } }
+        input_json_schema.$variant = "union"
+        input_json_schema.$optional = true
+        output_json_schema = { variants => { some => `text`, none => `null` } }
+        output_json_schema.$variant = "union"
+        output_json_schema.$optional = true
+      }
+    }
+  }
+  case-data {
+    $flatten = [`$types.json-data`, `$types.json-schema-data`]
+    input_eure = { variants => { some => `text`, none => `null` } }
+    input_eure.$variant = "union"
+    input_eure.$optional = true
+    input_toml = { variants => { some => `text`, none => `null` } }
+    input_toml.$variant = "union"
+    input_toml.$optional = true
+    normalized = { variants => { some => `text`, none => `null` } }
+    normalized.$variant = "union"
+    normalized.$optional = true
+    schema = { variants => { some => `text`, none => `null` } }
+    schema.$variant = "union"
+    schema.$optional = true
+    schema_errors = [`text`]
+    schema_errors.$optional = true
+    schema_conversion_error = { variants => { some => `text`, none => `null` } }
+    schema_conversion_error.$variant = "union"
+    schema_conversion_error.$optional = true
+    meta_schema_errors = [`text`]
+    meta_schema_errors.$optional = true
+    json_schema_errors = [`text`]
+    json_schema_errors.$optional = true
+    unimplemented = { variants => { some => `$types.unimplemented-reason`, none => `null` } }
+    unimplemented.$variant = "union"
+    unimplemented.$optional = true
+    formatted_input = { variants => { some => `text`, none => `null` } }
+    formatted_input.$variant = "union"
+    formatted_input.$optional = true
+    formatted_normalized = { variants => { some => `text`, none => `null` } }
+    formatted_normalized.$variant = "union"
+    formatted_normalized.$optional = true
+    serialized = { variants => { some => `text`, none => `null` } }
+    serialized.$variant = "union"
+    serialized.$optional = true
+    euremark_errors = [`text`]
+    euremark_errors.$optional = true
+    editor = { variants => { some => `text`, none => `null` } }
+    editor.$variant = "union"
+    editor.$optional = true
+    completions = [`$types.completion-item`]
+    completions.$optional = true
+    trigger = { variants => { some => `text`, none => `null` } }
+    trigger.$variant = "union"
+    trigger.$optional = true
+    diagnostics = [`$types.diagnostic-item`]
+    diagnostics.$optional = true
+    json_errors = [`text`]
+    json_errors.$optional = true
+    semantic_tokens = [`$types.semantic-token-item`]
+    semantic_tokens.$optional = true
+    scenario_errors = [`$types.scenario-error-item`]
+    scenario_errors.$optional = true
+    scenarios_expected = [`text`]
+    scenarios_expected.$optional = true
+  }
+  case-file {
+    $flatten = [`$types.case-data`]
+    cases = { key => `text`, value => `$types.case-data` }
+    cases.$variant = "map"
+    cases.$optional = true
+  }
+}

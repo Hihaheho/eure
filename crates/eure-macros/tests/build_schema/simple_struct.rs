@@ -155,3 +155,23 @@ fn test_allow_unknown_fields() {
         assert!(matches!(rec.unknown_fields, UnknownFieldsPolicy::Allow));
     });
 }
+
+#[derive(BuildSchema)]
+struct DefaultedField {
+    name: String,
+    #[eure(default)]
+    tags: Vec<String>,
+}
+
+#[test]
+fn test_defaulted_non_option_field_is_optional() {
+    let schema = SchemaDocument::of::<DefaultedField>();
+    assert_record(&schema, schema.root, |s, rec| {
+        assert_text(s, rec.properties["name"].schema);
+        assert!(rec.properties["tags"].optional);
+        let SchemaNodeContent::Array(array) = &s.node(rec.properties["tags"].schema).content else {
+            panic!("Expected Array, got {:?}", s.node(rec.properties["tags"].schema).content);
+        };
+        assert_text(s, array.item);
+    });
+}

@@ -102,6 +102,8 @@ Normative keywords (`MUST`, `SHOULD`, `MAY`) are used below.
 7. `DR7` `MUST` encode field mode semantics: record, ext, flatten, flatten_ext.
 8. `DR8` `MUST` encode default semantics exactly:
    none, default trait, default function path.
+   Missing-field semantics derived from defaults `MUST` also be reflected in
+   schema optionality for `BuildSchema`-equivalent record fields.
 9. `DR9` `MUST` encode `type_name` used for `BuildSchema` registration.
 10. `DR10` `MUST` preserve enough information for compile-time validation errors to remain deterministic.
 
@@ -473,7 +475,8 @@ pub struct FieldCodegenIr {
 
 1. Parse all container/field/variant attrs into `RustBindingIr`.
 2. Resolve wire names using rename rules; keep both raw policy and resolved names.
-3. Build semantic nodes from Rust type analysis for `BuildSchema`-equivalent semantics.
+3. Build semantic nodes from Rust type analysis for `BuildSchema`-equivalent semantics,
+   including record property optionality derived from `Option<T>` and defaulted fields.
 4. Apply derive invariants at IR construction time (Section 8.7).
 
 #### Schema -> IR

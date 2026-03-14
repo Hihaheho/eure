@@ -4,6 +4,7 @@
 
 extern crate alloc;
 
+use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
@@ -12,7 +13,10 @@ use crate::identifier::Identifier;
 use crate::parse::{DocumentParser, FromEure};
 
 use super::variant_path::VariantPath;
-use super::{AccessedSnapshot, FlattenContext, ParseContext, ParseError, ParseErrorKind};
+use super::{
+    AccessedSet, AccessedSnapshot, BestParseVariantMatch, ParseContext, ParseError, ParseErrorKind,
+    UnionParseError,
+};
 
 /// The `$variant` extension identifier.
 pub const VARIANT: Identifier = Identifier::new_unchecked("variant");
@@ -96,25 +100,21 @@ pub struct UnionParser<'doc, 'ctx, T, E = ParseError> {
     other_results: Vec<(String, T, AccessedSnapshot)>,
     /// Failed variants (for error reporting)
     failures: Vec<(String, E)>,
-    /// Flatten context for snapshot/rollback (if flattened parsing).
-    flatten_ctx: Option<FlattenContext>,
+    /// Access tracking with snapshot/rollback support for variant trials.
+    accessed: AccessedSet,
 }
 
 impl<'doc, 'ctx, T, E> UnionParser<'doc, 'ctx, T, E>
 where
-    E: From<ParseError>,
+    E: UnionParseError,
 {
     /// Create a new UnionParser for the given context.
     ///
     /// Returns error if `$variant` extension has invalid type or syntax.
     pub(crate) fn new(ctx: &'ctx ParseContext<'doc>) -> Result<Self, ParseError> {
         let variant = Self::resolve_variant(ctx)?;
-
-        // Push snapshot for rollback if flatten context exists
-        let flatten_ctx = ctx.flatten_ctx().cloned();
-        if let Some(ref fc) = flatten_ctx {
-            fc.push_snapshot();
-        }
+        let accessed = ctx.accessed().clone();
+        accessed.push_snapshot();
 
         Ok(Self {
             ctx,
@@ -123,7 +123,7 @@ where
             priority_result: None,
             other_results: Vec::new(),
             failures: Vec::new(),
-            flatten_ctx,
+            accessed,
         })
     }
 
@@ -245,8 +245,6 @@ where
             if v_name == name && self.variant_result.is_none() {
                 let child_ctx = v_ctx.with_variant_rest(rest.clone());
                 let result = f.parse(&child_ctx);
-                // Variant explicitly specified - no rollback needed on failure,
-                // error propagates directly. Changes kept if success.
                 self.variant_result = Some(result);
             }
             return;
@@ -263,31 +261,15 @@ where
         match f.parse(&child_ctx) {
             Ok(value) => {
                 if is_priority {
-                    // Priority variant succeeded - keep the changes
-                    // (snapshot will be popped in parse())
                     self.priority_result = Some(value);
                 } else {
-                    // Other variant succeeded - capture state before restoring
-                    // We need to try more variants, so restore for next attempt
-                    if let Some(ref fc) = self.flatten_ctx {
-                        let captured = fc.capture_current_state();
-                        fc.restore_to_current_snapshot();
-                        self.other_results.push((name.to_string(), value, captured));
-                    } else {
-                        // No flatten context - no state to capture
-                        self.other_results.push((
-                            name.to_string(),
-                            value,
-                            (Default::default(), Default::default()),
-                        ));
-                    }
+                    let captured = self.accessed.capture_current_state();
+                    self.accessed.restore_to_current_snapshot();
+                    self.other_results.push((name.to_string(), value, captured));
                 }
             }
             Err(e) => {
-                // Variant failed - restore to snapshot
-                if let Some(ref fc) = self.flatten_ctx {
-                    fc.restore_to_current_snapshot();
-                }
+                self.accessed.restore_to_current_snapshot();
                 self.failures.push((name.to_string(), e));
             }
         }
@@ -298,8 +280,6 @@ where
         let node_id = self.ctx.node_id();
 
         // 1. Variant determined - return its result
-        // When variant is explicitly specified via $variant, we don't use snapshot/rollback.
-        // The accessed fields from parsing are kept (success) or don't matter (error propagates).
         if let Some((v_name, _, _)) = self.variant {
             let result = self.variant_result.unwrap_or_else(|| {
                 Err(ParseError {
@@ -308,47 +288,33 @@ where
                 }
                 .into())
             });
-            // Pop the snapshot - if success, keep changes; if error, doesn't matter
-            if let Some(ref fc) = self.flatten_ctx {
-                match &result {
-                    Ok(_) => fc.pop_without_restore(),
-                    Err(_) => fc.pop_and_restore(),
-                }
+            match &result {
+                Ok(_) => self.accessed.pop_without_restore(),
+                Err(_) => self.accessed.pop_and_restore(),
             }
             return result;
         }
 
         // 2. Priority result - success, keep changes
         if let Some(value) = self.priority_result {
-            if let Some(ref fc) = self.flatten_ctx {
-                fc.pop_without_restore();
-            }
+            self.accessed.pop_without_restore();
             return Ok(value);
         }
 
         // 3. Check other_results
         match self.other_results.len() {
             0 => {
-                // No match - rollback and return error
-                if let Some(ref fc) = self.flatten_ctx {
-                    fc.pop_and_restore();
-                }
+                self.accessed.pop_and_restore();
                 Err(self.no_match_error(node_id))
             }
             1 => {
-                // Single match - restore to captured state (from successful variant)
                 let (_, value, captured_state) = self.other_results.into_iter().next().unwrap();
-                if let Some(ref fc) = self.flatten_ctx {
-                    fc.restore_to_state(captured_state);
-                    fc.pop_without_restore();
-                }
+                self.accessed.restore_to_state(captured_state);
+                self.accessed.pop_without_restore();
                 Ok(value)
             }
             _ => {
-                // Ambiguous - rollback all changes
-                if let Some(ref fc) = self.flatten_ctx {
-                    fc.pop_and_restore();
-                }
+                self.accessed.pop_and_restore();
                 Err(ParseError {
                     node_id,
                     kind: ParseErrorKind::AmbiguousUnion(
@@ -365,17 +331,81 @@ where
 
     /// Create an error for when no variant matches.
     fn no_match_error(self, node_id: crate::document::NodeId) -> E {
-        self.failures
-            .into_iter()
-            .next()
-            .map(|(_, e)| e)
-            .unwrap_or_else(|| {
-                ParseError {
-                    node_id,
-                    kind: ParseErrorKind::NoMatchingVariant { variant: None },
-                }
-                .into()
-            })
+        E::from_no_matching_variant(
+            node_id,
+            None,
+            select_best_parse_variant_match(&self.failures),
+            &self.failures,
+        )
+    }
+}
+
+fn select_best_parse_variant_match<E>(failures: &[(String, E)]) -> Option<BestParseVariantMatch>
+where
+    E: UnionParseError,
+{
+    failures
+        .iter()
+        .filter_map(|(variant_name, error)| {
+            error
+                .as_parse_error()
+                .map(|parse_error| (variant_name, parse_error))
+        })
+        .max_by_key(|(_, parse_error)| parse_error_match_metrics(parse_error))
+        .map(|(variant_name, parse_error)| BestParseVariantMatch {
+            variant_name: variant_name.clone(),
+            error: Box::new(parse_error.clone()),
+        })
+}
+
+fn parse_error_match_metrics(error: &ParseError) -> (bool, usize, u8) {
+    parse_error_kind_metrics(&error.kind)
+}
+
+fn parse_error_kind_metrics(kind: &ParseErrorKind) -> (bool, usize, u8) {
+    match kind {
+        ParseErrorKind::Nested { source, .. } => {
+            let (structural, depth, priority) = parse_error_kind_metrics(source);
+            (structural, depth + 1, priority)
+        }
+        ParseErrorKind::NoMatchingVariant {
+            best_match: Some(best),
+            ..
+        } => {
+            let (structural, depth, priority) = parse_error_match_metrics(&best.error);
+            (structural, depth + 1, priority)
+        }
+        _ => (
+            is_structural_parse_mismatch(kind),
+            1,
+            parse_error_priority(kind),
+        ),
+    }
+}
+
+fn is_structural_parse_mismatch(kind: &ParseErrorKind) -> bool {
+    matches!(
+        kind,
+        ParseErrorKind::MissingField(_)
+            | ParseErrorKind::MissingExtension(_)
+            | ParseErrorKind::UnknownField(_)
+            | ParseErrorKind::UnknownExtension(_)
+            | ParseErrorKind::LiteralMismatch { .. }
+            | ParseErrorKind::InvalidPattern { .. }
+    )
+}
+
+fn parse_error_priority(kind: &ParseErrorKind) -> u8 {
+    match kind {
+        ParseErrorKind::UnknownField(_) | ParseErrorKind::UnknownExtension(_) => 4,
+        ParseErrorKind::MissingField(_) | ParseErrorKind::MissingExtension(_) => 3,
+        ParseErrorKind::UnknownVariant(_) | ParseErrorKind::UnexpectedVariantPath(_) => 2,
+        ParseErrorKind::LiteralMismatch { .. } | ParseErrorKind::InvalidPattern { .. } => 2,
+        ParseErrorKind::TypeMismatch { .. }
+        | ParseErrorKind::UnexpectedTupleLength { .. }
+        | ParseErrorKind::UnexpectedArrayLength { .. }
+        | ParseErrorKind::NotPrimitive { .. } => 1,
+        _ => 0,
     }
 }
 
@@ -542,6 +572,70 @@ mod tests {
         // Parser's error is returned directly
         assert_eq!(err.node_id, root_id);
         assert_eq!(err.kind, ParseErrorKind::MissingField("test".to_string()));
+    }
+
+    #[test]
+    fn test_union_rolls_back_accessed_fields_between_untagged_variants() {
+        let doc = eure!({ age = 42 });
+        let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
+
+        let err = ctx
+            .parse_union()
+            .unwrap()
+            .variant("full", |ctx: &ParseContext<'_>| {
+                let rec = ctx.parse_record()?;
+                let _: Option<i64> = rec.parse_field_optional("age")?;
+                let name: Option<String> = rec.parse_field_optional("name")?;
+                rec.deny_unknown_fields()?;
+                if name.is_none() {
+                    return Err(ParseError {
+                        node_id: ctx.node_id(),
+                        kind: ParseErrorKind::MissingField("name".to_string()),
+                    });
+                }
+                Ok(TestEnum::Foo)
+            })
+            .variant("minimal", |ctx: &ParseContext<'_>| {
+                let rec = ctx.parse_record()?;
+                let unknown_fields: Vec<_> = rec
+                    .unknown_fields()
+                    .filter_map(|result| match result {
+                        Ok((field_name, _)) => Some(field_name.to_string()),
+                        Err(_) => None,
+                    })
+                    .collect();
+                if unknown_fields.iter().any(|field| field == "age") {
+                    return Err(ParseError {
+                        node_id: ctx.node_id(),
+                        kind: ParseErrorKind::UnknownField("age".to_string()),
+                    });
+                }
+                let name: Option<String> = rec.parse_field_optional("name")?;
+                rec.deny_unknown_fields()?;
+                if name.is_none() {
+                    return Err(ParseError {
+                        node_id: ctx.node_id(),
+                        kind: ParseErrorKind::MissingField("name".to_string()),
+                    });
+                }
+                Ok(TestEnum::Bar)
+            })
+            .parse()
+            .unwrap_err();
+
+        let ParseErrorKind::NoMatchingVariant {
+            best_match: Some(best_match),
+            ..
+        } = err.kind
+        else {
+            panic!("expected no matching variant with best match, got {err:?}");
+        };
+        assert_eq!(best_match.variant_name, "minimal");
+        assert_eq!(
+            best_match.error.kind,
+            ParseErrorKind::UnknownField("age".to_string())
+        );
     }
 
     // --- nested variant tests ---

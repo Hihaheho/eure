@@ -11,5 +11,9 @@ schema = "assets/schemas/eure-schema.schema.eure"
 @ targets.examples
 globs = ["assets/examples/**/*.eure"]
 
+@ targets.test-suite-cases
+globs = ["test-suite/cases/**/*.eure"]
+schema = "assets/schemas/test-suite-case.schema.eure"
+
 @ cli
-default-targets = ["adr", "schemas", "examples"]
+default-targets = ["adr", "schemas", "examples", "test-suite-cases"]

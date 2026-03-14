@@ -1,4 +1,5 @@
 pub mod case;
+pub mod case_schema;
 pub mod parser;
 pub mod scenarios;
 

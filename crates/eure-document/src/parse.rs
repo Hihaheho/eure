@@ -9,6 +9,7 @@ pub mod union;
 pub mod variant_path;
 
 use alloc::borrow::{Cow, ToOwned};
+use alloc::string::String;
 use indexmap::{IndexMap, IndexSet};
 pub use object_key::ParseObjectKey;
 pub use record::RecordParser;
@@ -448,7 +449,7 @@ impl<'doc> ParseContext<'doc> {
     /// Returns error if `$variant` extension has invalid type or syntax.
     pub fn parse_union<T, E>(&self) -> Result<UnionParser<'doc, '_, T, E>, E>
     where
-        E: From<ParseError>,
+        E: UnionParseError,
     {
         UnionParser::new(self).map_err(Into::into)
     }
@@ -815,6 +816,48 @@ pub trait FromEure<'doc, T = Self>: Sized {
     fn parse(ctx: &ParseContext<'doc>) -> Result<T, Self::Error>;
 }
 
+/// Additional behavior required by [`ParseContext::parse_union`].
+///
+/// Union parsing needs to synthesize a "no matching variant" error after all
+/// variants have been tried. Some callers want that as a plain [`ParseError`],
+/// while others use a higher-level error type and treat it as a control signal.
+pub trait UnionParseError: From<ParseError> {
+    /// Returns the underlying [`ParseError`] when one exists.
+    fn as_parse_error(&self) -> Option<&ParseError>;
+
+    /// Constructs the error returned when no union variant matches.
+    fn from_no_matching_variant(
+        node_id: NodeId,
+        variant: Option<String>,
+        best_match: Option<BestParseVariantMatch>,
+        _failures: &[(String, Self)],
+    ) -> Self {
+        ParseError {
+            node_id,
+            kind: ParseErrorKind::NoMatchingVariant {
+                variant,
+                best_match: best_match.map(Box::new),
+            },
+        }
+        .into()
+    }
+}
+
+impl UnionParseError for ParseError {
+    fn as_parse_error(&self) -> Option<&ParseError> {
+        Some(self)
+    }
+}
+
+/// The nearest matching variant for a failed parse-time union attempt.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BestParseVariantMatch {
+    /// Name of the variant that came closest to matching.
+    pub variant_name: String,
+    /// The error produced by that variant.
+    pub error: Box<ParseError>,
+}
+
 #[derive(Debug, thiserror::Error, Clone, PartialEq)]
 #[error("parse error: {kind}")]
 pub struct ParseError {
@@ -889,10 +932,12 @@ pub enum ParseErrorKind {
     InvalidKeyType(crate::value::ObjectKey),
 
     /// No variant matched in union type.
-    #[error("no matching variant{}", variant.as_ref().map(|v| format!(" (variant: {})", v)).unwrap_or_default())]
+    #[error("{}", format_no_matching_variant(variant, best_match))]
     NoMatchingVariant {
         /// Variant name extracted (if any).
         variant: Option<String>,
+        /// Best matching variant, when available.
+        best_match: Option<Box<BestParseVariantMatch>>,
     },
 
     /// Conflicting variant tags: $variant and repr extracted different variant names.
@@ -944,6 +989,38 @@ impl ParseErrorKind {
             source: Box::new(self),
         }
     }
+}
+
+fn format_no_matching_variant(
+    variant: &Option<String>,
+    best_match: &Option<Box<BestParseVariantMatch>>,
+) -> String {
+    let mut message = "no matching variant".to_string();
+    if let Some(variant) = variant {
+        message.push_str(&format!(" (variant: {variant})"));
+    }
+    if let Some(best_match) = best_match {
+        message.push_str(&format!(
+            " (based on nearest variant '{}')",
+            best_match.variant_name
+        ));
+    }
+    message
+}
+
+fn unwrap_best_variant_error<E: UnionParseError>(error: E) -> E {
+    if let Some(ParseError {
+        kind:
+            ParseErrorKind::NoMatchingVariant {
+                best_match: Some(best_match),
+                ..
+            },
+        ..
+    }) = error.as_parse_error()
+    {
+        return E::from(best_match.error.as_ref().clone());
+    }
+    error
 }
 
 impl<'doc> EureDocument {
@@ -1473,7 +1550,7 @@ impl FromEure<'_> for regex::Regex {
 impl<'doc, M, T> FromEure<'doc, Option<T>> for Option<M>
 where
     M: FromEure<'doc, T>,
-    M::Error: From<ParseError>,
+    M::Error: UnionParseError,
 {
     type Error = M::Error;
 
@@ -1495,6 +1572,7 @@ where
                 }
             })
             .parse()
+            .map_err(unwrap_best_variant_error)
     }
 }
 
@@ -1511,7 +1589,7 @@ impl<'doc, MT, T, ME, E, Err> FromEure<'doc, Result<T, E>> for Result<MT, ME>
 where
     MT: FromEure<'doc, T, Error = Err>,
     ME: FromEure<'doc, E, Error = Err>,
-    Err: From<ParseError>,
+    Err: UnionParseError,
 {
     type Error = Err;
 
@@ -1520,6 +1598,7 @@ where
             .variant("ok", (MT::parse).map(Ok))
             .variant("err", (ME::parse).map(Err))
             .parse()
+            .map_err(unwrap_best_variant_error)
     }
 }
 

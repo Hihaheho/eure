@@ -195,3 +195,31 @@ fn test_mixed_variants() {
         });
     });
 }
+
+#[derive(BuildSchema)]
+enum StructVariantWithDefault {
+    User {
+        name: String,
+        #[eure(default)]
+        tags: Vec<String>,
+    },
+}
+
+#[test]
+fn test_defaulted_struct_variant_field_is_optional() {
+    let schema = SchemaDocument::of::<StructVariantWithDefault>();
+    assert_union(&schema, schema.root, |s, union| {
+        assert_record(s, union.variants["User"], |s, rec| {
+            assert_text(s, rec.properties["name"].schema);
+            assert!(rec.properties["tags"].optional);
+            let SchemaNodeContent::Array(array) = &s.node(rec.properties["tags"].schema).content
+            else {
+                panic!(
+                    "Expected Array, got {:?}",
+                    s.node(rec.properties["tags"].schema).content
+                );
+            };
+            assert_text(s, array.item);
+        });
+    });
+}

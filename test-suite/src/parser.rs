@@ -14,6 +14,7 @@ use eure::{
 
 /// A single completion item expected in completions scenario
 #[derive(Debug, Clone, FromEure, BuildSchema)]
+#[eure(type_name = "completion-item")]
 pub struct CompletionItem {
     pub label: String,
     #[eure(default)]
@@ -26,6 +27,7 @@ pub struct CompletionItem {
 
 /// A single diagnostic item expected in diagnostics scenario
 #[derive(Debug, Clone, FromEure, BuildSchema)]
+#[eure(type_name = "diagnostic-item")]
 pub struct DiagnosticItem {
     #[eure(default)]
     pub severity: Option<String>,
@@ -51,6 +53,7 @@ pub struct DiagnosticItem {
 
 /// A single semantic token expectation: (span, token_type) or (span, token_type, [modifiers])
 #[derive(Debug, Clone, FromEure, BuildSchema)]
+#[eure(type_name = "semantic-token-item")]
 pub enum SemanticTokenItem {
     WithModifiers(String, String, Vec<String>),
     Plain(String, String),
@@ -81,6 +84,7 @@ impl SemanticTokenItem {
 
 /// A single scenario error expectation for testing scenarios that should fail
 #[derive(Debug, Clone, FromEure, BuildSchema)]
+#[eure(type_name = "scenario-error-item")]
 pub struct ScenarioErrorItem {
     /// The exact scenario name (e.g., "normalization", "eure_to_json(input_eure)")
     pub scenario: String,
@@ -89,6 +93,7 @@ pub struct ScenarioErrorItem {
 }
 
 #[derive(Debug, Clone, FromEure, BuildSchema)]
+#[eure(type_name = "json-data")]
 pub enum JsonData {
     Both {
         json: Text,
@@ -147,6 +152,7 @@ impl Default for JsonData {
 /// JSON Schema data for test cases - supports bidirectional testing.
 /// Similar to JsonData, but for JSON Schema conversion tests.
 #[derive(Debug, Clone, FromEure, BuildSchema)]
+#[eure(type_name = "json-schema-data")]
 pub enum JsonSchemaData {
     /// Same JSON Schema used for both input and output
     Both { json_schema: Text },
@@ -204,6 +210,7 @@ impl Default for JsonSchemaData {
 
 /// A single test case's data fields
 #[derive(Debug, Clone, Default, FromEure, BuildSchema)]
+#[eure(type_name = "case-data")]
 pub struct CaseData {
     #[eure(default)]
     pub input_eure: Option<Text>,
@@ -288,6 +295,7 @@ impl CaseData {
 }
 
 #[derive(Debug, Clone, FromEure, BuildSchema)]
+#[eure(type_name = "unimplemented-reason")]
 pub enum UnimplementedReason {
     Boolean(bool),
     Text(Text),
@@ -305,6 +313,7 @@ impl UnimplementedReason {
 
 /// A file containing one or more test cases
 #[derive(Debug, Clone, FromEure, BuildSchema)]
+#[eure(type_name = "case-file")]
 pub struct CaseFile {
     #[eure(flatten)]
     pub default_case: CaseData,
@@ -377,4 +386,115 @@ pub fn parse_case_file(input: &str, path: PathBuf) -> Result<ParseResult, ParseE
         cst,
         input: input.to_string(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::{CaseData, ParseError, parse_case_file};
+
+    #[allow(clippy::result_large_err)]
+    fn parse_default_case(input: &str) -> Result<CaseData, ParseError> {
+        parse_case_file(input, PathBuf::from("case.eure"))
+            .map(|result| result.case_file.default_case)
+    }
+
+    #[test]
+    fn test_parse_case_file_accepts_shared_json_data() {
+        let case = parse_default_case(r#"json = "shared""#).expect("parse case");
+
+        assert_eq!(case.json.input_json().unwrap().content.as_str(), "shared");
+        assert_eq!(case.json.output_json().unwrap().content.as_str(), "shared");
+    }
+
+    #[test]
+    fn test_parse_case_file_accepts_separate_json_data() {
+        let case = parse_default_case(
+            r#"
+input_json = "input"
+output_json = "output"
+"#,
+        )
+        .expect("parse case");
+
+        assert_eq!(case.json.input_json().unwrap().content.as_str(), "input");
+        assert_eq!(case.json.output_json().unwrap().content.as_str(), "output");
+    }
+
+    #[test]
+    fn test_parse_case_file_rejects_mixed_json_data() {
+        for input in [
+            "json = \"shared\"\ninput_json = \"input\"\n",
+            "json = \"shared\"\noutput_json = \"output\"\n",
+        ] {
+            assert!(
+                parse_default_case(input).is_err(),
+                "expected parse failure for:\n{input}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_parse_case_file_accepts_shared_json_schema_data() {
+        let case = parse_default_case(r#"json_schema = "shared schema""#).expect("parse case");
+
+        assert_eq!(
+            case.json_schema
+                .input_json_schema()
+                .unwrap()
+                .content
+                .as_str(),
+            "shared schema"
+        );
+        assert_eq!(
+            case.json_schema
+                .output_json_schema()
+                .unwrap()
+                .content
+                .as_str(),
+            "shared schema"
+        );
+    }
+
+    #[test]
+    fn test_parse_case_file_accepts_separate_json_schema_data() {
+        let case = parse_default_case(
+            r#"
+input_json_schema = "input schema"
+output_json_schema = "output schema"
+"#,
+        )
+        .expect("parse case");
+
+        assert_eq!(
+            case.json_schema
+                .input_json_schema()
+                .unwrap()
+                .content
+                .as_str(),
+            "input schema"
+        );
+        assert_eq!(
+            case.json_schema
+                .output_json_schema()
+                .unwrap()
+                .content
+                .as_str(),
+            "output schema"
+        );
+    }
+
+    #[test]
+    fn test_parse_case_file_rejects_mixed_json_schema_data() {
+        for input in [
+            "json_schema = \"shared schema\"\ninput_json_schema = \"input schema\"\n",
+            "json_schema = \"shared schema\"\noutput_json_schema = \"output schema\"\n",
+        ] {
+            assert!(
+                parse_default_case(input).is_err(),
+                "expected parse failure for:\n{input}"
+            );
+        }
+    }
 }

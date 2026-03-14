@@ -8,7 +8,7 @@ use std::borrow::Cow;
 
 use annotate_snippets::renderer::DecorStyle as AnnotateDecorStyle;
 use eure_document::document::NodeId;
-use eure_document::parse::ParseError;
+use eure_document::parse::{ParseError, ParseErrorKind as DocumentParseErrorKind};
 use eure_document::path::EurePath;
 use eure_document::value::ObjectKey;
 use eure_parol::EureParseError;
@@ -1197,6 +1197,20 @@ pub fn report_from_eure_parse_error(
     cst: &Cst,
     origins: &OriginMap,
 ) -> ErrorReports {
+    if let DocumentParseErrorKind::NoMatchingVariant {
+        best_match: Some(best),
+        ..
+    } = &error.kind
+    {
+        let mut reports = report_from_eure_parse_error(&best.error, file, cst, origins);
+        if let Some(first) = reports.get_mut(0) {
+            *first = first
+                .clone()
+                .with_note(format!("based on nearest variant '{}'", best.variant_name));
+        }
+        return reports;
+    }
+
     // FIXME: Fallback to EMPTY span when node span resolution fails.
     // Should set is_fallback flag on Origin when span is missing.
     let span = origins

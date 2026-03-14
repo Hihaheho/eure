@@ -2,8 +2,10 @@
 //!
 //! Validates records against RecordSchema constraints using parse_record() API.
 
+use std::collections::HashSet;
+
 use eure_document::identifier::Identifier;
-use eure_document::parse::{DocumentParser, ParseContext};
+use eure_document::parse::{DocumentParser, ParseContext, ParserScope};
 use eure_document::value::ObjectKey;
 
 use crate::{
@@ -11,7 +13,7 @@ use crate::{
 };
 
 use super::SchemaValidator;
-use super::context::ValidationContext;
+use super::context::{ValidationContext, ValidationState};
 use super::error::{ValidationError, ValidationWarning, ValidatorError, select_best_variant_match};
 use super::primitive::actual_type_from_error;
 
@@ -27,6 +29,25 @@ pub struct RecordValidator<'a, 'doc, 's> {
     pub ctx: &'a ValidationContext<'doc>,
     pub schema: &'s RecordSchema,
     pub schema_node_id: SchemaNodeId,
+}
+
+struct DeferredUnknownField {
+    name: String,
+}
+
+struct FlattenVariantTrial {
+    variant_name: String,
+    schema_node_id: SchemaNodeId,
+    hard_errors: Vec<ValidationError>,
+    deferred_unknown_fields: Vec<DeferredUnknownField>,
+    validation_state: ValidationState,
+    accessed_state: eure_document::parse::AccessedSnapshot,
+}
+
+struct PendingFlattenedUnionError {
+    schema_node_id: SchemaNodeId,
+    parent_node_id: eure_document::document::NodeId,
+    trials: Vec<FlattenVariantTrial>,
 }
 
 impl<'a, 'doc, 's> DocumentParser<'doc> for RecordValidator<'a, 'doc, 's> {
@@ -107,56 +128,78 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for RecordValidator<'a, 'doc, 's> {
             .flatten
             .iter()
             .any(|&id| self.flatten_target_is_map(id));
+        let mut pending_flattened_unions = Vec::new();
 
         for &flatten_schema_id in &self.schema.flatten {
             let flatten_ctx = rec.flatten();
-            self.validate_flatten_target(&flatten_ctx, flatten_schema_id, node_id)?;
+            if let Some(pending_union_error) =
+                self.validate_flatten_target(&flatten_ctx, flatten_schema_id, node_id)?
+            {
+                pending_flattened_unions.push(pending_union_error);
+            }
         }
 
-        // Handle unknown fields using unknown_fields() iterator
-        // This happens after all flatten targets have been processed
+        let mut unknown_string_fields = HashSet::new();
+        let mut unknown_fields = Vec::new();
+        let mut invalid_keys = Vec::new();
         for result in rec.unknown_fields() {
-            let (field_name, field_ctx) = match result {
-                Ok(field) => field,
-                Err((key, ctx)) => {
-                    // Non-string key in record
-                    // Only report if there are no Map flatten targets (which handle non-string keys)
-                    if !has_map_flatten {
-                        self.ctx.record_error(ValidationError::InvalidKeyType {
-                            key: key.clone(),
-                            path: self.ctx.path(),
-                            node_id: ctx.node_id(),
-                            schema_node_id: self.schema_node_id,
-                        });
-                    }
-                    continue;
+            match result {
+                Ok((field_name, field_ctx)) => {
+                    unknown_string_fields.insert(field_name.to_string());
+                    unknown_fields.push((field_name.to_string(), field_ctx));
                 }
-            };
-            match &self.schema.unknown_fields {
-                UnknownFieldsPolicy::Deny => {
-                    self.ctx.record_error(ValidationError::UnknownField {
-                        field: field_name.to_string(),
+                Err((key, ctx)) => invalid_keys.push((key.clone(), ctx)),
+            }
+        }
+
+        for pending_union_error in pending_flattened_unions {
+            self.record_pending_flattened_union_error(pending_union_error, &unknown_string_fields);
+        }
+
+        // A flattened record participates in its parent's field space.
+        // The parent validates any entries that remain unconsumed after all
+        // flatten targets have run.
+        if parse_ctx.parser_scope() != Some(ParserScope::Record) {
+            for (key, ctx) in invalid_keys {
+                // Non-string key in record
+                // Only report if there are no Map flatten targets (which handle non-string keys)
+                if !has_map_flatten {
+                    self.ctx.record_error(ValidationError::InvalidKeyType {
+                        key,
                         path: self.ctx.path(),
-                        node_id,
+                        node_id: ctx.node_id(),
                         schema_node_id: self.schema_node_id,
                     });
                 }
-                UnknownFieldsPolicy::Allow => {}
-                UnknownFieldsPolicy::Schema(s) => {
-                    if let Ok(ident) = field_name.parse::<Identifier>() {
-                        self.ctx.push_path_ident(ident);
-                    } else {
-                        self.ctx
-                            .push_path_key(ObjectKey::String(field_name.to_string()));
+            }
+
+            for (field_name, field_ctx) in unknown_fields {
+                match &self.schema.unknown_fields {
+                    UnknownFieldsPolicy::Deny => {
+                        self.ctx.record_error(ValidationError::UnknownField {
+                            field: field_name,
+                            path: self.ctx.path(),
+                            node_id,
+                            schema_node_id: self.schema_node_id,
+                        });
                     }
+                    UnknownFieldsPolicy::Allow => {}
+                    UnknownFieldsPolicy::Schema(s) => {
+                        if let Ok(ident) = field_name.parse::<Identifier>() {
+                            self.ctx.push_path_ident(ident);
+                        } else {
+                            self.ctx
+                                .push_path_key(ObjectKey::String(field_name.clone()));
+                        }
 
-                    let child_validator = SchemaValidator {
-                        ctx: self.ctx,
-                        schema_node_id: *s,
-                    };
-                    let _ = field_ctx.parse_with(child_validator);
+                        let child_validator = SchemaValidator {
+                            ctx: self.ctx,
+                            schema_node_id: *s,
+                        };
+                        let _ = field_ctx.parse_with(child_validator);
 
-                    self.ctx.pop_path();
+                        self.ctx.pop_path();
+                    }
                 }
             }
         }
@@ -194,25 +237,24 @@ impl<'a, 'doc, 's> RecordValidator<'a, 'doc, 's> {
         flatten_ctx: &ParseContext<'doc>,
         flatten_schema_id: SchemaNodeId,
         parent_node_id: eure_document::document::NodeId,
-    ) -> Result<(), ValidatorError> {
+    ) -> Result<Option<PendingFlattenedUnionError>, ValidatorError> {
         let flatten_node = self.ctx.schema.node(flatten_schema_id);
 
         match &flatten_node.content {
             SchemaNodeContent::Record(_) => {
                 self.validate_flattened_record(flatten_ctx, flatten_schema_id)?;
+                Ok(None)
             }
-            SchemaNodeContent::Union(union_schema) => {
-                self.validate_flattened_union(
-                    flatten_ctx,
-                    union_schema,
-                    flatten_schema_id,
-                    parent_node_id,
-                )?;
-            }
+            SchemaNodeContent::Union(union_schema) => self.validate_flattened_union(
+                flatten_ctx,
+                union_schema,
+                flatten_schema_id,
+                parent_node_id,
+            ),
             SchemaNodeContent::Reference(type_ref) => {
                 // Resolve the reference and recurse
                 if let Some(resolved_id) = self.ctx.schema.get_type(&type_ref.name) {
-                    self.validate_flatten_target(flatten_ctx, resolved_id, parent_node_id)?;
+                    self.validate_flatten_target(flatten_ctx, resolved_id, parent_node_id)
                 } else {
                     // Record error for undefined type reference
                     self.ctx
@@ -222,6 +264,7 @@ impl<'a, 'doc, 's> RecordValidator<'a, 'doc, 's> {
                             node_id: parent_node_id,
                             schema_node_id: flatten_schema_id,
                         });
+                    Ok(None)
                 }
             }
             SchemaNodeContent::Map(map_schema) => {
@@ -231,6 +274,7 @@ impl<'a, 'doc, 's> RecordValidator<'a, 'doc, 's> {
                     flatten_schema_id,
                     parent_node_id,
                 )?;
+                Ok(None)
             }
             _ => {
                 // Only Record, Union, Map, and Reference can be flattened
@@ -241,16 +285,15 @@ impl<'a, 'doc, 's> RecordValidator<'a, 'doc, 's> {
                         node_id: parent_node_id,
                         schema_node_id: flatten_schema_id,
                     });
+                Ok(None)
             }
         }
-
-        Ok(())
     }
 
     /// Validate a flattened record's properties against the current record.
     ///
-    /// Simply delegates to SchemaValidator - the `unknown_fields()` iterator
-    /// returns empty for flattened contexts, so the parent handles unknown field checks.
+    /// The flattened child shares the parent's field space, and `rec.flatten()`
+    /// encodes that in the parse context.
     fn validate_flattened_record(
         &self,
         flatten_ctx: &ParseContext<'doc>,
@@ -271,55 +314,197 @@ impl<'a, 'doc, 's> RecordValidator<'a, 'doc, 's> {
         union_schema: &UnionSchema,
         schema_node_id: SchemaNodeId,
         parent_node_id: eure_document::document::NodeId,
-    ) -> Result<(), ValidatorError> {
-        let (matched, errors): (Vec<_>, Vec<_>) = union_schema
-            .variants
-            .iter()
-            .map(|(name, &id)| (name.clone(), id, self.try_variant(flatten_ctx, id)))
-            .partition(|(_, _, result)| result.is_ok());
+    ) -> Result<Option<PendingFlattenedUnionError>, ValidatorError> {
+        let flatten_state = flatten_ctx
+            .flatten_ctx()
+            .expect("flattened union must run in flatten context");
+        let base_accessed_state = flatten_state.capture_current_state();
+        let union_owned_fields = self.collect_owned_field_names_for_union(union_schema);
 
-        let matched: Vec<_> = matched.into_iter().map(|(name, _, _)| name).collect();
-        let errors: Vec<_> = errors
-            .into_iter()
-            .filter_map(|(name, id, r)| r.err().map(|e| (name, id, e)))
-            .collect();
+        let mut matched = Vec::new();
+        let mut failed_trials = Vec::new();
+
+        for (variant_name, &variant_schema_id) in &union_schema.variants {
+            flatten_state.restore_to_state(base_accessed_state.clone());
+            let trial = self.try_variant(
+                flatten_ctx,
+                variant_name,
+                variant_schema_id,
+                &union_owned_fields,
+            )?;
+            if trial.hard_errors.is_empty() {
+                matched.push(trial);
+            } else {
+                failed_trials.push(trial);
+            }
+        }
 
         match matched.len() {
-            0 => self.ctx.record_error(ValidationError::NoVariantMatched {
-                path: self.ctx.path(),
-                best_match: select_best_variant_match(errors).map(Box::new),
-                node_id: parent_node_id,
-                schema_node_id,
-            }),
-            1 => {}
-            _ => self.ctx.record_error(ValidationError::AmbiguousUnion {
-                variants: matched,
-                path: self.ctx.path(),
-                node_id: parent_node_id,
-                schema_node_id,
-            }),
+            0 => {
+                flatten_state.restore_to_state(base_accessed_state);
+                Ok(Some(PendingFlattenedUnionError {
+                    schema_node_id,
+                    parent_node_id,
+                    trials: failed_trials,
+                }))
+            }
+            1 => {
+                let trial = matched.into_iter().next().unwrap();
+                flatten_state.restore_to_state(trial.accessed_state);
+                self.ctx.merge_state(trial.validation_state);
+                Ok(None)
+            }
+            _ => {
+                let merged_accessed_state = merge_accessed_states(
+                    &base_accessed_state,
+                    matched.iter().map(|trial| &trial.accessed_state),
+                );
+                flatten_state.restore_to_state(merged_accessed_state);
+                self.ctx.record_error(ValidationError::AmbiguousUnion {
+                    variants: matched
+                        .into_iter()
+                        .map(|trial| trial.variant_name)
+                        .collect(),
+                    path: self.ctx.path(),
+                    node_id: parent_node_id,
+                    schema_node_id,
+                });
+                Ok(None)
+            }
         }
-        Ok(())
     }
 
-    /// Try validating a variant, returning Ok(()) if it matches, Err(errors) if not.
+    /// Try validating a flattened-union variant.
     fn try_variant(
         &self,
         flatten_ctx: &ParseContext<'doc>,
+        variant_name: &str,
         schema_node_id: SchemaNodeId,
-    ) -> Result<(), Vec<ValidationError>> {
+        union_owned_fields: &HashSet<String>,
+    ) -> Result<FlattenVariantTrial, ValidatorError> {
         let forked = self.ctx.fork_state();
         let trial = ValidationContext::with_state(self.ctx.document, self.ctx.schema, forked);
         let _ = flatten_ctx.parse_with(SchemaValidator {
             ctx: &trial,
             schema_node_id,
         });
-        if trial.has_errors() {
-            Err(trial.state.into_inner().errors)
-        } else {
-            self.ctx.merge_state(trial.state.into_inner());
-            Ok(())
+
+        let validation_state = trial.state.into_inner();
+        let mut hard_errors = validation_state.errors.clone();
+        let deferred_unknown_fields = match flatten_ctx.parse_record() {
+            Ok(record) => record
+                .unknown_fields()
+                .filter_map(|result| match result {
+                    Ok((field_name, _)) => {
+                        let field_name = field_name.to_string();
+                        if union_owned_fields.contains(&field_name) {
+                            hard_errors.push(ValidationError::UnknownField {
+                                field: field_name,
+                                path: self.ctx.path(),
+                                node_id: flatten_ctx.node_id(),
+                                schema_node_id,
+                            });
+                            None
+                        } else {
+                            Some(DeferredUnknownField { name: field_name })
+                        }
+                    }
+                    Err(_) => None,
+                })
+                .collect(),
+            Err(_) => Vec::new(),
+        };
+        let accessed_state = flatten_ctx
+            .flatten_ctx()
+            .expect("flattened union must run in flatten context")
+            .capture_current_state();
+
+        Ok(FlattenVariantTrial {
+            variant_name: variant_name.to_string(),
+            schema_node_id,
+            hard_errors,
+            deferred_unknown_fields,
+            validation_state,
+            accessed_state,
+        })
+    }
+
+    fn collect_owned_field_names_for_union(&self, union_schema: &UnionSchema) -> HashSet<String> {
+        let mut field_names = HashSet::new();
+        let mut visited = HashSet::new();
+        for &variant_schema_id in union_schema.variants.values() {
+            self.collect_owned_field_names(variant_schema_id, &mut field_names, &mut visited);
         }
+        field_names
+    }
+
+    fn collect_owned_field_names(
+        &self,
+        schema_id: SchemaNodeId,
+        field_names: &mut HashSet<String>,
+        visited: &mut HashSet<SchemaNodeId>,
+    ) {
+        if !visited.insert(schema_id) {
+            return;
+        }
+
+        let schema_node = self.ctx.schema.node(schema_id);
+        match &schema_node.content {
+            SchemaNodeContent::Record(record_schema) => {
+                field_names.extend(record_schema.properties.keys().cloned());
+                for &flatten_schema_id in &record_schema.flatten {
+                    self.collect_owned_field_names(flatten_schema_id, field_names, visited);
+                }
+            }
+            SchemaNodeContent::Union(union_schema) => {
+                for &variant_schema_id in union_schema.variants.values() {
+                    self.collect_owned_field_names(variant_schema_id, field_names, visited);
+                }
+            }
+            SchemaNodeContent::Reference(type_ref) => {
+                if let Some(resolved_id) = self.ctx.schema.get_type(&type_ref.name) {
+                    self.collect_owned_field_names(resolved_id, field_names, visited);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn record_pending_flattened_union_error(
+        &self,
+        pending: PendingFlattenedUnionError,
+        final_unknown_fields: &HashSet<String>,
+    ) {
+        let PendingFlattenedUnionError {
+            schema_node_id,
+            parent_node_id,
+            trials,
+        } = pending;
+
+        let variant_errors = trials
+            .into_iter()
+            .map(|trial| {
+                let mut errors = trial.hard_errors;
+                for deferred in trial.deferred_unknown_fields {
+                    if final_unknown_fields.contains(&deferred.name) {
+                        errors.push(ValidationError::UnknownField {
+                            field: deferred.name,
+                            path: self.ctx.path(),
+                            node_id: parent_node_id,
+                            schema_node_id: trial.schema_node_id,
+                        });
+                    }
+                }
+                (trial.variant_name, trial.schema_node_id, errors)
+            })
+            .collect();
+
+        self.ctx.record_error(ValidationError::NoVariantMatched {
+            path: self.ctx.path(),
+            best_match: select_best_variant_match(variant_errors).map(Box::new),
+            node_id: parent_node_id,
+            schema_node_id,
+        });
     }
 
     /// Validate a flattened map - unknown entries are validated against the map schema.
@@ -486,4 +671,17 @@ impl<'a, 'doc, 's> RecordValidator<'a, 'doc, 's> {
             }
         }
     }
+}
+
+fn merge_accessed_states<'a>(
+    base: &eure_document::parse::AccessedSnapshot,
+    states: impl IntoIterator<Item = &'a eure_document::parse::AccessedSnapshot>,
+) -> eure_document::parse::AccessedSnapshot {
+    let mut merged_fields = base.0.clone();
+    let mut merged_extensions = base.1.clone();
+    for state in states {
+        merged_fields.extend(state.0.iter().cloned());
+        merged_extensions.extend(state.1.iter().cloned());
+    }
+    (merged_fields, merged_extensions)
 }

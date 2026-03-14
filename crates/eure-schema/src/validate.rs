@@ -147,125 +147,122 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
 
         let schema_node = self.ctx.schema.node(self.schema_node_id);
 
-        // Create a flattened context so extensions and content validation share AccessedSet
-        let parse_ctx = parse_ctx.flatten();
-
-        // Validate extensions (accesses tracked in flatten context)
-        self.validate_extensions(&parse_ctx)?;
+        // Validate extensions first so later unknown-extension checks see accessed state.
+        self.validate_extensions(parse_ctx)?;
 
         // Dispatch to type-specific validator
         match &schema_node.content {
             SchemaNodeContent::Any => {
-                self.warn_unknown_extensions(&parse_ctx);
+                self.warn_unknown_extensions(parse_ctx);
                 let mut v = AnyValidator;
-                v.parse(&parse_ctx)
+                v.parse(parse_ctx)
             }
             SchemaNodeContent::Text(s) => {
-                self.warn_unknown_extensions(&parse_ctx);
+                self.warn_unknown_extensions(parse_ctx);
                 let mut v = TextValidator {
                     ctx: self.ctx,
                     schema: s,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(&parse_ctx)
+                v.parse(parse_ctx)
             }
             SchemaNodeContent::Integer(s) => {
-                self.warn_unknown_extensions(&parse_ctx);
+                self.warn_unknown_extensions(parse_ctx);
                 let mut v = IntegerValidator {
                     ctx: self.ctx,
                     schema: s,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(&parse_ctx)
+                v.parse(parse_ctx)
             }
             SchemaNodeContent::Float(s) => {
-                self.warn_unknown_extensions(&parse_ctx);
+                self.warn_unknown_extensions(parse_ctx);
                 let mut v = FloatValidator {
                     ctx: self.ctx,
                     schema: s,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(&parse_ctx)
+                v.parse(parse_ctx)
             }
             SchemaNodeContent::Boolean => {
-                self.warn_unknown_extensions(&parse_ctx);
+                self.warn_unknown_extensions(parse_ctx);
                 let mut v = BooleanValidator {
                     ctx: self.ctx,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(&parse_ctx)
+                v.parse(parse_ctx)
             }
             SchemaNodeContent::Null => {
-                self.warn_unknown_extensions(&parse_ctx);
+                self.warn_unknown_extensions(parse_ctx);
                 let mut v = NullValidator {
                     ctx: self.ctx,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(&parse_ctx)
+                v.parse(parse_ctx)
             }
             SchemaNodeContent::Literal(expected) => {
-                self.warn_unknown_extensions(&parse_ctx);
+                self.warn_unknown_extensions(parse_ctx);
                 let mut v = LiteralValidator {
                     ctx: self.ctx,
                     expected,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(&parse_ctx)
+                v.parse(parse_ctx)
             }
             SchemaNodeContent::Array(s) => {
-                self.warn_unknown_extensions(&parse_ctx);
+                self.warn_unknown_extensions(parse_ctx);
                 let mut v = ArrayValidator {
                     ctx: self.ctx,
                     schema: s,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(&parse_ctx)
+                v.parse(parse_ctx)
             }
             SchemaNodeContent::Map(s) => {
-                self.warn_unknown_extensions(&parse_ctx);
+                self.warn_unknown_extensions(parse_ctx);
                 let mut v = MapValidator {
                     ctx: self.ctx,
                     schema: s,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(&parse_ctx)
+                v.parse(parse_ctx)
             }
             SchemaNodeContent::Record(s) => {
-                self.warn_unknown_extensions(&parse_ctx);
+                self.warn_unknown_extensions(parse_ctx);
                 let mut v = RecordValidator {
                     ctx: self.ctx,
                     schema: s,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(&parse_ctx)
+                v.parse(parse_ctx)
             }
             SchemaNodeContent::Tuple(s) => {
-                self.warn_unknown_extensions(&parse_ctx);
+                self.warn_unknown_extensions(parse_ctx);
                 let mut v = TupleValidator {
                     ctx: self.ctx,
                     schema: s,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(&parse_ctx)
+                v.parse(parse_ctx)
             }
             SchemaNodeContent::Union(s) => {
-                self.warn_unknown_extensions(&parse_ctx);
+                self.warn_unknown_extensions(parse_ctx);
                 let mut v = UnionValidator {
                     ctx: self.ctx,
                     schema: s,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(&parse_ctx)
+                v.parse(parse_ctx)
             }
             SchemaNodeContent::Reference(r) => {
-                // Reference: recurse with resolved schema using the same flattened context
-                // This ensures extension tracking is shared through Reference indirection
+                // Reference: recurse with the same parse context so accessed state stays local
+                // to this node while following the resolved schema.
                 let mut child_validator = ReferenceValidator {
                     ctx: self.ctx,
                     type_ref: r,
                     schema_node_id: self.schema_node_id,
                 };
-                child_validator.parse(&parse_ctx)
+                child_validator.parse(parse_ctx)
             }
         }
     }
@@ -275,7 +272,7 @@ impl<'a, 'doc> SchemaValidator<'a, 'doc> {
     /// Validate extensions on the current node.
     ///
     /// This validates required and present extensions. Accesses are tracked
-    /// in the flatten context's AccessedSet.
+    /// in the parse context's AccessedSet.
     fn validate_extensions(&self, parse_ctx: &ParseContext<'doc>) -> Result<(), ValidatorError> {
         let schema_node = self.ctx.schema.node(self.schema_node_id);
         let ext_types = &schema_node.ext_types;
@@ -295,7 +292,7 @@ impl<'a, 'doc> SchemaValidator<'a, 'doc> {
             }
         }
 
-        // Validate present extensions - accesses are tracked in the shared flatten context
+        // Validate present extensions - `ext_optional()` marks them as accessed on this context.
         for (ext_ident, ext_schema) in ext_types {
             if let Some(ext_ctx) = parse_ctx.ext_optional(ext_ident.as_ref()) {
                 self.ctx.push_path_extension(ext_ident.clone());
@@ -319,7 +316,7 @@ impl<'a, 'doc> SchemaValidator<'a, 'doc> {
     /// - Not accessed (not in schema's ext_types)
     /// - Not built-in ($variant, $schema, $ext-type, etc.)
     ///
-    /// Uses the shared AccessedSet from the flatten context to determine
+    /// Uses the parse context's AccessedSet to determine
     /// which extensions have been accessed.
     fn warn_unknown_extensions(&self, parse_ctx: &ParseContext<'doc>) {
         for (ext_ident, _) in parse_ctx.unknown_extensions() {
@@ -526,6 +523,292 @@ mod tests {
 
         let result = validate(&doc, &schema);
         assert!(result.is_valid);
+    }
+
+    #[test]
+    fn test_validate_record_with_sibling_flatten_targets() {
+        let (mut schema, _) = create_simple_schema(SchemaNodeContent::Any);
+        let name_schema_id = schema.create_node(SchemaNodeContent::Text(TextSchema::default()));
+        let age_schema_id =
+            schema.create_node(SchemaNodeContent::Integer(IntegerSchema::default()));
+
+        let mut left_properties = IndexMap::new();
+        left_properties.insert(
+            "name".to_string(),
+            RecordFieldSchema {
+                schema: name_schema_id,
+                optional: false,
+                binding_style: None,
+                field_codegen: FieldCodegen::default(),
+            },
+        );
+        let left_schema_id = schema.create_node(SchemaNodeContent::Record(RecordSchema {
+            properties: left_properties,
+            flatten: vec![],
+            unknown_fields: UnknownFieldsPolicy::Deny,
+        }));
+
+        let mut right_properties = IndexMap::new();
+        right_properties.insert(
+            "age".to_string(),
+            RecordFieldSchema {
+                schema: age_schema_id,
+                optional: false,
+                binding_style: None,
+                field_codegen: FieldCodegen::default(),
+            },
+        );
+        let right_schema_id = schema.create_node(SchemaNodeContent::Record(RecordSchema {
+            properties: right_properties,
+            flatten: vec![],
+            unknown_fields: UnknownFieldsPolicy::Deny,
+        }));
+
+        schema.node_mut(schema.root).content = SchemaNodeContent::Record(RecordSchema {
+            properties: IndexMap::new(),
+            flatten: vec![left_schema_id, right_schema_id],
+            unknown_fields: UnknownFieldsPolicy::Deny,
+        });
+
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+        let name_id = doc
+            .add_map_child(ObjectKey::String("name".to_string()), root_id)
+            .unwrap()
+            .node_id;
+        doc.node_mut(name_id).content =
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("Alice".to_string())));
+        let age_id = doc
+            .add_map_child(ObjectKey::String("age".to_string()), root_id)
+            .unwrap()
+            .node_id;
+        doc.node_mut(age_id).content =
+            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(42)));
+
+        let result = validate(&doc, &schema);
+        assert!(
+            result.is_valid,
+            "Expected sibling flatten targets to validate, got errors: {:?}",
+            result.errors
+        );
+    }
+
+    #[test]
+    fn test_validate_record_with_flattened_union_and_sibling_flatten_targets() {
+        let (mut schema, _) = create_simple_schema(SchemaNodeContent::Any);
+        let name_schema_id = schema.create_node(SchemaNodeContent::Text(TextSchema::default()));
+        let nickname_schema_id = schema.create_node(SchemaNodeContent::Text(TextSchema::default()));
+        let age_schema_id =
+            schema.create_node(SchemaNodeContent::Integer(IntegerSchema::default()));
+
+        let mut person_properties = IndexMap::new();
+        person_properties.insert(
+            "name".to_string(),
+            RecordFieldSchema {
+                schema: name_schema_id,
+                optional: false,
+                binding_style: None,
+                field_codegen: FieldCodegen::default(),
+            },
+        );
+        let person_schema_id = schema.create_node(SchemaNodeContent::Record(RecordSchema {
+            properties: person_properties,
+            flatten: vec![],
+            unknown_fields: UnknownFieldsPolicy::Deny,
+        }));
+
+        let mut alias_properties = IndexMap::new();
+        alias_properties.insert(
+            "nickname".to_string(),
+            RecordFieldSchema {
+                schema: nickname_schema_id,
+                optional: false,
+                binding_style: None,
+                field_codegen: FieldCodegen::default(),
+            },
+        );
+        let alias_schema_id = schema.create_node(SchemaNodeContent::Record(RecordSchema {
+            properties: alias_properties,
+            flatten: vec![],
+            unknown_fields: UnknownFieldsPolicy::Deny,
+        }));
+
+        let mut union_variants = IndexMap::new();
+        union_variants.insert("Person".to_string(), person_schema_id);
+        union_variants.insert("Alias".to_string(), alias_schema_id);
+        let union_schema_id = schema.create_node(SchemaNodeContent::Union(UnionSchema {
+            variants: union_variants,
+            unambiguous: IndexSet::new(),
+            interop: crate::interop::UnionInterop::default(),
+            deny_untagged: IndexSet::new(),
+        }));
+
+        let mut sibling_properties = IndexMap::new();
+        sibling_properties.insert(
+            "age".to_string(),
+            RecordFieldSchema {
+                schema: age_schema_id,
+                optional: false,
+                binding_style: None,
+                field_codegen: FieldCodegen::default(),
+            },
+        );
+        let sibling_schema_id = schema.create_node(SchemaNodeContent::Record(RecordSchema {
+            properties: sibling_properties,
+            flatten: vec![],
+            unknown_fields: UnknownFieldsPolicy::Deny,
+        }));
+
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+        let name_id = doc
+            .add_map_child(ObjectKey::String("name".to_string()), root_id)
+            .unwrap()
+            .node_id;
+        doc.node_mut(name_id).content =
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("Alice".to_string())));
+        let age_id = doc
+            .add_map_child(ObjectKey::String("age".to_string()), root_id)
+            .unwrap()
+            .node_id;
+        doc.node_mut(age_id).content =
+            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(42)));
+
+        for flatten in [
+            vec![union_schema_id, sibling_schema_id],
+            vec![sibling_schema_id, union_schema_id],
+        ] {
+            schema.node_mut(schema.root).content = SchemaNodeContent::Record(RecordSchema {
+                properties: IndexMap::new(),
+                flatten,
+                unknown_fields: UnknownFieldsPolicy::Deny,
+            });
+
+            let result = validate(&doc, &schema);
+            assert!(
+                result.is_valid,
+                "Expected flattened union + sibling flatten target to validate, got errors: {:?}",
+                result.errors
+            );
+        }
+    }
+
+    #[test]
+    fn test_flattened_union_best_match_ignores_sibling_consumed_fields() {
+        let (mut schema, _) = create_simple_schema(SchemaNodeContent::Any);
+        let name_schema_id = schema.create_node(SchemaNodeContent::Text(TextSchema::default()));
+        let nickname_schema_id = schema.create_node(SchemaNodeContent::Text(TextSchema::default()));
+        let age_schema_id =
+            schema.create_node(SchemaNodeContent::Integer(IntegerSchema::default()));
+
+        let mut person_properties = IndexMap::new();
+        person_properties.insert(
+            "name".to_string(),
+            RecordFieldSchema {
+                schema: name_schema_id,
+                optional: false,
+                binding_style: None,
+                field_codegen: FieldCodegen::default(),
+            },
+        );
+        let person_schema_id = schema.create_node(SchemaNodeContent::Record(RecordSchema {
+            properties: person_properties,
+            flatten: vec![],
+            unknown_fields: UnknownFieldsPolicy::Deny,
+        }));
+
+        let mut alias_properties = IndexMap::new();
+        alias_properties.insert(
+            "nickname".to_string(),
+            RecordFieldSchema {
+                schema: nickname_schema_id,
+                optional: false,
+                binding_style: None,
+                field_codegen: FieldCodegen::default(),
+            },
+        );
+        let alias_schema_id = schema.create_node(SchemaNodeContent::Record(RecordSchema {
+            properties: alias_properties,
+            flatten: vec![],
+            unknown_fields: UnknownFieldsPolicy::Deny,
+        }));
+
+        let mut union_variants = IndexMap::new();
+        union_variants.insert("Person".to_string(), person_schema_id);
+        union_variants.insert("Alias".to_string(), alias_schema_id);
+        let union_schema_id = schema.create_node(SchemaNodeContent::Union(UnionSchema {
+            variants: union_variants,
+            unambiguous: IndexSet::new(),
+            interop: crate::interop::UnionInterop::default(),
+            deny_untagged: IndexSet::new(),
+        }));
+
+        let mut sibling_properties = IndexMap::new();
+        sibling_properties.insert(
+            "age".to_string(),
+            RecordFieldSchema {
+                schema: age_schema_id,
+                optional: false,
+                binding_style: None,
+                field_codegen: FieldCodegen::default(),
+            },
+        );
+        let sibling_schema_id = schema.create_node(SchemaNodeContent::Record(RecordSchema {
+            properties: sibling_properties,
+            flatten: vec![],
+            unknown_fields: UnknownFieldsPolicy::Deny,
+        }));
+
+        schema.node_mut(schema.root).content = SchemaNodeContent::Record(RecordSchema {
+            properties: IndexMap::new(),
+            flatten: vec![union_schema_id, sibling_schema_id],
+            unknown_fields: UnknownFieldsPolicy::Deny,
+        });
+
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+        let age_id = doc
+            .add_map_child(ObjectKey::String("age".to_string()), root_id)
+            .unwrap()
+            .node_id;
+        doc.node_mut(age_id).content =
+            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(42)));
+        let fax_id = doc
+            .add_map_child(ObjectKey::String("fax".to_string()), root_id)
+            .unwrap()
+            .node_id;
+        doc.node_mut(fax_id).content =
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("123".to_string())));
+
+        let result = validate(&doc, &schema);
+        assert!(!result.is_valid);
+
+        let no_variant_error = result
+            .errors
+            .iter()
+            .find_map(|error| match error {
+                ValidationError::NoVariantMatched {
+                    best_match: Some(best_match),
+                    ..
+                } => Some(best_match),
+                _ => None,
+            })
+            .expect("expected flattened union best match");
+
+        assert!(
+            no_variant_error.all_errors.iter().any(|error| matches!(
+                error,
+                ValidationError::UnknownField { field, .. } if field == "fax"
+            )),
+            "expected best match to retain globally unknown field"
+        );
+        assert!(
+            !no_variant_error.all_errors.iter().any(|error| matches!(
+                error,
+                ValidationError::UnknownField { field, .. } if field == "age"
+            )),
+            "best match should not treat sibling-consumed field as unknown"
+        );
     }
 
     #[test]
