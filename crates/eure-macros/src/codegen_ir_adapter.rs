@@ -552,7 +552,6 @@ fn path_type_expr(type_path: &syn::TypePath) -> RustTypeExprIr {
         "usize" => RustTypeExprIr::Primitive(PrimitiveRustTypeIr::Usize),
         "f32" => RustTypeExprIr::Primitive(PrimitiveRustTypeIr::F32),
         "f64" => RustTypeExprIr::Primitive(PrimitiveRustTypeIr::F64),
-        "Text" => RustTypeExprIr::Primitive(PrimitiveRustTypeIr::Text),
         "Option" => unary_generic_type(segment, RustTypeExprIr::Option),
         "Vec" => unary_generic_type(segment, RustTypeExprIr::Vec),
         "Box" => wrapper_generic_type(segment, WrapperKindIr::Box),

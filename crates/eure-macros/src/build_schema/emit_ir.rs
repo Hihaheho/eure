@@ -1,4 +1,4 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 
 use eure_codegen_ir::{
@@ -9,23 +9,107 @@ use eure_codegen_ir::{
 use crate::emit_ir_common::{self, DeriveIrType};
 use crate::ir_spans::DeriveSpanTable;
 
+/// An ext field extracted from a record: (wire_name, schema_var, field_ty_tokens).
+struct ExtField {
+    wire_name: String,
+    schema_var: Ident,
+    field_ty: TokenStream,
+}
+
+struct RecordContent {
+    builds: Vec<TokenStream>,
+    content: TokenStream,
+    ext_fields: Vec<ExtField>,
+}
+
 pub(super) fn derive(ir: &IrModule, spans: &DeriveSpanTable) -> syn::Result<TokenStream> {
     let emit = DeriveIrType::single_root(ir, spans)?;
     let schema_crate = emit.schema_crate();
 
-    let build_body = match emit.binding().kind() {
+    let (build_body, build_schema_node_body) = match emit.binding().kind() {
         RustTypeKindIr::Record => emit_record_schema(&emit)?,
-        RustTypeKindIr::Newtype => emit_newtype_schema(&emit)?,
-        RustTypeKindIr::Tuple => emit_tuple_schema(&emit)?,
-        RustTypeKindIr::Unit => quote! { #schema_crate::SchemaNodeContent::Null },
-        RustTypeKindIr::Enum => emit_enum_schema(&emit)?,
+        RustTypeKindIr::Newtype => (emit_newtype_schema(&emit)?, None),
+        RustTypeKindIr::Tuple => (emit_tuple_schema(&emit)?, None),
+        RustTypeKindIr::Unit => (quote! { #schema_crate::SchemaNodeContent::Null }, None),
+        RustTypeKindIr::Enum => (emit_enum_schema(&emit)?, None),
     };
 
-    emit_ir_common::impl_build_schema(&emit, build_body)
+    emit_ir_common::impl_build_schema(&emit, build_body, build_schema_node_body)
 }
 
-fn emit_record_schema(emit: &DeriveIrType<'_>) -> syn::Result<TokenStream> {
+fn emit_record_schema(emit: &DeriveIrType<'_>) -> syn::Result<(TokenStream, Option<TokenStream>)> {
     let schema_crate = emit.schema_crate();
+    let document_crate = emit.document_crate()?;
+
+    // Detect content-mode: no Record fields, exactly 1 Flatten/FlattenExt field.
+    // In this case the flatten field IS the schema content (e.g., Vec<T> → Array schema),
+    // so we delegate build_schema to the flatten field's type instead of generating a Record.
+    let fields = emit.binding().fields();
+    let flatten_fields: Vec<_> = fields
+        .iter()
+        .filter(|f| matches!(f.mode(), FieldModeIr::Flatten | FieldModeIr::FlattenExt))
+        .collect();
+    let has_record_fields = fields
+        .iter()
+        .any(|f| matches!(f.mode(), FieldModeIr::Record));
+
+    if !has_record_fields && flatten_fields.len() == 1 {
+        let flatten_ty = emit_ir_common::rust_type_tokens(flatten_fields[0].ty(), &document_crate)?;
+
+        let build_body = quote! { <#flatten_ty as BuildSchema>::build_schema(ctx) };
+
+        let content_ext_fields = fields
+            .iter()
+            .enumerate()
+            .filter(|(_, f)| matches!(f.mode(), FieldModeIr::Ext))
+            .map(|(idx, f)| -> syn::Result<_> {
+                let field_ty = emit_ir_common::rust_type_tokens(f.ty(), &document_crate)?;
+                let schema_var = format_ident!("content_ext_{}_schema", idx);
+                Ok((f.wire_name().to_string(), schema_var, field_ty))
+            })
+            .collect::<syn::Result<Vec<_>>>()?;
+
+        let build_schema_node_body = if content_ext_fields.is_empty() {
+            None
+        } else {
+            let ext_builds = content_ext_fields
+                .iter()
+                .map(|(_, schema_var, field_ty)| {
+                    quote! { let #schema_var = ctx.build::<#field_ty>(); }
+                })
+                .collect::<Vec<_>>();
+            let ext_inserts = content_ext_fields
+                .iter()
+                .map(|(wire_name, schema_var, _)| {
+                    quote! {
+                        spec.ext_types.insert(
+                            #wire_name.parse::<#document_crate::identifier::Identifier>()
+                                .expect("ext field wire name is a valid identifier"),
+                            #schema_crate::ExtTypeSchema {
+                                schema: #schema_var,
+                                optional: false,
+                                binding_style: None,
+                            },
+                        );
+                    }
+                })
+                .collect::<Vec<_>>();
+            Some(quote! {
+                #(#ext_builds)*
+                let mut spec = #schema_crate::SchemaNodeSpec {
+                    content: Self::build_schema(ctx),
+                    metadata: Self::schema_metadata(),
+                    ext_types: ::core::default::Default::default(),
+                    type_codegen: #schema_crate::TypeCodegen::None,
+                };
+                #(#ext_inserts)*
+                spec
+            })
+        };
+
+        return Ok((build_body, build_schema_node_body));
+    }
+
     let root_node = emit
         .ty()
         .schema_nodes()
@@ -47,8 +131,11 @@ fn emit_record_schema(emit: &DeriveIrType<'_>) -> syn::Result<TokenStream> {
         }
     };
 
-    let document_crate = emit.document_crate()?;
-    let (builds, content) = emit_record_content(
+    let RecordContent {
+        builds,
+        content,
+        ext_fields,
+    } = emit_record_content(
         emit.binding().fields(),
         record_schema,
         &schema_crate,
@@ -56,10 +143,55 @@ fn emit_record_schema(emit: &DeriveIrType<'_>) -> syn::Result<TokenStream> {
         "field",
         "flatten",
     )?;
-    Ok(quote! {
+    let build_body = quote! {
         #(#builds)*
         #content
-    })
+    };
+
+    // If there are ext fields, generate a build_schema_node override
+    let build_schema_node_body = if ext_fields.is_empty() {
+        None
+    } else {
+        let ext_builds = ext_fields
+            .iter()
+            .map(|f| {
+                let schema_var = &f.schema_var;
+                let field_ty = &f.field_ty;
+                quote! { let #schema_var = ctx.build::<#field_ty>(); }
+            })
+            .collect::<Vec<_>>();
+        let ext_inserts = ext_fields
+            .iter()
+            .map(|f| {
+                let wire_name = &f.wire_name;
+                let schema_var = &f.schema_var;
+                quote! {
+                    spec.ext_types.insert(
+                        #wire_name.parse::<#document_crate::identifier::Identifier>()
+                            .expect("ext field wire name is a valid identifier"),
+                        #schema_crate::ExtTypeSchema {
+                            schema: #schema_var,
+                            optional: false,
+                            binding_style: None,
+                        },
+                    );
+                }
+            })
+            .collect::<Vec<_>>();
+        Some(quote! {
+            #(#ext_builds)*
+            let mut spec = #schema_crate::SchemaNodeSpec {
+                content: Self::build_schema(ctx),
+                metadata: Self::schema_metadata(),
+                ext_types: ::core::default::Default::default(),
+                type_codegen: #schema_crate::TypeCodegen::None,
+            };
+            #(#ext_inserts)*
+            spec
+        })
+    };
+
+    Ok((build_body, build_schema_node_body))
 }
 
 fn emit_newtype_schema(emit: &DeriveIrType<'_>) -> syn::Result<TokenStream> {
@@ -225,7 +357,12 @@ fn emit_variant_schema(
             })
         }
         (VariantShapeIr::Record(fields), SchemaNodeContentIr::Record(record_schema)) => {
-            let (builds, record_content) = emit_record_content(
+            // Note: ext_fields are not supported inside enum variants; they are ignored here.
+            let RecordContent {
+                builds,
+                content: record_content,
+                ..
+            } = emit_record_content(
                 fields,
                 record_schema,
                 schema_crate,
@@ -252,15 +389,23 @@ fn emit_record_content(
     document_crate: &TokenStream,
     field_prefix: &str,
     flatten_prefix: &str,
-) -> syn::Result<(Vec<TokenStream>, TokenStream)> {
+) -> syn::Result<RecordContent> {
     let mut regular = Vec::new();
     let mut flatten = Vec::new();
+    let mut ext_fields: Vec<ExtField> = Vec::new();
 
     for (idx, field) in fields.iter().enumerate() {
         let field_ty = emit_ir_common::rust_type_tokens(field.ty(), document_crate)?;
         if matches!(field.mode(), FieldModeIr::Flatten | FieldModeIr::FlattenExt) {
             let schema_var = format_ident!("{}_{}_schema", flatten_prefix, idx);
             flatten.push((schema_var, field_ty));
+        } else if matches!(field.mode(), FieldModeIr::Ext) {
+            let schema_var = format_ident!("{}_{}_ext_schema", field_prefix, idx);
+            ext_fields.push(ExtField {
+                wire_name: field.wire_name().to_string(),
+                schema_var,
+                field_ty,
+            });
         } else {
             let schema_var = format_ident!("{}_{}_schema", field_prefix, idx);
             let optional = record_schema
@@ -328,5 +473,9 @@ fn emit_record_content(
             unknown_fields: #unknown_fields,
         })
     };
-    Ok((builds, content))
+    Ok(RecordContent {
+        builds,
+        content,
+        ext_fields,
+    })
 }

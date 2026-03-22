@@ -7,11 +7,12 @@ use eure_document::document::node::NodeValue;
 use eure_document::parse::{DocumentParser, ParseContext};
 use eure_document::value::ObjectKey;
 
-use crate::{ArraySchema, MapSchema, SchemaNodeContent, SchemaNodeId, TupleSchema};
+use crate::{ArraySchema, MapSchema, SchemaNodeId, TupleSchema};
 
 use super::SchemaValidator;
 use super::context::ValidationContext;
 use super::error::{ValidationError, ValidatorError};
+use super::key::key_matches_schema;
 
 // =============================================================================
 // ArrayValidator
@@ -249,16 +250,7 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for MapValidator<'a, 'doc, 's> {
 
 impl<'a, 'doc, 's> MapValidator<'a, 'doc, 's> {
     fn validate_key_type(&self, key: &ObjectKey, map_node_id: eure_document::document::NodeId) {
-        let schema_content = self.ctx.resolve_schema_content(self.schema.key);
-        let valid = match (key, schema_content) {
-            (ObjectKey::String(_), SchemaNodeContent::Text(_)) => true,
-            (ObjectKey::Number(_), SchemaNodeContent::Integer(_)) => true,
-            (ObjectKey::Tuple(_), SchemaNodeContent::Tuple(_)) => true,
-            (_, SchemaNodeContent::Any) => true, // Any accepts any key type
-            _ => false,
-        };
-
-        if !valid {
+        if !key_matches_schema(self.ctx, key, self.schema.key) {
             self.ctx.record_error(ValidationError::InvalidKeyType {
                 key: key.clone(),
                 path: self.ctx.path(),

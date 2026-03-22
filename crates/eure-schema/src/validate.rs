@@ -22,6 +22,7 @@
 mod compound;
 mod context;
 mod error;
+mod key;
 mod primitive;
 mod record;
 mod reference;
@@ -365,9 +366,11 @@ mod tests {
     use crate::convert::document_to_schema_with_layout;
     use crate::type_path_trace::{ResolvedTypeTrace, TypeTraceUnresolvedReason};
     use crate::{
-        ArraySchema, Bound, CodegenDefaults, FieldCodegen, IntegerSchema, RecordFieldSchema,
-        RecordSchema, RootCodegen, TextSchema, UnionSchema, UnknownFieldsPolicy,
+        ArraySchema, Bound, CodegenDefaults, FieldCodegen, IntegerSchema, MapSchema,
+        RecordFieldSchema, RecordSchema, RootCodegen, TextSchema, TypeReference, UnionSchema,
+        UnknownFieldsPolicy,
     };
+    use eure_document::identifier::Identifier;
     use eure_document::text::Text;
     use eure_document::value::{ObjectKey, PrimitiveValue};
     use indexmap::{IndexMap, IndexSet};
@@ -477,6 +480,139 @@ mod tests {
 
         let result = validate(&doc, &schema);
         assert!(result.is_valid);
+    }
+
+    #[test]
+    fn test_validate_map_with_union_key_schema() {
+        let (mut schema, _) = create_simple_schema(SchemaNodeContent::Any);
+        let text_key_schema_id = schema.create_node(SchemaNodeContent::Text(TextSchema::default()));
+        let int_key_schema_id =
+            schema.create_node(SchemaNodeContent::Integer(IntegerSchema::default()));
+        let any_value_schema_id = schema.create_node(SchemaNodeContent::Any);
+
+        let mut variants = IndexMap::new();
+        variants.insert("text".to_string(), text_key_schema_id);
+        variants.insert("integer".to_string(), int_key_schema_id);
+        let union_key_schema_id = schema.create_node(SchemaNodeContent::Union(UnionSchema {
+            variants,
+            unambiguous: IndexSet::new(),
+            interop: crate::interop::UnionInterop::default(),
+            deny_untagged: IndexSet::new(),
+        }));
+
+        schema.node_mut(schema.root).content = SchemaNodeContent::Map(MapSchema {
+            key: union_key_schema_id,
+            value: any_value_schema_id,
+            min_size: None,
+            max_size: None,
+        });
+
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+
+        let text_value_id = doc
+            .add_map_child(ObjectKey::String("name".to_string()), root_id)
+            .unwrap()
+            .node_id;
+        doc.node_mut(text_value_id).content =
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("Alice".to_string())));
+
+        let int_value_id = doc
+            .add_map_child(ObjectKey::Number(BigInt::from(1)), root_id)
+            .unwrap()
+            .node_id;
+        doc.node_mut(int_value_id).content =
+            NodeValue::Primitive(PrimitiveValue::Integer(42.into()));
+
+        let result = validate(&doc, &schema);
+        assert!(
+            result.is_valid,
+            "Expected union key schema to validate: {:?}",
+            result.errors
+        );
+    }
+
+    #[test]
+    fn test_validate_map_with_reference_to_union_key_schema() {
+        let (mut schema, _) = create_simple_schema(SchemaNodeContent::Any);
+        let text_key_schema_id = schema.create_node(SchemaNodeContent::Text(TextSchema::default()));
+        let int_key_schema_id =
+            schema.create_node(SchemaNodeContent::Integer(IntegerSchema::default()));
+        let any_value_schema_id = schema.create_node(SchemaNodeContent::Any);
+
+        let mut variants = IndexMap::new();
+        variants.insert("text".to_string(), text_key_schema_id);
+        variants.insert("integer".to_string(), int_key_schema_id);
+        let union_key_schema_id = schema.create_node(SchemaNodeContent::Union(UnionSchema {
+            variants,
+            unambiguous: IndexSet::new(),
+            interop: crate::interop::UnionInterop::default(),
+            deny_untagged: IndexSet::new(),
+        }));
+        schema.register_type(Identifier::new_unchecked("key"), union_key_schema_id);
+
+        let key_ref_schema_id = schema.create_node(SchemaNodeContent::Reference(TypeReference {
+            namespace: None,
+            name: Identifier::new_unchecked("key"),
+        }));
+
+        schema.node_mut(schema.root).content = SchemaNodeContent::Map(MapSchema {
+            key: key_ref_schema_id,
+            value: any_value_schema_id,
+            min_size: None,
+            max_size: None,
+        });
+
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+        let value_id = doc
+            .add_map_child(ObjectKey::Number(BigInt::from(7)), root_id)
+            .unwrap()
+            .node_id;
+        doc.node_mut(value_id).content = NodeValue::Primitive(PrimitiveValue::Bool(true));
+
+        let result = validate(&doc, &schema);
+        assert!(
+            result.is_valid,
+            "Expected reference to union key schema to validate: {:?}",
+            result.errors
+        );
+    }
+
+    #[test]
+    fn test_validate_record_flattened_map_boolean_key() {
+        // Repro: validate_flattened_map_key has no Boolean arm, so a boolean
+        // key schema ("true"/"false" are ObjectKey::String per ADR-0006) falls
+        // through to InvalidKeyType. This test should fail until the bug is fixed.
+        let (mut schema, _) = create_simple_schema(SchemaNodeContent::Any);
+        let bool_key_schema_id = schema.create_node(SchemaNodeContent::Boolean);
+        let any_value_schema_id = schema.create_node(SchemaNodeContent::Any);
+        let map_schema_id = schema.create_node(SchemaNodeContent::Map(MapSchema {
+            key: bool_key_schema_id,
+            value: any_value_schema_id,
+            min_size: None,
+            max_size: None,
+        }));
+        schema.node_mut(schema.root).content = SchemaNodeContent::Record(RecordSchema {
+            properties: IndexMap::new(),
+            flatten: vec![map_schema_id],
+            unknown_fields: UnknownFieldsPolicy::Deny,
+        });
+
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+        let value_id = doc
+            .add_map_child(ObjectKey::String("true".to_string()), root_id)
+            .unwrap()
+            .node_id;
+        doc.node_mut(value_id).content = NodeValue::Primitive(PrimitiveValue::Bool(true));
+
+        let result = validate(&doc, &schema);
+        assert!(
+            result.is_valid,
+            "Expected boolean key 'true' to be valid against Boolean key schema in flattened map: {:?}",
+            result.errors
+        );
     }
 
     #[test]

@@ -39,7 +39,7 @@ pub mod type_path_trace;
 pub mod validate;
 pub mod write;
 
-pub use build::{BuildSchema, SchemaBuilder};
+pub use build::{BuildSchema, SchemaBuilder, SchemaNodeSpec};
 pub use codegen::{
     CodegenDefaults, FieldCodegen, RecordCodegen, RootCodegen, TypeCodegen, UnionCodegen,
 };

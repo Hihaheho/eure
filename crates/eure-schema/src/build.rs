@@ -22,11 +22,12 @@ use std::any::TypeId;
 use std::collections::HashMap;
 
 use eure_document::Text;
+use eure_document::identifier::Identifier;
 use indexmap::IndexMap;
 
 use crate::{
-    CodegenDefaults, RootCodegen, SchemaDocument, SchemaMetadata, SchemaNode, SchemaNodeContent,
-    SchemaNodeId, TextSchema, TypeCodegen,
+    CodegenDefaults, ExtTypeSchema, RootCodegen, SchemaDocument, SchemaMetadata, SchemaNode,
+    SchemaNodeContent, SchemaNodeId, TextSchema, TypeCodegen,
 };
 
 /// Trait for types that can build their schema representation.
@@ -43,6 +44,18 @@ use crate::{
 /// - Providing meaningful names in generated schemas
 ///
 /// Primitive types typically return `None` for `type_name()`.
+/// Full node specification returned by [`BuildSchema::build_schema_node`].
+///
+/// Mirrors [`SchemaNode`] but is used during schema construction to allow
+/// types to specify all node-level properties including `ext_types` and
+/// `type_codegen`, which cannot be expressed through `build_schema` alone.
+pub struct SchemaNodeSpec {
+    pub content: SchemaNodeContent,
+    pub metadata: SchemaMetadata,
+    pub ext_types: IndexMap<Identifier, ExtTypeSchema>,
+    pub type_codegen: TypeCodegen,
+}
+
 pub trait BuildSchema {
     /// The type name for registration in `$types` namespace.
     ///
@@ -63,6 +76,19 @@ pub trait BuildSchema {
     /// Override to provide description, deprecation status, defaults, or examples.
     fn schema_metadata() -> SchemaMetadata {
         SchemaMetadata::default()
+    }
+
+    /// Build the full node specification for this type.
+    ///
+    /// Override this method to set `ext_types` or `type_codegen` on the node.
+    /// The default implementation delegates to `build_schema` and `schema_metadata`.
+    fn build_schema_node(ctx: &mut SchemaBuilder) -> SchemaNodeSpec {
+        SchemaNodeSpec {
+            content: Self::build_schema(ctx),
+            metadata: Self::schema_metadata(),
+            ext_types: IndexMap::new(),
+            type_codegen: TypeCodegen::None,
+        }
     }
 }
 
@@ -99,7 +125,7 @@ impl SchemaBuilder {
     /// This is the primary method for building nested types. It:
     /// 1. Returns cached ID if already built (idempotent)
     /// 2. Reserves a node slot before building (handles recursion)
-    /// 3. Calls `T::build_schema()` to get the content
+    /// 3. Calls `T::build_schema_node()` to get the full node spec
     /// 4. For named types: registers in $types and returns a Reference node
     pub fn build<T: BuildSchema + 'static>(&mut self) -> SchemaNodeId {
         let type_id = TypeId::of::<T>();
@@ -118,10 +144,9 @@ impl SchemaBuilder {
             // Reserve a slot for the content node
             let content_id = self.reserve_node();
 
-            // Build the schema content
-            let content = T::build_schema(self);
-            let metadata = T::schema_metadata();
-            self.set_node(content_id, content, metadata);
+            // Build the full node spec
+            let spec = T::build_schema_node(self);
+            self.set_node_spec(content_id, spec);
 
             // Register the type
             if let Ok(ident) = name.parse::<eure_document::identifier::Identifier>() {
@@ -142,9 +167,8 @@ impl SchemaBuilder {
             let id = self.reserve_node();
             self.cache.insert(type_id, id);
 
-            let content = T::build_schema(self);
-            let metadata = T::schema_metadata();
-            self.set_node(id, content, metadata);
+            let spec = T::build_schema_node(self);
+            self.set_node_spec(id, spec);
 
             id
         }
@@ -196,11 +220,13 @@ impl SchemaBuilder {
         id
     }
 
-    /// Set the content and metadata of a reserved node.
-    fn set_node(&mut self, id: SchemaNodeId, content: SchemaNodeContent, metadata: SchemaMetadata) {
+    /// Apply a full [`SchemaNodeSpec`] to a reserved node.
+    fn set_node_spec(&mut self, id: SchemaNodeId, spec: SchemaNodeSpec) {
         let node = &mut self.doc.nodes[id.0];
-        node.content = content;
-        node.metadata = metadata;
+        node.content = spec.content;
+        node.metadata = spec.metadata;
+        node.ext_types = spec.ext_types;
+        node.type_codegen = spec.type_codegen;
     }
 
     /// Get mutable access to a node for adding ext_types or modifying metadata.
@@ -398,6 +424,20 @@ impl<K: BuildSchema + 'static, V: BuildSchema + 'static> BuildSchema
 impl<K: BuildSchema + 'static, V: BuildSchema + 'static> BuildSchema
     for std::collections::BTreeMap<K, V>
 {
+    fn build_schema(ctx: &mut SchemaBuilder) -> SchemaNodeContent {
+        let key = ctx.build::<K>();
+        let value = ctx.build::<V>();
+        SchemaNodeContent::Map(crate::MapSchema {
+            key,
+            value,
+            min_size: None,
+            max_size: None,
+        })
+    }
+}
+
+/// IndexMap<K, V> is represented as a map (preserves insertion order)
+impl<K: BuildSchema + 'static, V: BuildSchema + 'static> BuildSchema for IndexMap<K, V> {
     fn build_schema(ctx: &mut SchemaBuilder) -> SchemaNodeContent {
         let key = ctx.build::<K>();
         let value = ctx.build::<V>();

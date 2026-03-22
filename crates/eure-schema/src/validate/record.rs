@@ -15,6 +15,7 @@ use crate::{
 use super::SchemaValidator;
 use super::context::{ValidationContext, ValidationState};
 use super::error::{ValidationError, ValidationWarning, ValidatorError, select_best_variant_match};
+use super::key::key_matches_schema;
 use super::primitive::actual_type_from_error;
 
 // =============================================================================
@@ -659,6 +660,14 @@ impl<'a, 'doc, 's> RecordValidator<'a, 'doc, 's> {
             // Any schema accepts any key type
             (_, SchemaNodeContent::Any) => {
                 // Any accepts any key
+            }
+            (
+                _,
+                SchemaNodeContent::Boolean
+                | SchemaNodeContent::Union(_)
+                | SchemaNodeContent::Reference(_),
+            ) if key_matches_schema(self.ctx, key, map_schema.key) => {
+                // Boolean/union/reference key schema matched
             }
             // Type mismatch - record an error
             (_, _) => {

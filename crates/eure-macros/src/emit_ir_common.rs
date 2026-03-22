@@ -528,6 +528,7 @@ fn type_with_for_generics(ident: &syn::Ident, for_generics: &[TokenStream]) -> T
 pub(crate) fn impl_build_schema(
     emit: &DeriveIrType<'_>,
     build_body: TokenStream,
+    build_schema_node_body: Option<TokenStream>,
 ) -> syn::Result<TokenStream> {
     let ident = emit.ident()?;
     let binding = emit.binding();
@@ -571,6 +572,17 @@ pub(crate) fn impl_build_schema(
         quote! {}
     };
 
+    let build_schema_node_impl = if let Some(node_body) = build_schema_node_body {
+        quote! {
+            fn build_schema_node(ctx: &mut #schema_crate::SchemaBuilder) -> #schema_crate::SchemaNodeSpec {
+                use #schema_crate::BuildSchema;
+                #node_body
+            }
+        }
+    } else {
+        quote! {}
+    };
+
     if impl_generics_with_bounds.is_empty() {
         Ok(quote! {
             impl #schema_crate::BuildSchema for #ident {
@@ -580,6 +592,8 @@ pub(crate) fn impl_build_schema(
                     use #schema_crate::BuildSchema;
                     #build_body
                 }
+
+                #build_schema_node_impl
             }
         })
     } else {
@@ -592,6 +606,8 @@ pub(crate) fn impl_build_schema(
                     use #schema_crate::BuildSchema;
                     #build_body
                 }
+
+                #build_schema_node_impl
             }
         })
     }
