@@ -17,6 +17,9 @@ pub enum EureToJsonError {
 
     #[error("Variant content already contains field '{field}' in Adjacent representation")]
     VariantAdjacentConflict { field: String, node_id: NodeId },
+
+    #[error("Variant extension '$variant' must be text")]
+    InvalidVariantExtensionType { node_id: NodeId },
 }
 
 impl EureToJsonError {
@@ -28,6 +31,7 @@ impl EureToJsonError {
             EureToJsonError::NonFiniteFloat { node_id } => *node_id,
             EureToJsonError::VariantTagConflict { node_id, .. } => *node_id,
             EureToJsonError::VariantAdjacentConflict { node_id, .. } => *node_id,
+            EureToJsonError::InvalidVariantExtensionType { node_id } => *node_id,
         }
     }
 }
