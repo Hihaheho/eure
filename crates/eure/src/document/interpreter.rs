@@ -804,6 +804,11 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                         })?;
                 (PathSegment::TupleIndex(length), None)
             }
+            KeyView::Hole(hole_handle) => {
+                return Err(DocumentConstructionError::HoleInKey {
+                    node_id: hole_handle.node_id(),
+                });
+            }
             KeyView::Float(_) => unreachable!("handled above"),
         };
 
@@ -895,6 +900,11 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                     "collecting_object_keys stack should not be empty after visiting KeyTuple",
                 );
                 ObjectKey::Tuple(Tuple(keys))
+            }
+            KeyValueView::Hole(hole_handle) => {
+                return Err(DocumentConstructionError::HoleInKey {
+                    node_id: hole_handle.node_id(),
+                });
             }
         };
 

@@ -178,6 +178,8 @@ pub enum DocumentConstructionError {
     },
     #[error("Invalid key type at node {node_id:?}")]
     InvalidKeyType { node_id: CstNodeId },
+    #[error("Hole is not allowed in key position at node {node_id:?}")]
+    HoleInKey { node_id: CstNodeId },
     #[error("Failed to end scope: {0}")]
     EndScope(#[from] ScopeError),
     #[error("Failed to parse tuple index: {value}")]
@@ -210,6 +212,7 @@ impl DocumentConstructionError {
             DocumentConstructionError::InvalidCodeBlock { node_id, .. } => cst.span(*node_id),
             DocumentConstructionError::InvalidStringKey { node_id, .. } => cst.span(*node_id),
             DocumentConstructionError::InvalidKeyType { node_id } => cst.span(*node_id),
+            DocumentConstructionError::HoleInKey { node_id } => cst.span(*node_id),
             DocumentConstructionError::InvalidFloatKey { node_id, .. } => cst.span(*node_id),
             _ => None,
         }
@@ -464,5 +467,29 @@ mod tests {
             "  ",
             "Terminal span should be returned even for trivia"
         );
+    }
+
+    #[test]
+    fn test_hole_in_key_is_rejected() {
+        let input = "!x = 1";
+        let cst = eure_parol::parse(input).unwrap();
+        let err = cst_to_document(input, &cst).unwrap_err();
+
+        assert!(matches!(
+            err,
+            DocumentConstructionError::HoleInKey { .. }
+        ));
+    }
+
+    #[test]
+    fn test_hole_in_tuple_key_is_rejected() {
+        let input = "a.(1, !x) = 1";
+        let cst = eure_parol::parse(input).unwrap();
+        let err = cst_to_document(input, &cst).unwrap_err();
+
+        assert!(matches!(
+            err,
+            DocumentConstructionError::HoleInKey { .. }
+        ));
     }
 }
