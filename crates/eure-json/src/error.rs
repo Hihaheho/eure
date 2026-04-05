@@ -1,4 +1,5 @@
 use eure_document::document::NodeId;
+use eure_document::parse::ParseError;
 use thiserror::Error;
 
 #[derive(Debug, Clone, Error, PartialEq)]
@@ -18,8 +19,8 @@ pub enum EureToJsonError {
     #[error("Variant content already contains field '{field}' in Adjacent representation")]
     VariantAdjacentConflict { field: String, node_id: NodeId },
 
-    #[error("Variant extension '$variant' must be text")]
-    InvalidVariantExtensionType { node_id: NodeId },
+    #[error(transparent)]
+    Parse(#[from] ParseError),
 }
 
 impl EureToJsonError {
@@ -31,7 +32,7 @@ impl EureToJsonError {
             EureToJsonError::NonFiniteFloat { node_id } => *node_id,
             EureToJsonError::VariantTagConflict { node_id, .. } => *node_id,
             EureToJsonError::VariantAdjacentConflict { node_id, .. } => *node_id,
-            EureToJsonError::InvalidVariantExtensionType { node_id } => *node_id,
+            EureToJsonError::Parse(error) => error.node_id,
         }
     }
 }

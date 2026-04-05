@@ -112,7 +112,7 @@ impl EureToJsonParser<'_> {
             .doc
             .parse_context(node_id)
             .parse_ext_optional::<&str>("variant")
-            .map_err(|_| EureToJsonError::InvalidVariantExtensionType { node_id })?
+            .map_err(EureToJsonError::from)?
         {
             return self.parse_variant_node(node_id, tag);
         }
@@ -505,10 +505,7 @@ mod tests {
             %variant = 42,
         });
         let result = document_to_value(&eure, &Config::default());
-        assert!(matches!(
-            result,
-            Err(EureToJsonError::InvalidVariantExtensionType { .. })
-        ));
+        assert!(matches!(result, Err(EureToJsonError::Parse(_))));
     }
 
     // Error tests
