@@ -6,6 +6,9 @@ pub enum EureToJsonError {
     #[error("Hole (uninitialized value) is not supported in JSON")]
     HoleNotSupported { node_id: NodeId },
 
+    #[error("PartialMap (map with hole keys) is not supported in JSON")]
+    PartialMapNotSupported { node_id: NodeId },
+
     #[error("BigInt value is out of range for JSON number")]
     BigIntOutOfRange { node_id: NodeId },
 
@@ -24,6 +27,7 @@ impl EureToJsonError {
     pub fn node_id(&self) -> NodeId {
         match self {
             EureToJsonError::HoleNotSupported { node_id } => *node_id,
+            EureToJsonError::PartialMapNotSupported { node_id } => *node_id,
             EureToJsonError::BigIntOutOfRange { node_id } => *node_id,
             EureToJsonError::NonFiniteFloat { node_id } => *node_id,
             EureToJsonError::VariantTagConflict { node_id, .. } => *node_id,

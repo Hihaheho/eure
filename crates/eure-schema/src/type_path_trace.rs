@@ -261,6 +261,13 @@ fn collect_document_node_paths_rec(
                 path.pop();
             }
         }
+        eure_document::document::node::NodeValue::PartialMap(map) => {
+            for (key, &child_id) in map.iter() {
+                path.push(PathSegment::from_partial_object_key(key.clone()));
+                collect_document_node_paths_rec(doc, child_id, path, out, visited);
+                path.pop();
+            }
+        }
         eure_document::document::node::NodeValue::Primitive(_)
         | eure_document::document::node::NodeValue::Hole(_) => {}
     }

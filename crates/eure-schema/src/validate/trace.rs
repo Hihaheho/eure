@@ -418,6 +418,11 @@ impl<'a> TraceResolver<'a> {
                         stack.push(child);
                     }
                 }
+                NodeValue::PartialMap(map) => {
+                    for (_, &child) in map.iter() {
+                        stack.push(child);
+                    }
+                }
                 NodeValue::Primitive(_) | NodeValue::Hole(_) => {}
             }
         }

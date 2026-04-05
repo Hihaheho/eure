@@ -1,0 +1,144 @@
+// Comprehensive PartialMap / hole-key coverage
+
+@cases.bare-labeled
+input_eure = ```eure
+!x = 1
+```
+
+normalized = ```eure
+= { !x => 1 }
+```
+
+@cases.anonymous
+input_eure = ```eure
+! = 1
+```
+
+normalized = ```eure
+= { ! => 1 }
+```
+
+@cases.multiple-labeled
+input_eure = ```eure
+!a = 1
+!b = 2
+```
+
+normalized = ```eure
+= { !a => 1, !b => 2 }
+```
+
+@cases.same-label-dedup
+input_eure = ```eure
+!x.a = 1
+!x.b = 2
+```
+
+normalized = ```eure
+= { !x => { a => 1, b => 2 } }
+```
+
+@cases.anonymous-not-dedup
+input_eure = ```eure
+! = 1
+! = 2
+```
+
+normalized = ```eure
+= { ! => 1, ! => 2 }
+```
+
+@cases.mixed-resolved-then-hole
+input_eure = ```eure
+normal = 1
+!hole = 2
+```
+
+normalized = ```eure
+= { normal => 1, !hole => 2 }
+```
+
+@cases.mixed-hole-then-resolved
+input_eure = ```eure
+!hole = 1
+normal = 2
+```
+
+normalized = ```eure
+= { !hole => 1, normal => 2 }
+```
+
+@cases.nested
+input_eure = ```eure
+a.!b = 1
+```
+
+normalized = ```eure
+= { a => { !b => 1 } }
+```
+
+@cases.block-syntax
+input_eure = ```eure
+!a {
+  x = 1
+  y = 2
+}
+```
+
+normalized = ```eure
+= { !a => { x => 1, y => 2 } }
+```
+
+@cases.section-syntax
+input_eure = ```eure
+@ !a
+x = 1
+y = 2
+```
+
+normalized = ```eure
+= { !a => { x => 1, y => 2 } }
+```
+
+@cases.section-duplicate-error
+editor = ```eure
+@ !x
+a = 1
+
+@ !x
+b = 2
+```
+
+@cases.section-duplicate-error.diagnostics[]
+severity = "error"
+message = "Document insert error: Insert error: Binding target already has a value at !x"
+source = "editor.eure"
+span = "@ !x\nb = 2"
+
+@cases.partial-tuple-key
+input_eure = ```eure
+(1, !) = 1
+```
+
+normalized = ```eure
+= { (1, !) => 1 }
+```
+
+@cases.partial-tuple-key-labeled
+input_eure = ```eure
+(1, !x) = 1
+```
+
+normalized = ```eure
+= { (1, !x) => 1 }
+```
+
+@cases.full-tuple-key-in-partial-map
+input_eure = ```eure
+!hole = 1
+(1, 2) = 2
+```
+
+normalized = ```eure
+= { !hole => 1, (1, 2) => 2 }
+```

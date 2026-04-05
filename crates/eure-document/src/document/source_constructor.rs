@@ -184,6 +184,18 @@ impl SourceConstructor {
         InterpreterSink::navigate(self, segment)
     }
 
+    /// Navigate to a partial-map entry by key.
+    pub fn navigate_partial_map_entry(
+        &mut self,
+        key: crate::value::PartialObjectKey,
+    ) -> Result<NodeId, InsertError> {
+        self.pending_path.push(SourcePathSegment {
+            key: Self::partial_object_key_to_source_key(&key),
+            array: None,
+        });
+        self.inner.navigate_partial_map_entry(key)
+    }
+
     /// Assert that the current node is unbound (a hole).
     pub fn require_hole(&self) -> Result<(), InsertError> {
         InterpreterSink::require_hole(self)
@@ -202,6 +214,12 @@ impl SourceConstructor {
     /// Bind an empty map to the current node.
     pub fn bind_empty_map(&mut self) -> Result<(), InsertError> {
         InterpreterSink::bind_empty_map(self)
+    }
+
+    /// Bind an empty partial map to the current node.
+    pub fn bind_empty_partial_map(&mut self) -> Result<(), InsertError> {
+        self.last_bound_node = Some(self.inner.current_node_id());
+        self.inner.bind_empty_partial_map()
     }
 
     /// Bind an empty array to the current node.
@@ -317,6 +335,14 @@ impl SourceConstructor {
         match segment {
             PathSegment::Ident(id) => SourcePathSegment::ident(id.clone()),
             PathSegment::Extension(id) => SourcePathSegment::extension(id.clone()),
+            PathSegment::PartialValue(key) => SourcePathSegment {
+                key: Self::partial_object_key_to_source_key(key),
+                array: None,
+            },
+            PathSegment::HoleKey(label) => SourcePathSegment {
+                key: SourceKey::hole(label.clone()),
+                array: None,
+            },
             PathSegment::Value(key) => SourcePathSegment {
                 key: Self::object_key_to_source_key(key),
                 array: None,
@@ -332,6 +358,31 @@ impl SourceConstructor {
                     "ArrayIndex should be merged with previous segment, not converted directly"
                 )
             }
+        }
+    }
+
+    fn partial_object_key_to_source_key(key: &crate::value::PartialObjectKey) -> SourceKey {
+        match key {
+            crate::value::PartialObjectKey::String(s) => {
+                if let Ok(id) = s.parse::<Identifier>() {
+                    SourceKey::Ident(id)
+                } else {
+                    SourceKey::quoted(s.clone())
+                }
+            }
+            crate::value::PartialObjectKey::Number(n) => {
+                if let Ok(n64) = i64::try_from(n) {
+                    SourceKey::Integer(n64)
+                } else {
+                    SourceKey::quoted(n.to_string())
+                }
+            }
+            crate::value::PartialObjectKey::Hole(label) => SourceKey::hole(label.clone()),
+            crate::value::PartialObjectKey::Tuple(keys) => SourceKey::Tuple(
+                keys.iter()
+                    .map(Self::partial_object_key_to_source_key)
+                    .collect(),
+            ),
         }
     }
 

@@ -1,0 +1,11 @@
+input_eure = ```eure
+!x = 1
+```
+
+json_errors[] = ```text
+error: PartialMap (map with hole keys) is not supported in JSON
+ --> input.eure:1:1
+  |
+1 | !x = 1
+  | ^^^^^^ PartialMap (map with hole keys) is not supported in JSON
+```

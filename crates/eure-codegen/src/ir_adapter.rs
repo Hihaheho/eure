@@ -42,6 +42,9 @@ pub enum SchemaToIrError {
     #[error("schema node {node} has unsupported hole value in {field_path}")]
     UnsupportedHoleValue { node: usize, field_path: String },
 
+    #[error("schema node {node} has unsupported partial map value in {field_path}")]
+    UnsupportedPartialMapValue { node: usize, field_path: String },
+
     #[error("schema node {node} has unsupported value extensions in {field_path}")]
     UnsupportedValueExtensions { node: usize, field_path: String },
 
@@ -611,6 +614,10 @@ fn convert_node_value(
 
     match &node.content {
         NodeValue::Hole(_) => Err(SchemaToIrError::UnsupportedHoleValue {
+            node: schema_node,
+            field_path: path,
+        }),
+        NodeValue::PartialMap(_) => Err(SchemaToIrError::UnsupportedPartialMapValue {
             node: schema_node,
             field_path: path,
         }),

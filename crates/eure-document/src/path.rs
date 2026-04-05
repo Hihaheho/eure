@@ -1,6 +1,6 @@
 use core::fmt::Display;
 
-use crate::prelude_internal::*;
+use crate::{prelude_internal::*, value::PartialObjectKey};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Plural)]
 pub struct EurePath(pub Vec<PathSegment>);
@@ -25,10 +25,25 @@ pub enum PathSegment {
     Extension(Identifier),
     /// Arbitrary value used as key
     Value(ObjectKey),
+    /// Partial-map key that cannot be losslessly represented as ObjectKey
+    PartialValue(PartialObjectKey),
     /// Tuple element index (0-255)
     TupleIndex(u8),
     /// Array element access
     ArrayIndex(Option<usize>),
+    /// A hole key in a PartialMap: `!` or `!label`
+    HoleKey(Option<Identifier>),
+}
+
+impl PathSegment {
+    pub fn from_partial_object_key(key: PartialObjectKey) -> Self {
+        match key {
+            PartialObjectKey::Number(n) => Self::Value(ObjectKey::Number(n)),
+            PartialObjectKey::String(s) => Self::Value(ObjectKey::String(s)),
+            PartialObjectKey::Hole(label) => Self::HoleKey(label),
+            PartialObjectKey::Tuple(items) => Self::PartialValue(PartialObjectKey::Tuple(items)),
+        }
+    }
 }
 
 impl Display for EurePath {
@@ -57,6 +72,12 @@ impl Display for EurePath {
                     }
                     write!(f, "{}", key)?;
                 }
+                PathSegment::PartialValue(key) => {
+                    if !is_first {
+                        write!(f, ".")?;
+                    }
+                    write!(f, "{}", key)?;
+                }
                 PathSegment::TupleIndex(index) => {
                     if !is_first {
                         write!(f, ".")?;
@@ -65,6 +86,18 @@ impl Display for EurePath {
                 }
                 PathSegment::ArrayIndex(Some(index)) => write!(f, "[{}]", index)?,
                 PathSegment::ArrayIndex(None) => write!(f, "[]")?,
+                PathSegment::HoleKey(None) => {
+                    if !is_first {
+                        write!(f, ".")?;
+                    }
+                    write!(f, "!")?;
+                }
+                PathSegment::HoleKey(Some(label)) => {
+                    if !is_first {
+                        write!(f, ".")?;
+                    }
+                    write!(f, "!{}", label)?;
+                }
             }
         }
         Ok(())
@@ -76,7 +109,7 @@ mod tests {
     use alloc::format;
 
     use super::*;
-    use crate::value::ObjectKey;
+    use crate::value::{ObjectKey, PartialObjectKey, Tuple};
 
     #[test]
     fn test_display_empty_path() {
@@ -185,5 +218,16 @@ mod tests {
             format!("{}", path),
             "config.$eure.items[0].\"key with space\""
         );
+    }
+
+    #[test]
+    fn test_display_partial_tuple_key() {
+        let path = EurePath(vec![PathSegment::PartialValue(PartialObjectKey::Tuple(
+            Tuple(vec![
+                PartialObjectKey::Number(1.into()),
+                PartialObjectKey::Hole(None),
+            ]),
+        ))]);
+        assert_eq!(format!("{}", path), "(1, !)");
     }
 }

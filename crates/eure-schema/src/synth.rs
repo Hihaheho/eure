@@ -96,6 +96,7 @@ pub fn synth(doc: &EureDocument, node_id: NodeId) -> SynthType {
                 SynthType::Record(SynthRecord::new(fields))
             }
         }
+        NodeValue::PartialMap(_) => SynthType::Any,
     }
 }
 

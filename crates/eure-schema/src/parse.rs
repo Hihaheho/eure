@@ -655,6 +655,13 @@ impl FromEure<'_> for ParsedSchemaNodeContent {
             }
 
             NodeValue::Map(_) => parse_map_as_schema(ctx, variant),
+            NodeValue::PartialMap(_) => Err(ParseError {
+                node_id,
+                kind: ParseErrorKind::TypeMismatch {
+                    expected: ValueKind::Map,
+                    actual: ValueKind::PartialMap,
+                },
+            }),
         }
     }
 }

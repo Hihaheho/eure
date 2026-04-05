@@ -4,8 +4,7 @@ use eure_document::{
     identifier::Identifier,
     path::PathSegment,
     text::{Language, SyntaxHint, Text, TextParseError},
-    value::ObjectKey,
-    value::PrimitiveValue,
+    value::{ObjectKey, PartialObjectKey, PrimitiveValue},
 };
 use eure_tree::tree::{InputSpan, RecursiveView};
 use eure_tree::{prelude::*, tree::TerminalHandle};
@@ -209,8 +208,8 @@ pub struct CstInterpreter<'a> {
     // Main document being built
     document: DocumentConstructor,
     code_start: Option<CodeStart>,
-    // Stack for collecting ObjectKeys when processing KeyTuple
-    collecting_object_keys: Vec<Vec<ObjectKey>>,
+    // Stack for collecting PartialObjectKeys when processing KeyTuple
+    collecting_partial_keys: Vec<Vec<PartialObjectKey>>,
     // Origin tracking for error span resolution
     origins: OriginMap,
     // Pending code origin - set by parent visitor, used by start visitor
@@ -223,7 +222,7 @@ impl<'a> CstInterpreter<'a> {
             input,
             document: DocumentConstructor::new(),
             code_start: None,
-            collecting_object_keys: vec![],
+            collecting_partial_keys: vec![],
             origins: OriginMap::new(),
             pending_code_origin: None,
         }
@@ -741,6 +740,27 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         // Capture container node ID before navigation (for key origin tracking)
         let container_id = self.document.current_node_id();
 
+        if let KeyView::Hole(hole_handle) = view {
+            let hole_view = hole_handle.get_view(tree)?;
+            let token_str = self.get_terminal_str(tree, hole_view.hole)?;
+            let label = if token_str == "!" {
+                None
+            } else {
+                Some(token_str[1..].parse::<Identifier>()?)
+            };
+            let key_cst_node = hole_handle.node_id();
+            self.document
+                .navigate_partial_map_entry(PartialObjectKey::Hole(label))
+                .map_err(|e| DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                    parent_node_id: Some(container_id),
+                })?;
+            let child_id = self.document.current_node_id();
+            self.record_definition(child_id, key_cst_node);
+            return Ok(());
+        }
+
         // Build segment and optionally capture key origin info for ObjectKey-based keys
         let (segment, key_origin_info) = match view {
             KeyView::KeyIdent(ident_handle) => {
@@ -780,13 +800,30 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 )
             }
             KeyView::KeyTuple(tuple_handle) => {
-                // Use visitor pattern to collect ObjectKeys
-                self.collecting_object_keys.push(vec![]);
+                self.collecting_partial_keys.push(vec![]);
                 self.visit_key_tuple_handle(tuple_handle, tree)?;
-                let keys = self.collecting_object_keys.pop().expect(
-                    "collecting_object_keys stack should not be empty after visiting KeyTuple",
+                let keys = self.collecting_partial_keys.pop().expect(
+                    "collecting_partial_keys stack should not be empty after visiting KeyTuple",
                 );
-                let object_key = ObjectKey::Tuple(Tuple(keys));
+                let object_keys: Result<Vec<_>, _> =
+                    keys.iter().cloned().map(ObjectKey::try_from).collect();
+                if object_keys.is_err() {
+                    let partial_key = PartialObjectKey::Tuple(Tuple(keys));
+                    self.document
+                        .navigate_partial_map_entry(partial_key)
+                        .map_err(|e| DocumentConstructionError::DocumentInsert {
+                            error: e,
+                            node_id: handle.node_id(),
+                            parent_node_id: Some(container_id),
+                        })?;
+                    let child_id = self.document.current_node_id();
+                    self.record_definition(child_id, tuple_handle.node_id());
+                    return Ok(());
+                }
+
+                let object_key = ObjectKey::Tuple(Tuple(
+                    object_keys.expect("tuple key without holes must convert"),
+                ));
                 (
                     PathSegment::Value(object_key.clone()),
                     Some((object_key, tuple_handle.node_id())),
@@ -805,6 +842,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 (PathSegment::TupleIndex(length), None)
             }
             KeyView::Float(_) => unreachable!("handled above"),
+            KeyView::Hole(_) => unreachable!("handled above"),
         };
 
         // Capture CST node ID before consuming key_origin_info
@@ -866,43 +904,52 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         view: KeyValueView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        // Collect ObjectKey into the current collection stack
-        let object_key = match view {
+        let partial_key = match view {
             KeyValueView::Integer(int_handle) => {
                 let int_view = int_handle.get_view(tree)?;
                 let str = self.get_terminal_str(tree, int_view.integer)?;
                 let big_int: BigInt = str
                     .parse()
                     .map_err(|_| DocumentConstructionError::InvalidBigInt(str.to_string()))?;
-                ObjectKey::Number(big_int)
+                PartialObjectKey::Number(big_int)
             }
             KeyValueView::Boolean(bool_handle) => {
                 let bool_view = bool_handle.get_view(tree)?;
                 match bool_view {
-                    BooleanView::True(_) => ObjectKey::String("true".to_string()),
-                    BooleanView::False(_) => ObjectKey::String("false".to_string()),
+                    BooleanView::True(_) => PartialObjectKey::String("true".to_string()),
+                    BooleanView::False(_) => PartialObjectKey::String("false".to_string()),
                 }
             }
             KeyValueView::Str(str_handle) => {
                 let result = self.parse_str_terminal(str_handle, tree)?;
-                ObjectKey::String(result)
+                PartialObjectKey::String(result)
             }
             KeyValueView::KeyTuple(tuple_handle) => {
                 // Recursively handle nested tuple
-                self.collecting_object_keys.push(vec![]);
+                self.collecting_partial_keys.push(vec![]);
                 self.visit_key_tuple_handle(tuple_handle, tree)?;
-                let keys = self.collecting_object_keys.pop().expect(
-                    "collecting_object_keys stack should not be empty after visiting KeyTuple",
+                let keys = self.collecting_partial_keys.pop().expect(
+                    "collecting_partial_keys stack should not be empty after visiting KeyTuple",
                 );
-                ObjectKey::Tuple(Tuple(keys))
+                PartialObjectKey::Tuple(Tuple(keys))
+            }
+            KeyValueView::Hole(hole_handle) => {
+                let hole_view = hole_handle.get_view(tree)?;
+                let token_str = self.get_terminal_str(tree, hole_view.hole)?;
+                let label = if token_str == "!" {
+                    None
+                } else {
+                    Some(token_str[1..].parse::<Identifier>()?)
+                };
+                PartialObjectKey::Hole(label)
             }
         };
 
         // Add to current collection
-        self.collecting_object_keys
+        self.collecting_partial_keys
             .last_mut()
-            .expect("collecting_object_keys stack should not be empty when visiting KeyValue")
-            .push(object_key);
+            .expect("collecting_partial_keys stack should not be empty when visiting KeyValue")
+            .push(partial_key);
 
         Ok(())
     }

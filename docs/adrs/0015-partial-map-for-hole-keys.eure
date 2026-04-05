@@ -1,0 +1,224 @@
+$schema: ../../assets/schemas/eure-adr.schema.eure
+
+id = "0015-partial-map-for-hole-keys"
+title = "PartialMap: Allow Hole Syntax in Key Position"
+status = "accepted"
+decision-date = `2026-04-05`
+tags = ["data-model", "templating", "partial-document", "grammar"]
+
+context = ````markdown
+Eure's hole syntax (`!label`) is already supported in value position as an
+unresolved placeholder (ADR-0001, ADR-0002). For the planned templating
+system, holes also need to appear in key position:
+
+```eure
+!a {
+  x = 1
+}
+!b {
+  y = 2
+}
+```
+
+This allows document templates where the keys themselves are unknown until
+instantiation time.
+
+The challenge is that `ObjectKey` (ADR-0006) explicitly excludes holes because
+hole equality is ambiguous: whether `!a` in one position equals `!a` in another
+depends on the template substitution. This ambiguity makes holes unsuitable as
+`HashMap` keys, which require `Eq + Hash`.
+
+The question is: what should `EureDocument` construction do when it encounters
+a hole in key position?
+
+**Why the key position is fundamentally different from value position**
+
+Consider:
+
+```eure
+!a {
+  x = 1
+}
+!b {
+  y = 2
+}
+```
+
+If `!a` and `!b` are substituted with the same concrete key, the two sections
+would attempt to merge into one map entry. If they are substituted with
+different keys, the document structure differs fundamentally. This makes it
+impossible to construct a fully-evaluated `EureDocument` without knowing the
+substitution values in advance.
+
+**Prior approach: reject at construction time**
+
+An earlier version of PR #124 simply returned `DocumentConstructionError::HoleInKey`
+whenever a hole appeared in key position. This approach is safe but too
+restrictive: it prevents partial documents from being stored, formatted, or
+manipulated by tooling (LSP, formatter) before substitution.
+````
+
+decision = ````markdown
+Introduce a new `NodeValue::PartialMap` variant backed by a `PartialMap<NodeId>`
+(a `Vec`-backed ordered sequence of `(PartialObjectKey, NodeId)` pairs) to
+represent maps whose keys may contain holes.
+
+**New types:**
+
+```rust
+/// A key that may be a hole or a fully resolved key — superset of ObjectKey.
+pub enum PartialObjectKey {
+    Number(BigInt),
+    String(String),
+    Hole(Option<Identifier>),       // `!` or `!label`
+    Tuple(Tuple<PartialObjectKey>), // `(1, !x)` — may contain holes
+}
+
+/// Vec-backed ordered map allowing hole keys.
+pub struct PartialMap<V>(Vec<(PartialObjectKey, V)>);
+```
+
+**`PartialObjectKey` is a standalone superset of `ObjectKey`:**
+- `From<ObjectKey> for PartialObjectKey` (lossless)
+- `TryFrom<PartialObjectKey> for ObjectKey` (fails if any hole present)
+- No `Resolved(ObjectKey)` wrapper — parallel flat structure mirrors `ObjectKey`
+
+**Why `Vec` instead of `IndexMap`:**
+`PartialMap` uses `Vec` storage to avoid requiring `Hash + Eq` on
+`PartialObjectKey`. Hole equality is syntactic (label-based) for structural
+comparisons, but semantic equality is undefined until substitution. The `Vec`
+representation also naturally preserves duplicate entries, which are meaningful
+in templates.
+
+**Deduplication semantics in `PartialMap::find`:**
+- Labeled holes (`Hole(Some(label))`) and resolved keys deduplicate by value
+  only during path-based navigation, matching regular `Map` behavior for flat
+  bindings. This allows `!x.a = 1` and `!x.b = 2` to merge under a single `!x`
+  entry.
+- Anonymous holes (`Hole(None)`) and any key containing an anonymous hole
+  never deduplicate — each occurrence creates a new entry. This preserves the
+  intent of `! = 1\n! = 2` as two distinct placeholder entries.
+
+Note: Section syntax (`@ !x`) is bind-once for all key types. Two `@ !x`
+sections with the same labeled hole produce an error, consistent with `@ a`
+followed by `@ a`. Section re-entry uses `require_hole()` /
+`assert_unbound()` semantics rather than `PartialMap::find` deduplication.
+
+**Map upgrade rule (mixed maps):**
+When a regular `Map` receives its first hole-keyed entry via
+`Node::require_partial_map()`, it is upgraded in place: all existing
+`(ObjectKey, NodeId)` entries are migrated to
+`(PartialObjectKey::from(key), node_id)` entries, and the node content
+becomes `PartialMap`. This allows documents like:
+
+```eure
+normal = 1
+!hole = 2
+```
+
+to construct a single `PartialMap` root with two entries in source order.
+
+**`PathSegment` extension:**
+Two new variants handle hole keys in error paths and source projection:
+- `PathSegment::HoleKey(Option<Identifier>)` — for bare hole keys (`!` or `!label`)
+- `PathSegment::PartialValue(PartialObjectKey)` — for partial tuple keys like `(1, !x)`,
+  which cannot be losslessly represented as `PathSegment::Value(ObjectKey)`
+
+**`EureDocument` equality:**
+`PartialMap` nodes compare positionally (same sequence of `(key, child)` pairs),
+consistent with how `NodeArray` equality works. This enables `assert_eq!` in tests.
+
+**Downstream behavior:**
+Crates that cannot evaluate partial documents (JSON conversion, schema validation,
+codegen) return explicit structured errors when they encounter `PartialMap`. This
+follows the project's "MUST handle errors properly" principle.
+````
+
+consequences = ```markdown
+**Positive**
+- Hole keys are preserved in `EureDocument`, enabling LSP, formatting, and
+  source-level tooling to work with partial/template documents
+- Clean superset design: all resolved-key documents are unaffected
+- Compiler-enforced coverage: adding `NodeValue::PartialMap` causes exhaustive
+  match errors in all downstream code, making the impact explicit
+- `EureSource` (future) can share the same representation without redesign
+- Anonymous holes are handled naturally by the `Vec`-backed storage
+
+**Negative**
+- All downstream crates touching `NodeValue` required updates to add
+  `PartialMap` arms (most return "unsupported" errors)
+- `PartialMap` cannot be serialized to JSON; attempts return a structured error
+- `PathSegment::PartialValue` is needed for tuple-with-hole keys, adding a
+  second new path segment variant alongside `HoleKey`
+
+**Non-goals**
+- This ADR does not define how `PartialMap` is substituted (template evaluation).
+  That is left to the future `EureSource` and templating design.
+- This ADR does not add `PartialMap` to the schema validation system; partial
+  documents fail schema validation until holes are resolved.
+```
+
+alternatives-considered = [
+  ```markdown
+  **Reject hole keys at EureDocument construction time (`HoleInKey` error)**
+
+  Simple and safe: `DocumentConstructionError::HoleInKey` was the initial
+  approach in PR #124. Rejected because it prevents the formatter, LSP, and
+  future tooling from operating on template documents. The cost of keeping
+  partial documents representable is low; the cost of blocking tooling is high.
+  ```,
+  ````markdown
+  **Use a `Resolved(ObjectKey)` wrapper variant**
+
+  ```rust
+  pub enum PartialObjectKey {
+      Resolved(ObjectKey),
+      Hole(Option<Identifier>),
+      Tuple(Tuple<PartialObjectKey>),
+  }
+  ```
+
+  Rejected because wrapping `ObjectKey` in `Resolved` is a poor abstraction:
+  `Number` and `String` would require double-unwrapping, and the flat parallel
+  structure `Number / String / Hole / Tuple` mirrors `ObjectKey`'s design
+  more naturally.
+  ````,
+  ```markdown
+  **Use `IndexMap<PartialObjectKey, NodeId>` with NaN-like hole equality**
+
+  Make `Hole(x) != Hole(x)` always (NaN semantics), implement `Eq` and `Hash`
+  accordingly, and use `IndexMap`. Rejected because:
+  - `Eq` requires `a == a` (reflexivity), which NaN semantics violate
+  - `Hash` contract requires `a == b → hash(a) == hash(b)`, impossible with NaN
+  - Would make structural equality in tests impossible (`assert_eq!` would fail
+    for structurally identical partial documents)
+  ```,
+  ```markdown
+  **Deduplicate anonymous holes by position counter**
+
+  Assign a unique sequential ID to each anonymous hole at parse time so that
+  `Hole(None, id=1) != Hole(None, id=2)` even with the same label (none).
+  Rejected because:
+  - IDs are not part of the source syntax; two parses of the same input would
+    produce different IDs, breaking structural equality
+  - The `Vec`-based `find` approach (returning `None` for anonymous holes)
+    achieves the same deduplication behavior without introducing IDs
+  ```,
+  ```markdown
+  **Store partial maps only in EureSource, not EureDocument**
+
+  Keep `EureDocument` fully resolved (no `PartialMap`), and express partial
+  documents only at the `EureSource` level. Rejected because:
+  - `EureSource` does not yet exist in the current architecture
+  - The formatter, normalization, and layout projection all operate on
+    `EureDocument`; they would need to be duplicated for `EureSource`
+  - The `PartialMap` variant is a natural extension of `NodeValue` and can be
+    shared with future `EureSource` design
+  ```,
+]
+
+related-adrs = [
+  "0001-consolidate-uninitialized-with-hole",
+  "0002-hole-as-overridable-value",
+  "0006-objectkey-design",
+]

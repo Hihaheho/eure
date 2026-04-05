@@ -55,11 +55,11 @@ use crate::{
     UnionSchema, UnknownFieldsPolicy,
 };
 use eure_document::document::node::{Node, NodeValue};
-use eure_document::document::{EureDocument, NodeId};
+use eure_document::document::{EureDocument, InsertErrorKind, NodeId};
 use eure_document::identifier::Identifier;
 use eure_document::parse::ParseError;
 use eure_document::path::{EurePath, PathSegment};
-use eure_document::value::ObjectKey;
+use eure_document::value::{ObjectKey, ValueKind};
 use indexmap::IndexMap;
 use num_bigint::BigInt;
 use thiserror::Error;
@@ -70,8 +70,11 @@ pub enum ConversionError {
     #[error("Invalid type name: {0}")]
     InvalidTypeName(ObjectKey),
 
-    #[error("Unsupported schema construct at path: {0}")]
-    UnsupportedConstruct(String),
+    #[error("unsupported literal value at node {node_id:?}: {kind}")]
+    UnsupportedLiteralValue { node_id: NodeId, kind: ValueKind },
+
+    #[error("document insert error while copying literal value: {0}")]
+    DocumentInsert(#[from] InsertErrorKind),
 
     #[error("Invalid extension value: {extension} at path {path}")]
     InvalidExtensionValue { extension: String, path: String },
@@ -648,10 +651,17 @@ impl<'a> Converter<'a> {
                     .map(|(_, v)| v)
                     .collect()
             }
+            NodeValue::PartialMap(_) => {
+                return Err(ConversionError::UnsupportedLiteralValue {
+                    node_id: src_node_id,
+                    kind: ValueKind::PartialMap,
+                });
+            }
             NodeValue::Hole(_) => {
-                return Err(ConversionError::UnsupportedConstruct(
-                    "Hole node".to_string(),
-                ));
+                return Err(ConversionError::UnsupportedLiteralValue {
+                    node_id: src_node_id,
+                    kind: ValueKind::Hole,
+                });
             }
         };
 
@@ -665,28 +675,19 @@ impl<'a> Converter<'a> {
         match &src_node.content {
             NodeValue::Array(_) => {
                 for child_id in children_to_copy {
-                    let new_child_id = dest
-                        .add_array_element(None, dest_node_id)
-                        .map_err(|e| ConversionError::UnsupportedConstruct(e.to_string()))?
-                        .node_id;
+                    let new_child_id = dest.add_array_element(None, dest_node_id)?.node_id;
                     self.copy_node_to(dest, new_child_id, child_id)?;
                 }
             }
             NodeValue::Tuple(_) => {
                 for (index, child_id) in children_to_copy.into_iter().enumerate() {
-                    let new_child_id = dest
-                        .add_tuple_element(index as u8, dest_node_id)
-                        .map_err(|e| ConversionError::UnsupportedConstruct(e.to_string()))?
-                        .node_id;
+                    let new_child_id = dest.add_tuple_element(index as u8, dest_node_id)?.node_id;
                     self.copy_node_to(dest, new_child_id, child_id)?;
                 }
             }
             NodeValue::Map(map) => {
                 for (key, &child_id) in map.iter() {
-                    let new_child_id = dest
-                        .add_map_child(key.clone(), dest_node_id)
-                        .map_err(|e| ConversionError::UnsupportedConstruct(e.to_string()))?
-                        .node_id;
+                    let new_child_id = dest.add_map_child(key.clone(), dest_node_id)?.node_id;
                     self.copy_node_to(dest, new_child_id, child_id)?;
                 }
             }
@@ -880,6 +881,13 @@ fn collect_document_node_paths(doc: &EureDocument) -> IndexMap<NodeId, EurePath>
             NodeValue::Map(map) => {
                 for (key, &child_id) in map.iter() {
                     path.push(PathSegment::Value(key.clone()));
+                    dfs(doc, child_id, path, out, visited);
+                    path.pop();
+                }
+            }
+            NodeValue::PartialMap(map) => {
+                for (key, &child_id) in map.iter() {
+                    path.push(PathSegment::from_partial_object_key(key.clone()));
                     dfs(doc, child_id, path, out, visited);
                     path.pop();
                 }
@@ -1250,6 +1258,35 @@ mod tests {
             }
             other => panic!("Expected Literal, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn literal_variant_rejects_partial_map() {
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+
+        let value_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Integer(1.into())));
+        let mut map = eure_document::map::PartialNodeMap::new();
+        map.push(
+            eure_document::value::PartialObjectKey::Hole(Some("x".parse().unwrap())),
+            value_id,
+        );
+        doc.node_mut(root_id).content = NodeValue::PartialMap(map);
+
+        let variant_value_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::plaintext("literal"),
+        )));
+        doc.node_mut(root_id)
+            .extensions
+            .insert("variant".parse().unwrap(), variant_value_id);
+
+        assert_eq!(
+            Converter::new(&doc).node_to_document(root_id).unwrap_err(),
+            ConversionError::UnsupportedLiteralValue {
+                node_id: root_id,
+                kind: ValueKind::PartialMap,
+            }
+        );
     }
 
     #[test]

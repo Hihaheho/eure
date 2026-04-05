@@ -11883,6 +11883,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             KeyView::TupleIndex(item) => {
                 self.visit_tuple_index_handle(item, tree)?;
             }
+            KeyView::Hole(item) => {
+                self.visit_hole_handle(item, tree)?;
+            }
         }
         Ok(())
     }
@@ -12022,6 +12025,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             }
             KeyValueView::KeyTuple(item) => {
                 self.visit_key_tuple_handle(item, tree)?;
+            }
+            KeyValueView::Hole(item) => {
+                self.visit_hole_handle(item, tree)?;
             }
         }
         Ok(())

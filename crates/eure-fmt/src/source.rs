@@ -18,7 +18,7 @@ use eure_document::source::{
     SourceDocument, SourceId, SourceKey, SourcePathSegment, StringStyle, Trivia,
 };
 use eure_document::text::{Language, SyntaxHint};
-use eure_document::value::{ObjectKey, PrimitiveValue};
+use eure_document::value::{ObjectKey, PartialObjectKey, PrimitiveValue};
 
 /// Build a Doc IR from a SourceDocument.
 ///
@@ -300,6 +300,8 @@ impl<'a> SourceDocBuilder<'a> {
         match key {
             SourceKey::Ident(s) => Doc::text(s.as_ref()),
             SourceKey::Extension(s) => Doc::text("$").concat(Doc::text(s.as_ref())),
+            SourceKey::Hole(None) => Doc::text("!"),
+            SourceKey::Hole(Some(label)) => Doc::text("!").concat(Doc::text(label.as_ref())),
             SourceKey::String(s, style) => match style {
                 StringStyle::Quoted => Doc::text("\"")
                     .concat(Doc::text(escape_string(s)))
@@ -335,6 +337,7 @@ impl<'a> SourceDocBuilder<'a> {
             NodeValue::Array(arr) => self.build_array(node_id, arr),
             NodeValue::Tuple(tuple) => self.build_tuple(tuple),
             NodeValue::Map(map) => self.build_map(map),
+            NodeValue::PartialMap(map) => self.build_partial_map(map),
         }
     }
 
@@ -565,6 +568,23 @@ impl<'a> SourceDocBuilder<'a> {
         Doc::text("{ ").concat(entries).concat(Doc::text(" }"))
     }
 
+    fn build_partial_map(&self, map: &eure_document::map::PartialNodeMap) -> Doc {
+        if map.is_empty() {
+            return Doc::text("{}");
+        }
+
+        let entries = Doc::join(
+            map.iter().map(|(key, &child_id)| {
+                self.build_partial_object_key(key)
+                    .concat(Doc::text(" => "))
+                    .concat(self.build_value(child_id))
+            }),
+            Doc::text(", "),
+        );
+
+        Doc::text("{ ").concat(entries).concat(Doc::text(" }"))
+    }
+
     fn build_object_key(&self, key: &ObjectKey) -> Doc {
         match key {
             ObjectKey::String(s) => {
@@ -584,6 +604,30 @@ impl<'a> SourceDocBuilder<'a> {
             ObjectKey::Tuple(keys) => {
                 let inner = Doc::join(
                     keys.iter().map(|k| self.build_object_key(k)),
+                    Doc::text(", "),
+                );
+                Doc::text("(").concat(inner).concat(Doc::text(")"))
+            }
+        }
+    }
+
+    fn build_partial_object_key(&self, key: &PartialObjectKey) -> Doc {
+        match key {
+            PartialObjectKey::String(s) => {
+                if s.parse::<Identifier>().is_ok() {
+                    Doc::text(s.clone())
+                } else {
+                    Doc::text("\"")
+                        .concat(Doc::text(escape_string(s)))
+                        .concat(Doc::text("\""))
+                }
+            }
+            PartialObjectKey::Number(n) => Doc::text(n.to_string()),
+            PartialObjectKey::Hole(None) => Doc::text("!"),
+            PartialObjectKey::Hole(Some(label)) => Doc::text("!").concat(Doc::text(label.as_ref())),
+            PartialObjectKey::Tuple(keys) => {
+                let inner = Doc::join(
+                    keys.iter().map(|k| self.build_partial_object_key(k)),
                     Doc::text(", "),
                 );
                 Doc::text("(").concat(inner).concat(Doc::text(")"))

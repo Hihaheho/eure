@@ -1,4 +1,8 @@
-use crate::{prelude_internal::*, value::ValueKind};
+use crate::{
+    map::PartialNodeMap,
+    prelude_internal::*,
+    value::{PartialObjectKey, ValueKind},
+};
 
 #[derive(Debug, Clone)]
 /// A node in the Eure document.
@@ -82,6 +86,14 @@ impl<'d> NodeMut<'d> {
         self.document.node_mut(self.node_id).require_map()
     }
 
+    pub fn as_partial_map(self) -> Option<&'d PartialNodeMap> {
+        self.document.node(self.node_id).as_partial_map()
+    }
+
+    pub fn require_partial_map(self) -> Result<&'d mut PartialNodeMap, InsertErrorKind> {
+        self.document.node_mut(self.node_id).require_partial_map()
+    }
+
     pub fn require_tuple(self) -> Result<&'d mut NodeTuple, InsertErrorKind> {
         self.document.node_mut(self.node_id).require_tuple()
     }
@@ -95,6 +107,13 @@ impl Node {
     pub fn as_map(&self) -> Option<&NodeMap> {
         match &self.content {
             NodeValue::Map(map) => Some(map),
+            _ => None,
+        }
+    }
+
+    pub fn as_partial_map(&self) -> Option<&PartialNodeMap> {
+        match &self.content {
+            NodeValue::PartialMap(pm) => Some(pm),
             _ => None,
         }
     }
@@ -165,6 +184,38 @@ impl Node {
             Err(InsertErrorKind::ExpectedArray)
         }
     }
+
+    /// Returns a mutable reference to the partial map, converting `Hole` or `Map` if necessary.
+    ///
+    /// - `Hole` → empty `PartialMap`
+    /// - `Map` → `PartialMap` with existing entries migrated (keys wrapped in `PartialObjectKey::from`)
+    /// - `PartialMap` → returned as-is
+    /// - Any other type → `Err(ExpectedMap)`
+    pub(crate) fn require_partial_map(&mut self) -> Result<&mut PartialNodeMap, InsertErrorKind> {
+        match &self.content {
+            NodeValue::Hole(_) => {
+                self.content = NodeValue::PartialMap(PartialNodeMap::new());
+            }
+            NodeValue::Map(map) => {
+                // Collect entries before moving
+                let entries: Vec<(ObjectKey, NodeId)> =
+                    map.iter().map(|(k, &v)| (k.clone(), v)).collect();
+                self.content = NodeValue::PartialMap(PartialNodeMap::new());
+                let NodeValue::PartialMap(pm) = &mut self.content else {
+                    unreachable!()
+                };
+                for (key, node_id) in entries {
+                    pm.push(PartialObjectKey::from(key), node_id);
+                }
+            }
+            NodeValue::PartialMap(_) => {}
+            _ => return Err(InsertErrorKind::ExpectedMap),
+        }
+        let NodeValue::PartialMap(pm) = &mut self.content else {
+            unreachable!()
+        };
+        Ok(pm)
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -176,6 +227,12 @@ pub enum NodeValue {
     Array(NodeArray),
     Map(NodeMap),
     Tuple(NodeTuple),
+    /// A map that contains at least one hole key (or a mix of hole and resolved keys).
+    ///
+    /// Produced when an Eure document uses hole syntax in a key position,
+    /// e.g. `!a = 1` or `a.(1, !x) = 2`. This node cannot be fully evaluated
+    /// until all holes are resolved (templating phase).
+    PartialMap(PartialNodeMap),
 }
 
 impl NodeValue {
@@ -206,6 +263,10 @@ impl NodeValue {
         Self::Tuple(NodeTuple::new())
     }
 
+    pub fn empty_partial_map() -> Self {
+        Self::PartialMap(PartialNodeMap::new())
+    }
+
     pub fn value_kind(&self) -> ValueKind {
         match self {
             Self::Hole(_) => ValueKind::Hole,
@@ -213,6 +274,7 @@ impl NodeValue {
             Self::Array(_) => ValueKind::Array,
             Self::Map(_) => ValueKind::Map,
             Self::Tuple(_) => ValueKind::Tuple,
+            Self::PartialMap(_) => ValueKind::PartialMap,
         }
     }
 }

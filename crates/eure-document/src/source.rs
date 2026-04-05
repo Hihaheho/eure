@@ -316,6 +316,9 @@ pub enum SourceKey {
     /// Extension namespace: `$variant`, `$eure`
     Extension(Identifier),
 
+    /// Hole key: `!` or `!label`
+    Hole(Option<Identifier>),
+
     /// String key with syntax style hint.
     /// - `StringStyle::Quoted`: `"hello world"`
     /// - `StringStyle::Literal`: `'hello world'`
@@ -338,6 +341,7 @@ impl PartialEq for SourceKey {
         match (self, other) {
             (Self::Ident(a), Self::Ident(b)) => a == b,
             (Self::Extension(a), Self::Extension(b)) => a == b,
+            (Self::Hole(a), Self::Hole(b)) => a == b,
             // String equality ignores style hint - only content matters
             (Self::String(a, _), Self::String(b, _)) => a == b,
             (Self::Integer(a), Self::Integer(b)) => a == b,
@@ -351,6 +355,11 @@ impl PartialEq for SourceKey {
 impl Eq for SourceKey {}
 
 impl SourceKey {
+    /// Create a hole key: `!` or `!label`.
+    pub fn hole(label: Option<Identifier>) -> Self {
+        SourceKey::Hole(label)
+    }
+
     /// Create a quoted string key: `"..."`
     pub fn quoted(s: impl Into<String>) -> Self {
         SourceKey::String(s.into(), StringStyle::Quoted)

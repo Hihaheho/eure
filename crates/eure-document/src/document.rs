@@ -4,7 +4,9 @@ pub mod node;
 pub mod source_constructor;
 
 use crate::document::node::{NodeArray, NodeTuple};
+use crate::map::PartialNodeMap;
 use crate::prelude_internal::*;
+use crate::value::PartialObjectKey;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeId(pub usize);
@@ -125,6 +127,9 @@ impl EureDocument {
                 self.node_tuples_equal(tup1, other, tup2)
             }
             (NodeValue::Map(map1), NodeValue::Map(map2)) => self.node_maps_equal(map1, other, map2),
+            (NodeValue::PartialMap(pm1), NodeValue::PartialMap(pm2)) => {
+                self.node_partial_maps_equal(pm1, other, pm2)
+            }
             _ => false,
         }
     }
@@ -154,6 +159,26 @@ impl EureDocument {
             }
         }
 
+        true
+    }
+
+    fn node_partial_maps_equal(
+        &self,
+        pm1: &PartialNodeMap,
+        other: &EureDocument,
+        pm2: &PartialNodeMap,
+    ) -> bool {
+        if pm1.len() != pm2.len() {
+            return false;
+        }
+        for ((key1, &child_id1), (key2, &child_id2)) in pm1.iter().zip(pm2.iter()) {
+            if key1 != key2 {
+                return false;
+            }
+            if !self.nodes_equal(child_id1, other, child_id2) {
+                return false;
+            }
+        }
         true
     }
 
@@ -254,13 +279,42 @@ impl EureDocument {
     ) -> Result<NodeMut<'_>, InsertErrorKind> {
         match segment {
             PathSegment::Ident(identifier) => {
-                self.add_map_child(ObjectKey::String(identifier.into_string()), parent_node_id)
+                let key = ObjectKey::String(identifier.into_string());
+                // If parent is already a PartialMap, add as resolved key there
+                if matches!(self.node(parent_node_id).content, NodeValue::PartialMap(_)) {
+                    self.add_partial_map_child(PartialObjectKey::from(key), parent_node_id)
+                } else {
+                    self.add_map_child(key, parent_node_id)
+                }
             }
-            PathSegment::Value(object_key) => self.add_map_child(object_key, parent_node_id),
+            PathSegment::Value(object_key) => {
+                if matches!(self.node(parent_node_id).content, NodeValue::PartialMap(_)) {
+                    self.add_partial_map_child(PartialObjectKey::from(object_key), parent_node_id)
+                } else {
+                    self.add_map_child(object_key, parent_node_id)
+                }
+            }
+            PathSegment::PartialValue(key) => self.add_partial_map_child(key, parent_node_id),
             PathSegment::Extension(identifier) => self.add_extension(identifier, parent_node_id),
             PathSegment::TupleIndex(index) => self.add_tuple_element(index, parent_node_id),
             PathSegment::ArrayIndex(index) => self.add_array_element(index, parent_node_id),
+            PathSegment::HoleKey(label) => {
+                self.add_partial_map_child(PartialObjectKey::Hole(label), parent_node_id)
+            }
         }
+    }
+
+    /// Add a child node to a PartialMap, upgrading from Hole or Map if necessary.
+    pub fn add_partial_map_child(
+        &mut self,
+        key: PartialObjectKey,
+        parent_node_id: NodeId,
+    ) -> Result<NodeMut<'_>, InsertErrorKind> {
+        let node_id = self.create_node_uninitialized();
+        let node = self.node_mut(parent_node_id);
+        let pm = node.require_partial_map()?;
+        pm.push(key, node_id);
+        Ok(NodeMut::new(self, node_id))
     }
 
     pub fn add_map_child(
@@ -330,17 +384,49 @@ impl EureDocument {
         let node = self.node(parent_node_id);
 
         let existing = match &segment {
-            PathSegment::Ident(identifier) => node
-                .as_map()
-                .and_then(|m| m.get(&ObjectKey::String(identifier.clone().into_string())))
-                .copied(),
-            PathSegment::Value(object_key) => {
-                node.as_map().and_then(|m| m.get(object_key)).copied()
+            PathSegment::Ident(identifier) => {
+                let obj_key = ObjectKey::String(identifier.clone().into_string());
+                // Check both Map and PartialMap
+                node.as_map()
+                    .and_then(|m| m.get(&obj_key))
+                    .copied()
+                    .or_else(|| {
+                        node.as_partial_map()
+                            .and_then(|pm| {
+                                pm.find(&PartialObjectKey::String(identifier.clone().into_string()))
+                            })
+                            .copied()
+                    })
             }
+            PathSegment::Value(object_key) => {
+                let partial_key = PartialObjectKey::from(object_key.clone());
+                node.as_map()
+                    .and_then(|m| m.get(object_key))
+                    .copied()
+                    .or_else(|| {
+                        node.as_partial_map()
+                            .and_then(|pm| pm.find(&partial_key))
+                            .copied()
+                    })
+            }
+            PathSegment::PartialValue(key) => node
+                .as_partial_map()
+                .and_then(|pm| pm.find(key))
+                .copied()
+                .or_else(|| {
+                    ObjectKey::try_from(key.clone())
+                        .ok()
+                        .and_then(|object_key| node.as_map().and_then(|m| m.get(&object_key)))
+                        .copied()
+                }),
             PathSegment::Extension(identifier) => node.get_extension(identifier),
             PathSegment::TupleIndex(index) => node.as_tuple().and_then(|t| t.get(*index as usize)),
             PathSegment::ArrayIndex(Some(index)) => node.as_array().and_then(|a| a.get(*index)),
             PathSegment::ArrayIndex(None) => None, // push always creates new
+            PathSegment::HoleKey(label) => node
+                .as_partial_map()
+                .and_then(|pm| pm.find(&PartialObjectKey::Hole(label.clone())))
+                .copied(),
         };
 
         // 既存ノードがあればそれを返す
@@ -398,6 +484,18 @@ impl EureDocument {
                         let child_dst_id = result.node_id;
                         self.copy_subtree(child_src_id, dst, child_dst_id);
                     }
+                }
+            }
+            NodeValue::PartialMap(pm) => {
+                dst.node_mut(dst_id).content = NodeValue::empty_partial_map();
+                let entries: Vec<(PartialObjectKey, NodeId)> =
+                    pm.iter().map(|(k, &v)| (k.clone(), v)).collect();
+                for (key, child_src_id) in entries {
+                    let child_dst_id = dst.create_node_uninitialized();
+                    if let NodeValue::PartialMap(dst_pm) = &mut dst.node_mut(dst_id).content {
+                        dst_pm.push(key, child_dst_id);
+                    }
+                    self.copy_subtree(child_src_id, dst, child_dst_id);
                 }
             }
         }

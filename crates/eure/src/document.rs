@@ -328,7 +328,15 @@ pub fn cst_to_document_and_origin_map(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use eure_document::layout::{DocLayout, project_with_layout};
+    use eure_document::value::ObjectKey;
+    use eure_fmt::format_source_document;
     use eure_tree::tree::CstFacade;
+
+    fn parse_document(input: &str) -> EureDocument {
+        let cst = eure_parol::parse(input).unwrap();
+        cst_to_document(input, &cst).unwrap()
+    }
 
     /// Helper function to recursively find a node with a specific non-terminal kind
     fn find_node_by_kind(cst: &Cst, start: CstNodeId, kind: NonTerminalKind) -> Option<CstNodeId> {
@@ -464,5 +472,105 @@ mod tests {
             "  ",
             "Terminal span should be returned even for trivia"
         );
+    }
+
+    #[test]
+    fn test_hole_key_creates_partial_map() {
+        let doc = parse_document("!x = 1");
+        let root = doc.node(doc.get_root_id());
+        assert!(matches!(root.content, NodeValue::PartialMap(_)));
+    }
+
+    #[test]
+    fn test_anonymous_hole_key_creates_partial_map() {
+        let doc = parse_document("! = 1");
+        let root = doc.node(doc.get_root_id());
+        assert!(matches!(root.content, NodeValue::PartialMap(_)));
+    }
+
+    #[test]
+    fn test_hole_key_in_block_syntax() {
+        let doc = parse_document("!a {\n  x = 1\n}");
+        let root = doc.node(doc.get_root_id());
+        assert!(matches!(root.content, NodeValue::PartialMap(_)));
+    }
+
+    #[test]
+    fn test_hole_key_in_nested_path() {
+        let doc = parse_document("a.!b = 1");
+        let root = doc.node(doc.get_root_id());
+        let a_node = match &root.content {
+            NodeValue::Map(map) => map
+                .get(&ObjectKey::String("a".into()))
+                .copied()
+                .map(|node_id| doc.node(node_id)),
+            _ => None,
+        };
+        assert!(matches!(a_node, Some(node) if matches!(node.content, NodeValue::PartialMap(_))));
+    }
+
+    #[test]
+    fn test_mixed_map_hole_and_resolved_keys() {
+        let doc = parse_document("normal = 1\n!hole = 2");
+        let root = doc.node(doc.get_root_id());
+        assert!(matches!(root.content, NodeValue::PartialMap(_)));
+    }
+
+    #[test]
+    fn test_hole_in_tuple_key_creates_partial_map() {
+        let doc = parse_document("(1, !) = 1");
+        let root = doc.node(doc.get_root_id());
+        assert!(matches!(root.content, NodeValue::PartialMap(_)));
+    }
+
+    #[test]
+    fn test_partial_map_structural_equality() {
+        let input = "!x = 1";
+        let doc1 = {
+            let cst = eure_parol::parse(input).unwrap();
+            cst_to_document(input, &cst).unwrap()
+        };
+        let doc2 = {
+            let cst = eure_parol::parse(input).unwrap();
+            cst_to_document(input, &cst).unwrap()
+        };
+        assert_eq!(doc1, doc2);
+    }
+
+    #[test]
+    fn test_partial_map_different_labels_not_equal() {
+        let input1 = "!x = 1";
+        let input2 = "!y = 1";
+        let doc1 = {
+            let cst = eure_parol::parse(input1).unwrap();
+            cst_to_document(input1, &cst).unwrap()
+        };
+        let doc2 = {
+            let cst = eure_parol::parse(input2).unwrap();
+            cst_to_document(input2, &cst).unwrap()
+        };
+        assert_ne!(doc1, doc2);
+    }
+
+    #[test]
+    fn test_partial_map_format_round_trip() {
+        let input = "!x = 1\nnormal = 2";
+        let doc = parse_document(input);
+        let source = project_with_layout(&doc, &DocLayout::new());
+        let formatted = format_source_document(&source);
+        let reparsed = parse_document(&formatted);
+
+        assert_eq!(reparsed, doc);
+    }
+
+    #[test]
+    fn test_partial_tuple_key_format_round_trip() {
+        let input = "(1, !) = 1";
+        let doc = parse_document(input);
+        let source = project_with_layout(&doc, &DocLayout::new());
+        let formatted = format_source_document(&source);
+        let reparsed = parse_document(&formatted);
+
+        assert_eq!(reparsed, doc);
     }
 }

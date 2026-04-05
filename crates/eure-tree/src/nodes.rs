@@ -4639,6 +4639,7 @@ impl NonTerminalHandle for KeyHandle {
             NodeKind::NonTerminal(NonTerminalKind::TupleIndex) => {
                 KeyView::TupleIndex(TupleIndexHandle(child))
             }
+            NodeKind::NonTerminal(NonTerminalKind::Hole) => KeyView::Hole(HoleHandle(child)),
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
                     node: child,
@@ -4663,6 +4664,7 @@ pub enum KeyView {
     Float(FloatHandle),
     KeyTuple(KeyTupleHandle),
     TupleIndex(TupleIndexHandle),
+    Hole(HoleHandle),
 }
 impl KeyView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -5133,6 +5135,7 @@ impl NonTerminalHandle for KeyValueHandle {
             NodeKind::NonTerminal(NonTerminalKind::KeyTuple) => {
                 KeyValueView::KeyTuple(KeyTupleHandle(child))
             }
+            NodeKind::NonTerminal(NonTerminalKind::Hole) => KeyValueView::Hole(HoleHandle(child)),
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
                     node: child,
@@ -5154,6 +5157,7 @@ pub enum KeyValueView {
     Boolean(BooleanHandle),
     Str(StrHandle),
     KeyTuple(KeyTupleHandle),
+    Hole(HoleHandle),
 }
 impl KeyValueView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

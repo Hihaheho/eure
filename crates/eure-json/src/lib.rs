@@ -128,6 +128,7 @@ fn convert_node(
 
     match &node.content {
         NodeValue::Hole(_) => Err(EureToJsonError::HoleNotSupported { node_id }),
+        NodeValue::PartialMap(_) => Err(EureToJsonError::PartialMapNotSupported { node_id }),
         NodeValue::Primitive(prim) => convert_primitive(prim, node_id),
         NodeValue::Array(arr) => {
             let mut result = Vec::new();
@@ -265,6 +266,7 @@ fn convert_node_content_only(
 
     match &node.content {
         NodeValue::Hole(_) => Err(EureToJsonError::HoleNotSupported { node_id }),
+        NodeValue::PartialMap(_) => Err(EureToJsonError::PartialMapNotSupported { node_id }),
         NodeValue::Primitive(prim) => convert_primitive(prim, node_id),
         NodeValue::Array(arr) => {
             let mut result = Vec::new();

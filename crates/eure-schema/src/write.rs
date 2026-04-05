@@ -748,6 +748,15 @@ fn copy_subtree(
                 c.end_scope(scope)?;
             }
         }
+        NodeValue::PartialMap(map) => {
+            c.bind_empty_partial_map()?;
+            for (key, &child_id) in map.iter() {
+                let scope = c.begin_scope();
+                c.navigate_partial_map_entry(key.clone())?;
+                copy_subtree(src_doc, child_id, c, skip_variant_extension)?;
+                c.end_scope(scope)?;
+            }
+        }
     }
 
     for (ident, &ext_node_id) in src_node.extensions.iter() {
@@ -769,7 +778,10 @@ fn literal_needs_variant(node: &eure_document::document::node::Node) -> bool {
             t.language.is_implicit() || t.language.is_other("eure-path")
         }
         NodeValue::Primitive(_) => false,
-        NodeValue::Array(_) | NodeValue::Tuple(_) | NodeValue::Map(_) => true,
+        NodeValue::Array(_)
+        | NodeValue::Tuple(_)
+        | NodeValue::Map(_)
+        | NodeValue::PartialMap(_) => true,
         NodeValue::Hole(_) => true,
     }
 }

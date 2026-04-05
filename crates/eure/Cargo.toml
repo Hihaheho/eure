@@ -32,3 +32,6 @@ reqwest = { workspace = true, optional = true }
 thiserror = { workspace = true }
 thisisplural = { workspace = true }
 url = { workspace = true }
+
+[dev-dependencies]
+eure-fmt = { workspace = true }

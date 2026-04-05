@@ -5091,6 +5091,7 @@ pub enum KeyConstructor {
     Float(FloatNode),
     KeyTuple(KeyTupleNode),
     TupleIndex(TupleIndexNode),
+    Hole(HoleNode),
 }
 impl KeyConstructor {
     pub fn build(self) -> KeyNode {
@@ -5103,6 +5104,7 @@ impl KeyConstructor {
             Self::Float(node) => builder.embed(node.builder),
             Self::KeyTuple(node) => builder.embed(node.builder),
             Self::TupleIndex(node) => builder.embed(node.builder),
+            Self::Hole(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::Key, vec![child_id]);
         KeyNode { node_id, builder }
@@ -5248,6 +5250,7 @@ pub enum KeyValueConstructor {
     Boolean(BooleanNode),
     Str(StrNode),
     KeyTuple(KeyTupleNode),
+    Hole(HoleNode),
 }
 impl KeyValueConstructor {
     pub fn build(self) -> KeyValueNode {
@@ -5257,6 +5260,7 @@ impl KeyValueConstructor {
             Self::Boolean(node) => builder.embed(node.builder),
             Self::Str(node) => builder.embed(node.builder),
             Self::KeyTuple(node) => builder.embed(node.builder),
+            Self::Hole(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::KeyValue, vec![child_id]);
         KeyValueNode { node_id, builder }

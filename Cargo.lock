@@ -1950,6 +1950,7 @@ dependencies = [
  "eros",
  "eure-document",
  "eure-env",
+ "eure-fmt",
  "eure-macros",
  "eure-parol",
  "eure-schema",

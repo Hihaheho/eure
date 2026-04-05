@@ -1,6 +1,6 @@
 use num_bigint::BigInt;
 
-use crate::{prelude_internal::*, text::Text};
+use crate::{identifier::Identifier, prelude_internal::*, text::Text};
 
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub enum ValueKind {
@@ -14,6 +14,7 @@ pub enum ValueKind {
     Array,
     Tuple,
     Map,
+    PartialMap,
 }
 
 impl core::fmt::Display for ValueKind {
@@ -29,6 +30,7 @@ impl core::fmt::Display for ValueKind {
             Self::Array => write!(f, "array"),
             Self::Tuple => write!(f, "tuple"),
             Self::Map => write!(f, "map"),
+            Self::PartialMap => write!(f, "partial-map"),
         }
     }
 }
@@ -161,10 +163,117 @@ impl From<BigInt> for ObjectKey {
     }
 }
 
+/// A key that may be a hole (unresolved placeholder) or a fully resolved key.
+///
+/// This is a superset of [`ObjectKey`] used exclusively in [`PartialMap`] nodes.
+///
+/// # Equality Semantics
+/// Equality is label-based: `Hole(Some("a")) == Hole(Some("a"))` is true,
+/// enabling structural document comparison (e.g., in `assert_eq!`).
+/// This is **syntactic** equality only — it does not imply semantic interchangeability.
+///
+/// Anonymous holes (`Hole(None)`) still compare equal for structural equality,
+/// but lookup operations treat them as unique placeholders that never deduplicate.
+/// Labeled holes (`Hole(Some(label))`) are deduplicated by label.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PartialObjectKey {
+    Number(BigInt),
+    String(String),
+    /// An unresolved hole key: `!` (None) or `!label` (Some(label)).
+    Hole(Option<Identifier>),
+    /// A tuple key that may contain holes.
+    Tuple(Tuple<PartialObjectKey>),
+}
+
+impl PartialObjectKey {
+    /// Returns true when this key contains an anonymous hole anywhere within it.
+    ///
+    /// Anonymous holes are syntactically comparable, but they are never
+    /// deduplicated when looking up PartialMap entries.
+    pub fn contains_anonymous_hole(&self) -> bool {
+        match self {
+            PartialObjectKey::Hole(None) => true,
+            PartialObjectKey::Hole(Some(_))
+            | PartialObjectKey::Number(_)
+            | PartialObjectKey::String(_) => false,
+            PartialObjectKey::Tuple(items) => items.iter().any(Self::contains_anonymous_hole),
+        }
+    }
+}
+
+impl core::fmt::Display for PartialObjectKey {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            PartialObjectKey::Number(n) => write!(f, "{}", n),
+            PartialObjectKey::String(s) => {
+                write!(f, "\"")?;
+                for c in s.chars() {
+                    match c {
+                        '"' => write!(f, "\\\"")?,
+                        '\\' => write!(f, "\\\\")?,
+                        _ => write!(f, "{}", c)?,
+                    }
+                }
+                write!(f, "\"")
+            }
+            PartialObjectKey::Hole(None) => write!(f, "!"),
+            PartialObjectKey::Hole(Some(label)) => write!(f, "!{}", label),
+            PartialObjectKey::Tuple(t) => write!(f, "{}", t),
+        }
+    }
+}
+
+impl From<ObjectKey> for PartialObjectKey {
+    fn from(key: ObjectKey) -> Self {
+        match key {
+            ObjectKey::Number(n) => PartialObjectKey::Number(n),
+            ObjectKey::String(s) => PartialObjectKey::String(s),
+            ObjectKey::Tuple(t) => PartialObjectKey::Tuple(Tuple(
+                t.0.into_iter().map(PartialObjectKey::from).collect(),
+            )),
+        }
+    }
+}
+
+/// Error returned when a [`PartialObjectKey`] contains a hole and cannot be converted to [`ObjectKey`].
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("PartialObjectKey contains a hole and cannot be converted to ObjectKey")]
+pub struct HoleKeyError;
+
+impl TryFrom<PartialObjectKey> for ObjectKey {
+    type Error = HoleKeyError;
+
+    fn try_from(key: PartialObjectKey) -> Result<Self, Self::Error> {
+        match key {
+            PartialObjectKey::Number(n) => Ok(ObjectKey::Number(n)),
+            PartialObjectKey::String(s) => Ok(ObjectKey::String(s)),
+            PartialObjectKey::Hole(_) => Err(HoleKeyError),
+            PartialObjectKey::Tuple(t) => {
+                let keys: Result<Vec<ObjectKey>, _> =
+                    t.0.into_iter().map(ObjectKey::try_from).collect();
+                Ok(ObjectKey::Tuple(Tuple(keys?)))
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Plural, Default)]
 pub struct Tuple<T>(pub Vec<T>);
 
 impl core::fmt::Display for Tuple<ObjectKey> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "(")?;
+        for (i, item) in self.0.iter().enumerate() {
+            if i != 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{}", item)?;
+        }
+        write!(f, ")")
+    }
+}
+
+impl core::fmt::Display for Tuple<PartialObjectKey> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "(")?;
         for (i, item) in self.0.iter().enumerate() {

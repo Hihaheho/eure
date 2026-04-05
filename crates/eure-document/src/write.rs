@@ -173,6 +173,15 @@ fn write_subtree_node(
                 c.end_scope(scope)?;
             }
         }
+        NodeValue::PartialMap(map) => {
+            c.bind_empty_partial_map()?;
+            for (key, &child_id) in map.iter() {
+                let scope = c.begin_scope();
+                c.navigate_partial_map_entry(key.clone())?;
+                write_subtree_node(src, child_id, c)?;
+                c.end_scope(scope)?;
+            }
+        }
     }
 
     for (ident, &ext_node_id) in node.extensions.iter() {

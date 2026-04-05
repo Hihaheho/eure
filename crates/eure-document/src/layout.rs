@@ -16,7 +16,7 @@ use crate::source::{
     BindSource, BindingSource, EureSource, SectionBody, SectionSource, SourceDocument, SourceId,
     SourceKey, SourcePath, SourcePathSegment,
 };
-use crate::value::ObjectKey;
+use crate::value::{ObjectKey, PartialObjectKey};
 
 /// Preferred layout style for a document path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -252,7 +252,7 @@ impl<'a> LayoutBuilder<'a> {
     fn build(&self) -> ProjectedDoc {
         let root_id = self.doc.get_root_id();
         let root_node = self.doc.node(root_id);
-        let root_is_map = matches!(root_node.content, NodeValue::Map(_));
+        let root_is_map = is_map_like(&root_node.content);
         let value = if root_is_map { None } else { Some(root_id) };
 
         let (bindings, sections) = self.build_entries(root_id, &[], &[], root_is_map, true);
@@ -267,7 +267,7 @@ impl<'a> LayoutBuilder<'a> {
     }
 
     fn build_block(&self, node_id: NodeId, node_path: &[PathSegment]) -> ProjectedBlock {
-        let node_is_map = matches!(self.doc.node(node_id).content, NodeValue::Map(_));
+        let node_is_map = is_map_like(&self.doc.node(node_id).content);
         let (bindings, sections) = self.build_entries(node_id, node_path, &[], node_is_map, true);
         ProjectedBlock {
             value: None,
@@ -304,13 +304,8 @@ impl<'a> LayoutBuilder<'a> {
             });
         }
 
-        if emit_map_fields && let NodeValue::Map(map) = &node.content {
-            for (key, &child_id) in map.iter() {
-                children.push(ChildEntry {
-                    segment: PathSegment::Value(key.clone()),
-                    node_id: child_id,
-                });
-            }
+        if emit_map_fields {
+            children.extend(map_like_children(node));
         }
 
         let children = self.order_children(node_path, children);
@@ -387,7 +382,7 @@ impl<'a> LayoutBuilder<'a> {
         let style = self.layout.style_for_path(self.doc, &child_node_path);
 
         if style == LayoutStyle::Passthrough {
-            let child_is_map = matches!(self.doc.node(child_id).content, NodeValue::Map(_));
+            let child_is_map = is_map_like(&self.doc.node(child_id).content);
             let (b, s) = self.build_entries(
                 child_id,
                 &child_node_path,
@@ -400,7 +395,7 @@ impl<'a> LayoutBuilder<'a> {
             return;
         }
 
-        let child_is_map = matches!(self.doc.node(child_id).content, NodeValue::Map(_));
+        let child_is_map = is_map_like(&self.doc.node(child_id).content);
         let mut style = self.normalize_style(style, child_is_map, ctx.allow_sections);
 
         if style == LayoutStyle::Binding
@@ -558,12 +553,12 @@ impl<'a> LayoutBuilder<'a> {
         node_id: NodeId,
         node_path: &[PathSegment],
     ) -> bool {
-        let NodeValue::Map(map) = &self.doc.node(node_id).content else {
-            return false;
-        };
-
-        for (key, &child_id) in map.iter() {
-            let child_node_path = concat_path(node_path, &PathSegment::Value(key.clone()));
+        for ChildEntry {
+            segment,
+            node_id: child_id,
+        } in map_like_children(self.doc.node(node_id))
+        {
+            let child_node_path = concat_path(node_path, &segment);
             if self.subtree_has_deferred_entries(child_id, &child_node_path) {
                 return true;
             }
@@ -582,12 +577,16 @@ impl<'a> LayoutBuilder<'a> {
             return true;
         }
 
-        let NodeValue::Map(map) = &node.content else {
+        if !is_map_like(&node.content) {
             return false;
-        };
+        }
 
-        for (key, &child_id) in map.iter() {
-            let child_node_path = concat_path(node_path, &PathSegment::Value(key.clone()));
+        for ChildEntry {
+            segment,
+            node_id: child_id,
+        } in map_like_children(node)
+        {
+            let child_node_path = concat_path(node_path, &segment);
             if self.subtree_has_deferred_entries(child_id, &child_node_path) {
                 return true;
             }
@@ -598,7 +597,7 @@ impl<'a> LayoutBuilder<'a> {
 
     fn has_section_entries(&self, node_id: NodeId, node_path: &[PathSegment]) -> bool {
         let node = self.doc.node(node_id);
-        let node_is_map = matches!(node.content, NodeValue::Map(_));
+        let node_is_map = is_map_like(&node.content);
 
         for (ident, &child_id) in node.extensions.iter() {
             let seg = PathSegment::Extension(ident.clone());
@@ -608,10 +607,13 @@ impl<'a> LayoutBuilder<'a> {
             }
         }
 
-        if node_is_map && let NodeValue::Map(map) = &node.content {
-            for (key, &child_id) in map.iter() {
-                let seg = PathSegment::Value(key.clone());
-                let child_node_path = concat_path(node_path, &seg);
+        if node_is_map {
+            for ChildEntry {
+                segment,
+                node_id: child_id,
+            } in map_like_children(node)
+            {
+                let child_node_path = concat_path(node_path, &segment);
                 if self.child_is_section(child_id, &child_node_path) {
                     return true;
                 }
@@ -627,12 +629,36 @@ impl<'a> LayoutBuilder<'a> {
             return self.has_section_entries(child_id, child_node_path);
         }
 
-        let child_is_map = matches!(self.doc.node(child_id).content, NodeValue::Map(_));
+        let child_is_map = is_map_like(&self.doc.node(child_id).content);
         let style = self.normalize_style(style, child_is_map, true);
         matches!(
             style,
             LayoutStyle::Section | LayoutStyle::Nested | LayoutStyle::SectionRootBinding
         )
+    }
+}
+
+fn is_map_like(content: &NodeValue) -> bool {
+    matches!(content, NodeValue::Map(_) | NodeValue::PartialMap(_))
+}
+
+fn map_like_children(node: &crate::document::node::Node) -> Vec<ChildEntry> {
+    match &node.content {
+        NodeValue::Map(map) => map
+            .iter()
+            .map(|(key, &child_id)| ChildEntry {
+                segment: PathSegment::Value(key.clone()),
+                node_id: child_id,
+            })
+            .collect(),
+        NodeValue::PartialMap(map) => map
+            .iter()
+            .map(|(key, &child_id)| ChildEntry {
+                segment: PathSegment::from_partial_object_key(key.clone()),
+                node_id: child_id,
+            })
+            .collect(),
+        _ => Vec::new(),
     }
 }
 
@@ -789,6 +815,14 @@ fn to_source_path(path: &[PathSegment]) -> SourcePath {
         match seg {
             PathSegment::Ident(id) => out.push(SourcePathSegment::ident(id.clone())),
             PathSegment::Extension(id) => out.push(SourcePathSegment::extension(id.clone())),
+            PathSegment::PartialValue(key) => out.push(SourcePathSegment {
+                key: partial_object_key_to_source_key(key),
+                array: None,
+            }),
+            PathSegment::HoleKey(label) => out.push(SourcePathSegment {
+                key: SourceKey::hole(label.clone()),
+                array: None,
+            }),
             PathSegment::Value(key) => out.push(SourcePathSegment {
                 key: object_key_to_source_key(key),
                 array: None,
@@ -829,6 +863,29 @@ fn object_key_to_source_key(key: &ObjectKey) -> SourceKey {
     }
 }
 
+fn partial_object_key_to_source_key(key: &PartialObjectKey) -> SourceKey {
+    match key {
+        PartialObjectKey::String(s) => {
+            if let Ok(id) = s.parse::<Identifier>() {
+                SourceKey::Ident(id)
+            } else {
+                SourceKey::quoted(s.clone())
+            }
+        }
+        PartialObjectKey::Number(n) => {
+            if let Ok(n64) = i64::try_from(n) {
+                SourceKey::Integer(n64)
+            } else {
+                SourceKey::quoted(n.to_string())
+            }
+        }
+        PartialObjectKey::Hole(label) => SourceKey::hole(label.clone()),
+        PartialObjectKey::Tuple(keys) => {
+            SourceKey::Tuple(keys.iter().map(partial_object_key_to_source_key).collect())
+        }
+    }
+}
+
 fn concat_path(prefix: &[PathSegment], seg: &PathSegment) -> Vec<PathSegment> {
     let mut out = Vec::with_capacity(prefix.len() + 1);
     out.extend_from_slice(prefix);
@@ -842,10 +899,22 @@ fn child_node_id(doc: &EureDocument, parent_id: NodeId, segment: &PathSegment) -
         PathSegment::Extension(ext) => parent.extensions.get(ext).copied(),
         PathSegment::Ident(ident) => match &parent.content {
             NodeValue::Map(map) => map.get(&ObjectKey::String(ident.to_string())).copied(),
+            NodeValue::PartialMap(map) => map
+                .find(&PartialObjectKey::String(ident.to_string()))
+                .copied(),
             _ => None,
         },
         PathSegment::Value(key) => match &parent.content {
             NodeValue::Map(map) => map.get(key).copied(),
+            NodeValue::PartialMap(map) => map.find(&PartialObjectKey::from(key.clone())).copied(),
+            _ => None,
+        },
+        PathSegment::PartialValue(key) => match &parent.content {
+            NodeValue::Map(map) => ObjectKey::try_from(key.clone())
+                .ok()
+                .and_then(|object_key| map.get(&object_key))
+                .copied(),
+            NodeValue::PartialMap(map) => map.find(key).copied(),
             _ => None,
         },
         PathSegment::ArrayIndex(index) => match &parent.content {
@@ -854,6 +923,10 @@ fn child_node_id(doc: &EureDocument, parent_id: NodeId, segment: &PathSegment) -
         },
         PathSegment::TupleIndex(index) => match &parent.content {
             NodeValue::Tuple(tuple) => tuple.get(*index as usize),
+            _ => None,
+        },
+        PathSegment::HoleKey(label) => match &parent.content {
+            NodeValue::PartialMap(map) => map.find(&PartialObjectKey::Hole(label.clone())).copied(),
             _ => None,
         },
     }

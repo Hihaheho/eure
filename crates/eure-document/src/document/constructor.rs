@@ -1,7 +1,9 @@
 use indexmap::IndexSet;
 
 use crate::document::interpreter_sink::InterpreterSink;
+use crate::map::PartialNodeMap;
 use crate::prelude_internal::*;
+use crate::value::PartialObjectKey;
 
 /// Represents a scope in the document constructor.
 /// Must be passed to `end_scope` to restore the constructor to the state when the scope was created.
@@ -154,6 +156,43 @@ impl DocumentConstructor {
         Ok(node_id)
     }
 
+    /// Navigate into a PartialMap entry.
+    ///
+    /// Find-or-create semantics:
+    /// - labeled holes and resolved keys reuse an existing entry
+    /// - anonymous holes (`Hole(None)`) always create a fresh entry
+    pub fn navigate_partial_map_entry(
+        &mut self,
+        key: PartialObjectKey,
+    ) -> Result<NodeId, InsertError> {
+        let current = self.current_node_id();
+        let existing = self
+            .document
+            .node(current)
+            .as_partial_map()
+            .and_then(|pm| pm.find(&key))
+            .copied();
+
+        let node_id = if let Some(node_id) = existing {
+            node_id
+        } else {
+            self.document
+                .add_partial_map_child(key.clone(), current)
+                .map_err(|kind| InsertError {
+                    kind,
+                    path: EurePath::from_iter(self.path.iter().cloned()),
+                })?
+                .node_id
+        };
+
+        let segment = PathSegment::from_partial_object_key(key);
+
+        self.stack.push(node_id);
+        self.hole_bound.push(false);
+        self.path.push(segment);
+        Ok(node_id)
+    }
+
     /// Validate that the current node is a Hole (unbound).
     /// Use this before binding a value to ensure the node hasn't already been assigned.
     pub fn require_hole(&self) -> Result<(), InsertError> {
@@ -212,6 +251,19 @@ impl DocumentConstructor {
             });
         }
         node.content = NodeValue::Map(Default::default());
+        Ok(())
+    }
+
+    /// Bind an empty PartialMap to the current node. Error if already bound.
+    pub fn bind_empty_partial_map(&mut self) -> Result<(), InsertError> {
+        let node = self.current_node_mut();
+        if !node.content.is_hole() {
+            return Err(InsertError {
+                kind: InsertErrorKind::BindingTargetHasValue,
+                path: EurePath::from_iter(self.current_path().iter().cloned()),
+            });
+        }
+        node.content = NodeValue::PartialMap(PartialNodeMap::new());
         Ok(())
     }
 
@@ -355,6 +407,7 @@ impl InterpreterSink for DocumentConstructor {
 mod tests {
     use super::*;
     use crate::identifier::IdentifierParser;
+    use crate::value::{PartialObjectKey, Tuple};
 
     fn create_identifier(s: &str) -> Identifier {
         let parser = IdentifierParser::init();
@@ -689,6 +742,64 @@ mod tests {
             root_node.content,
             NodeValue::Primitive(PrimitiveValue::Bool(true))
         ));
+    }
+
+    #[test]
+    fn test_finish_preserves_partial_map_root() {
+        let mut constructor = DocumentConstructor::new();
+
+        constructor
+            .navigate_partial_map_entry(PartialObjectKey::Hole(Some(create_identifier("x"))))
+            .unwrap();
+        constructor
+            .bind_primitive(PrimitiveValue::Integer(1.into()))
+            .unwrap();
+
+        let document = constructor.finish();
+        assert!(matches!(
+            document.node(document.get_root_id()).content,
+            NodeValue::PartialMap(_)
+        ));
+    }
+
+    #[test]
+    fn test_navigate_partial_map_entry_does_not_reuse_tuple_with_anonymous_hole() {
+        let mut constructor = DocumentConstructor::new();
+        let scope = constructor.begin_scope();
+
+        let key = PartialObjectKey::Tuple(Tuple(vec![
+            PartialObjectKey::Number(1.into()),
+            PartialObjectKey::Hole(None),
+        ]));
+
+        let first = constructor.navigate_partial_map_entry(key.clone()).unwrap();
+        constructor.end_scope(scope).unwrap();
+
+        let second_scope = constructor.begin_scope();
+        let second = constructor.navigate_partial_map_entry(key).unwrap();
+
+        assert_ne!(first, second);
+        constructor.end_scope(second_scope).unwrap();
+    }
+
+    #[test]
+    fn test_navigate_reuses_labeled_hole_key_segment() {
+        let mut constructor = DocumentConstructor::new();
+        let label = create_identifier("x");
+
+        let scope = constructor.begin_scope();
+        let first = constructor
+            .navigate(PathSegment::HoleKey(Some(label.clone())))
+            .unwrap();
+        constructor.end_scope(scope).unwrap();
+
+        let scope = constructor.begin_scope();
+        let second = constructor
+            .navigate(PathSegment::HoleKey(Some(label)))
+            .unwrap();
+
+        assert_eq!(first, second);
+        constructor.end_scope(scope).unwrap();
     }
 
     #[test]

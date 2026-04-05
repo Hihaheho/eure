@@ -31,6 +31,7 @@ pub(crate) fn node_type_name(content: &NodeValue) -> String {
         NodeValue::Array(_) => "array".to_string(),
         NodeValue::Tuple(_) => "tuple".to_string(),
         NodeValue::Map(_) => "map".to_string(),
+        NodeValue::PartialMap(_) => "partial-map".to_string(),
     }
 }
 
@@ -58,6 +59,7 @@ fn value_kind_to_name(kind: eure_document::value::ValueKind) -> String {
         ValueKind::Array => "array".to_string(),
         ValueKind::Tuple => "tuple".to_string(),
         ValueKind::Map => "map".to_string(),
+        ValueKind::PartialMap => "partial-map".to_string(),
         ValueKind::Hole => "hole".to_string(),
     }
 }
