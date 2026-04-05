@@ -1,19 +1,27 @@
-use eure::query::{TextFile, TextFileContent, build_runtime};
+use eure::query::{DocumentToSchemaQuery, TextFile, TextFileContent, build_runtime};
 use eure::query_flow::DurabilityLevel;
-use eure_json::{Config as JsonConfig, JsonToEure};
+use eure_json::value_to_document_with_variant_repr;
 use eure_document::document::EureDocument;
 use eure_document::source::{EureSource, SourceDocument};
 use eure_schema::interop::VariantRepr;
+use eure_schema::{SchemaDocument, SchemaNodeContent};
 
-use crate::util::{VariantFormat, display_path, handle_query_error, read_input};
+use crate::util::{VariantFormat, read_input};
 
 #[derive(clap::Args)]
 pub struct Args {
     /// Path to JSON file to convert (use - for stdin)
     pub file: String,
+    /// Optional schema file used to infer union variant representation (`$interop.variant-repr`)
+    #[arg(short, long)]
+    pub schema: Option<String>,
     /// Variant representation format
-    #[arg(short = 'v', long, value_enum, default_value = "external")]
-    pub variant: VariantFormat,
+    ///
+    /// If omitted:
+    /// - with `--schema`: inferred from schema root union interop (falls back to untagged)
+    /// - without `--schema`: defaults to untagged
+    #[arg(short = 'v', long, value_enum)]
+    pub variant: Option<VariantFormat>,
     /// Tag field name for internal/adjacent representations
     #[arg(short = 't', long, default_value = "type")]
     pub tag: String,
@@ -40,36 +48,36 @@ pub fn run(args: Args) {
     // 2. Create query runtime
     let runtime = build_runtime();
 
-    // 3. Register JSON file as asset
-    let file = TextFile::from_path(display_path(file_opt).into());
-    runtime.resolve_asset(
-        file.clone(),
-        TextFileContent(contents),
-        DurabilityLevel::Static,
-    );
-
-    // 4. Configure variant representation
-    let variant_repr = match args.variant {
-        VariantFormat::External => VariantRepr::External,
-        VariantFormat::Internal => VariantRepr::Internal { tag: args.tag },
-        VariantFormat::Adjacent => VariantRepr::Adjacent {
-            tag: args.tag,
-            content: args.content,
-        },
-        VariantFormat::Untagged => VariantRepr::Untagged,
+    // 3. Determine variant representation
+    let variant_repr = if let Some(explicit) = args.variant.clone() {
+        variant_format_to_repr(explicit, args.tag.clone(), args.content.clone())
+    } else if let Some(schema_path) = args.schema.as_deref() {
+        let schema_repr = load_schema_variant_repr(&runtime, schema_path);
+        schema_repr.unwrap_or(VariantRepr::Untagged)
+    } else {
+        VariantRepr::Untagged
     };
-    let config = JsonConfig { variant_repr };
 
-    // 5. Execute query to convert JSON to EureDocument
-    let document = match runtime.query(JsonToEure::new(file.clone(), config)) {
+    // 4. Convert JSON to EureDocument (schema/CLI-guided variant representation)
+    let json_value: serde_json::Value = match serde_json::from_str(&contents) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Error parsing JSON: {e}");
+            std::process::exit(1);
+        }
+    };
+    let document = match value_to_document_with_variant_repr(&json_value, &variant_repr) {
         Ok(doc) => doc,
-        Err(e) => handle_query_error(e),
+        Err(e) => {
+            eprintln!("Error converting JSON to Eure: {e}");
+            std::process::exit(1);
+        }
     };
 
-    // 6. Build minimal SourceDocument for formatting
-    let source_doc = build_minimal_source_document(document);
+    // 5. Build minimal SourceDocument for formatting
+    let source_doc = build_minimal_source_document(std::sync::Arc::new(document));
 
-    // 7. Format and output
+    // 6. Format and output
     let output = eure_fmt::format_source_document(&source_doc);
     println!("{output}");
 }
@@ -84,4 +92,49 @@ fn build_minimal_source_document(document: std::sync::Arc<EureDocument>) -> Sour
     };
 
     SourceDocument::new(doc, vec![root_source])
+}
+
+fn variant_format_to_repr(format: VariantFormat, tag: String, content: String) -> VariantRepr {
+    match format {
+        VariantFormat::External => VariantRepr::External,
+        VariantFormat::Internal => VariantRepr::Internal { tag },
+        VariantFormat::Adjacent => VariantRepr::Adjacent { tag, content },
+        VariantFormat::Untagged => VariantRepr::Untagged,
+    }
+}
+
+fn load_schema_variant_repr(
+    runtime: &eure::query_flow::QueryRuntime,
+    schema_path: &str,
+) -> Option<VariantRepr> {
+    let schema_file = TextFile::from_path(schema_path.into());
+    let schema_contents = match std::fs::read_to_string(schema_path) {
+        Ok(content) => content,
+        Err(e) => {
+            eprintln!("Error reading schema file: {e}");
+            std::process::exit(1);
+        }
+    };
+    runtime.resolve_asset(
+        schema_file.clone(),
+        TextFileContent(schema_contents),
+        DurabilityLevel::Static,
+    );
+
+    let validated = match runtime.query(DocumentToSchemaQuery::new(schema_file)) {
+        Ok(schema) => schema,
+        Err(e) => {
+            eprintln!("Error loading schema: {e}");
+            std::process::exit(1);
+        }
+    };
+
+    root_union_variant_repr(&validated.schema)
+}
+
+fn root_union_variant_repr(schema: &SchemaDocument) -> Option<VariantRepr> {
+    match &schema.node(schema.root).content {
+        SchemaNodeContent::Union(union) => union.interop.variant_repr.clone(),
+        _ => None,
+    }
 }

@@ -13,6 +13,7 @@ use eure::report::{ErrorReport, ErrorReports, Origin, OriginHints};
 use eure::tree::{Cst, InputSpan};
 use eure::value::{ObjectKey, PrimitiveValue};
 use eure_document::text::Text;
+use eure_document::parse::union::VARIANT;
 use eure_schema::interop::VariantRepr;
 use num_bigint::BigInt;
 use query_flow::{Db, QueryError, query};
@@ -338,6 +339,20 @@ pub fn value_to_document(
     Ok(doc)
 }
 
+/// Convert a JSON value to an EureDocument with explicit variant representation decoding.
+///
+/// Unlike [`value_to_document`], this function attempts to reconstruct `$variant`
+/// extensions from JSON objects according to `variant_repr`.
+pub fn value_to_document_with_variant_repr(
+    value: &JsonValue,
+    variant_repr: &VariantRepr,
+) -> Result<EureDocument, JsonToEureError> {
+    let mut doc = EureDocument::new();
+    let root_id = doc.get_root_id();
+    convert_json_to_node_with_variant_repr(&mut doc, root_id, value, variant_repr);
+    Ok(doc)
+}
+
 /// Convert a JSON value and set it as the content of the given node.
 fn convert_json_to_node(doc: &mut EureDocument, node_id: NodeId, value: &JsonValue) {
     match value {
@@ -382,6 +397,137 @@ fn convert_json_to_node(doc: &mut EureDocument, node_id: NodeId, value: &JsonVal
                 }
             }
         }
+    }
+}
+
+fn convert_json_to_node_with_variant_repr(
+    doc: &mut EureDocument,
+    node_id: NodeId,
+    value: &JsonValue,
+    variant_repr: &VariantRepr,
+) {
+    if let Some(decoded) = detect_variant(value, variant_repr) {
+        match &decoded.content {
+            DecodedVariantContent::Borrowed(content) => {
+                convert_json_to_node(doc, node_id, content);
+            }
+            DecodedVariantContent::Owned(content) => {
+                convert_json_to_node(doc, node_id, content);
+            }
+        }
+        let variant_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::plaintext(decoded.variant_name),
+        )));
+        doc.node_mut(node_id).extensions.insert(VARIANT, variant_id);
+        return;
+    }
+
+    match value {
+        JsonValue::Null => {
+            doc.node_mut(node_id).content = NodeValue::Primitive(PrimitiveValue::Null);
+        }
+        JsonValue::Bool(b) => {
+            doc.node_mut(node_id).content = NodeValue::Primitive(PrimitiveValue::Bool(*b));
+        }
+        JsonValue::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                doc.node_mut(node_id).content =
+                    NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(i)));
+            } else if let Some(u) = n.as_u64() {
+                doc.node_mut(node_id).content =
+                    NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(u)));
+            } else if let Some(f) = n.as_f64() {
+                doc.node_mut(node_id).content = NodeValue::Primitive(PrimitiveValue::F64(f));
+            }
+        }
+        JsonValue::String(s) => {
+            doc.node_mut(node_id).content =
+                NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(s.clone())));
+        }
+        JsonValue::Array(arr) => {
+            doc.node_mut(node_id).content = NodeValue::empty_array();
+            for item in arr {
+                let child_id = doc.create_node(NodeValue::hole());
+                convert_json_to_node_with_variant_repr(doc, child_id, item, variant_repr);
+                if let NodeValue::Array(ref mut array) = doc.node_mut(node_id).content {
+                    let _ = array.push(child_id);
+                }
+            }
+        }
+        JsonValue::Object(obj) => {
+            doc.node_mut(node_id).content = NodeValue::empty_map();
+            for (key, val) in obj {
+                let child_id = doc.create_node(NodeValue::hole());
+                convert_json_to_node_with_variant_repr(doc, child_id, val, variant_repr);
+                if let NodeValue::Map(ref mut map) = doc.node_mut(node_id).content {
+                    map.insert(ObjectKey::String(key.clone()), child_id);
+                }
+            }
+        }
+    }
+}
+
+enum DecodedVariantContent<'a> {
+    Borrowed(&'a JsonValue),
+    Owned(JsonValue),
+}
+
+struct DecodedVariant<'a> {
+    variant_name: String,
+    content: DecodedVariantContent<'a>,
+}
+
+fn detect_variant<'a>(value: &'a JsonValue, variant_repr: &VariantRepr) -> Option<DecodedVariant<'a>> {
+    let JsonValue::Object(obj) = value else {
+        return None;
+    };
+
+    match variant_repr {
+        VariantRepr::External => {
+            if obj.len() != 1 {
+                return None;
+            }
+            let (variant_name, content) = obj.iter().next()?;
+            Some(DecodedVariant {
+                variant_name: variant_name.clone(),
+                content: DecodedVariantContent::Borrowed(content),
+            })
+        }
+        VariantRepr::Internal { tag } => {
+            let tag_value = obj.get(tag)?;
+            let JsonValue::String(variant_name) = tag_value else {
+                return None;
+            };
+
+            let mut map = serde_json::Map::new();
+            for (k, v) in obj {
+                if k != tag {
+                    map.insert(k.clone(), v.clone());
+                }
+            }
+            Some(DecodedVariant {
+                variant_name: variant_name.clone(),
+                content: DecodedVariantContent::Owned(JsonValue::Object(map)),
+            })
+        }
+        VariantRepr::Adjacent { tag, content } => {
+            if tag == content {
+                return None;
+            }
+            let tag_value = obj.get(tag)?;
+            let JsonValue::String(variant_name) = tag_value else {
+                return None;
+            };
+            let content_value = obj.get(content)?;
+            if obj.len() != 2 {
+                return None;
+            }
+            Some(DecodedVariant {
+                variant_name: variant_name.clone(),
+                content: DecodedVariantContent::Borrowed(content_value),
+            })
+        }
+        VariantRepr::Untagged => None,
     }
 }
 
@@ -696,6 +842,61 @@ mod tests {
         });
         assert_eq!(
             value_to_document(&json, &Config::default()).unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_json_to_eure_with_variant_repr_external() {
+        let json = json!({"Success": {"value": 42}});
+        let expected = eure!({
+            value = 42,
+            %variant = "Success",
+        });
+
+        assert_eq!(
+            value_to_document_with_variant_repr(&json, &VariantRepr::External).unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_json_to_eure_with_variant_repr_internal() {
+        let json = json!({"type": "Success", "value": 42});
+        let expected = eure!({
+            value = 42,
+            %variant = "Success",
+        });
+
+        assert_eq!(
+            value_to_document_with_variant_repr(
+                &json,
+                &VariantRepr::Internal {
+                    tag: "type".to_string()
+                }
+            )
+            .unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_json_to_eure_with_variant_repr_adjacent() {
+        let json = json!({"kind": "Success", "payload": {"value": 42}});
+        let expected = eure!({
+            value = 42,
+            %variant = "Success",
+        });
+
+        assert_eq!(
+            value_to_document_with_variant_repr(
+                &json,
+                &VariantRepr::Adjacent {
+                    tag: "kind".to_string(),
+                    content: "payload".to_string()
+                }
+            )
+            .unwrap(),
             expected
         );
     }
