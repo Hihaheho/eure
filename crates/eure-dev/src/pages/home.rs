@@ -87,6 +87,7 @@ impl RightTab {
 enum EureExample {
     #[default]
     Readme,
+    Adr,
     HelloWorld,
     SyntaxReference,
     EureSchema,
@@ -100,6 +101,7 @@ enum EureExample {
 impl EureExample {
     const ALL: &'static [EureExample] = &[
         EureExample::Readme,
+        EureExample::Adr,
         EureExample::HelloWorld,
         EureExample::SyntaxReference,
         EureExample::EureSchema,
@@ -113,6 +115,7 @@ impl EureExample {
     fn name(&self) -> &'static str {
         match self {
             EureExample::Readme => "Readme",
+            EureExample::Adr => "ADR",
             EureExample::HelloWorld => "Hello World",
             EureExample::SyntaxReference => "Syntax Reference",
             EureExample::EureSchema => "Eure Schema",
@@ -127,6 +130,7 @@ impl EureExample {
     fn value(&self) -> &'static str {
         match self {
             EureExample::Readme => "readme",
+            EureExample::Adr => "adr",
             EureExample::HelloWorld => "hello-world",
             EureExample::SyntaxReference => "syntax-reference",
             EureExample::EureSchema => "eure-schema",
@@ -141,6 +145,7 @@ impl EureExample {
     fn from_value(value: &str) -> Option<Self> {
         match value {
             "readme" => Some(EureExample::Readme),
+            "adr" => Some(EureExample::Adr),
             "hello-world" => Some(EureExample::HelloWorld),
             "syntax-reference" => Some(EureExample::SyntaxReference),
             "eure-schema" => Some(EureExample::EureSchema),
@@ -156,6 +161,9 @@ impl EureExample {
     fn content(&self) -> &'static str {
         match self {
             EureExample::Readme => include_str!("../../assets/readme.eure"),
+            EureExample::Adr => include_str!(
+                "../../../../docs/adrs/0005-arrow-syntax-for-map-entries.eure"
+            ),
             EureExample::HelloWorld => include_str!("../../assets/examples/hello-world.eure"),
             EureExample::SyntaxReference => {
                 include_str!("../../assets/examples/syntax-reference.eure")
@@ -178,6 +186,9 @@ impl EureExample {
     fn schema(&self) -> &'static str {
         match self {
             EureExample::Readme => include_str!("../../assets/readme.schema.eure"),
+            EureExample::Adr => {
+                include_str!("../../../../assets/schemas/eure-adr.schema.eure")
+            }
             EureExample::HelloWorld => {
                 include_str!("../../assets/examples/hello-world.schema.eure")
             }
@@ -204,6 +215,7 @@ impl EureExample {
     fn file_name(&self) -> &'static str {
         match self {
             EureExample::Readme => "/readme.eure",
+            EureExample::Adr => "/docs/adrs/0005-arrow-syntax-for-map-entries.eure",
             EureExample::HelloWorld => "/hello-world.eure",
             EureExample::SyntaxReference => "/syntax-reference.eure",
             EureExample::EureSchema => "/eure-schema.schema.eure",
@@ -218,6 +230,7 @@ impl EureExample {
     fn schema_file_name(&self) -> &'static str {
         match self {
             EureExample::Readme => "/readme.schema.eure",
+            EureExample::Adr => "/assets/schemas/eure-adr.schema.eure",
             EureExample::HelloWorld => "/hello-world.schema.eure",
             EureExample::SyntaxReference => "/syntax-reference.schema.eure",
             EureExample::EureSchema => "/eure-schema.schema.eure",

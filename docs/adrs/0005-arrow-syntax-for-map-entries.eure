@@ -1,5 +1,3 @@
-$schema: ../../assets/schemas/eure-adr.schema.eure
-
 id = "0005-arrow-syntax-for-map-entries"
 title = "Arrow Syntax (=>) for Map Entries"
 status = "accepted"
