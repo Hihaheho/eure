@@ -1,0 +1,107 @@
+$schema: ../../assets/schemas/eure-adr.schema.eure
+
+id = "0016-serde-eure-design"
+title = "serde-eure: Schema-Guided Serializer/Deserializer Design"
+status = "accepted"
+decision-date = `2026-04-05`
+tags = ["serde", "interop", "schema", "deserialization", "serialization"]
+
+context = ````markdown
+`serde-eure` bridges any serde-compatible format and `EureDocument` using `SchemaDocument` as
+the authoritative guide. The schema carries `UnionInterop.variant_repr` (the "interop IR") which
+specifies how union variants are represented in external formats.
+
+Two design questions arose during implementation:
+
+1. **What is the default behavior when no schema is available (or the schema node is `Any`)?**
+   Without a schema there is no `VariantRepr` hint. Both serializer and deserializer must agree
+   on a fallback so that round-trips are possible without a schema.
+
+2. **May the deserializer use an intermediate value type (e.g. `serde_json::Value`) to simplify
+   implementation?**
+   Using `serde_json::Value` makes the deserializer appear generic (any `D: serde::Deserializer`
+   is accepted) but the intermediate representation is JSON-specific: it cannot represent TOML
+   datetimes, arbitrary byte sequences, integers larger than `i64`/`u64`, or non-UTF-8 strings.
+   The claim of "any format" would be misleading.
+````
+
+decision = ````markdown
+## Symmetry: untagged as the schema-free default
+
+When no schema is present, or the current schema node is `SchemaNodeContent::Any`, both the
+serializer and the deserializer fall back to **untagged / schema-free** behavior:
+
+- **Serializer (EureDocument → sink):** emit the document structure directly. Map nodes are
+  emitted as maps; nodes with a `$variant` extension are emitted as their raw content without
+  any wrapping (untagged). The variant name is discarded.
+
+- **Deserializer (source → EureDocument):** accept any serde value and map it directly to the
+  nearest EureDocument node type. No variant detection is attempted; a JSON object becomes a
+  Map, an array becomes an Array, and so on.
+
+This ensures round-trip identity for schema-free documents: any document that can be serialized
+without a schema can be deserialized without a schema and will produce the same EureDocument
+structure (modulo the lost `$variant` extension on the untagged path).
+
+## No format-specific intermediate value
+
+The deserializer implementation **must not** buffer input through any format-specific value type
+such as `serde_json::Value`. The stated goal is that `from_deserializer(de, schema)` works
+correctly for any `D: serde::Deserializer<'de>`, including TOML, YAML, MessagePack, and
+bincode. A JSON intermediate defeats this.
+
+The only theoretically justified exception is the following:
+
+> **Internal and Adjacent `VariantRepr` genuinely require buffering.**
+> Serde's `MapAccess` is a forward-only stream. To detect an internal tag field (e.g. `"type"`)
+> that may appear at any position in the map, or to extract both a `tag` field and a `content`
+> field from an adjacent-tagged map, the implementation must buffer the map entries before
+> processing. This is an inherent property of the streaming serde protocol, not an
+> implementation shortcut.
+
+To meet both constraints, the deserializer introduces a **minimal format-agnostic content
+buffer** (`EureContent`) that captures the full serde data model:
+
+```rust
+enum EureContent<'de> {
+    Bool(bool),
+    I8(i8), I16(i16), I32(i32), I64(i64), I128(i128),
+    U8(u8), U16(u16), U32(u32), U64(u64), U128(u128),
+    F32(f32), F64(f64),
+    Char(char),
+    String(Cow<'de, str>),
+    Bytes(Cow<'de, [u8]>),
+    None, Some(Box<EureContent<'de>>), Unit,
+    Seq(Vec<EureContent<'de>>),
+    Map(Vec<(EureContent<'de>, EureContent<'de>)>),
+}
+```
+
+`EureContent` implements `serde::Deserialize` (to capture from any format) and
+`serde::Deserializer` (to replay into the schema-guided visitor). It is used **only** in the
+Internal/Adjacent tagging paths where buffering is necessary. All other paths (External,
+Untagged, Record, Array, Tuple, primitives) use pure visitor traversal without any intermediate
+representation.
+
+## Summary of rules
+
+| Scenario | Serializer | Deserializer |
+|---|---|---|
+| Schema present, `VariantRepr::External` | Wrap in single-key map | Expect single-key map |
+| Schema present, `VariantRepr::Internal` | Merge tag into content map | Buffer map; find tag |
+| Schema present, `VariantRepr::Adjacent` | Emit `{tag, content}` map | Buffer map; find both keys |
+| Schema present, `VariantRepr::Untagged` | Emit content directly | Try each variant in order |
+| Schema absent or `Any` | Emit content directly (untagged) | Map to EureDocument types directly |
+| `variant_repr = None` | Treat as `External` | Treat as `External` |
+````
+
+consequences = ````markdown
+- **Positive:** The deserializer is truly format-agnostic. TOML datetimes, byte sequences, and
+  large integers are not corrupted by an intermediate JSON representation.
+- **Positive:** Symmetry is preserved. A schema-free serialization roundtrip is lossless (except
+  for the `$variant` extension which has no representation in the untagged output).
+- **Negative:** `EureContent` adds implementation complexity compared to using `serde_json::Value`.
+  It must implement both `Deserialize` and `Deserializer` correctly for all serde data model types.
+- **Neutral:** `serde_json` remains a dev-dependency for tests (JSON is still the primary test
+  format), but must not appear in the production code paths of `de.rs`.
+````

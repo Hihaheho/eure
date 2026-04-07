@@ -30,6 +30,7 @@ lsp-types.workspace = true
 eure-schema.workspace = true
 eure-toml.workspace = true
 rayon = "1.10"
+serde-eure = { path = "../crates/serde-eure" }
 serde_json.workspace = true
 similar = "2"
 thiserror.workspace = true

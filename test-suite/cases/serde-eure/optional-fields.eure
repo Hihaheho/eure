@@ -1,0 +1,43 @@
+// Schema-guided serde-eure coverage for optional record fields.
+
+@ cases.optional-present
+input_eure = ```eure
+name = "Alice"
+age = 30
+nickname = "Al"
+```
+
+schema = ```eure
+name = `text`
+age = `integer`
+nickname.$optional = true
+nickname = `text`
+```
+
+json = ```json
+{
+  "name": "Alice",
+  "age": 30,
+  "nickname": "Al"
+}
+```
+
+@ cases.optional-absent
+input_eure = ```eure
+name = "Bob"
+age = 41
+```
+
+schema = ```eure
+name = `text`
+age = `integer`
+nickname.$optional = true
+nickname = `text`
+```
+
+json = ```json
+{
+  "name": "Bob",
+  "age": 41
+}
+```

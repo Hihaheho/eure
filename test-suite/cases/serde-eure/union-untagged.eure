@@ -1,0 +1,63 @@
+// Schema-guided serde-eure coverage for untagged unions.
+
+@ cases.text-variant
+input_eure = ```eure
+= "hello"
+$variant = "str"
+```
+
+schema = ```eure
+$variant = "union"
+$interop.variant-repr = "untagged"
+variants.str = `text`
+variants.num = `integer`
+variants.user {
+  name = `text`
+}
+```
+
+json = ```json
+"hello"
+```
+
+@ cases.integer-variant
+input_eure = ```eure
+= 42
+$variant = "num"
+```
+
+schema = ```eure
+$variant = "union"
+$interop.variant-repr = "untagged"
+variants.str = `text`
+variants.num = `integer`
+variants.user {
+  name = `text`
+}
+```
+
+json = ```json
+42
+```
+
+@ cases.record-variant
+input_eure = ```eure
+name = "Alice"
+$variant = "user"
+```
+
+schema = ```eure
+$variant = "union"
+$interop.variant-repr = "untagged"
+variants.str = `text`
+variants.num = `integer`
+variants.user {
+  name = `text`
+}
+```
+
+json = ```json
+{
+  "name": "Alice"
+}
+```

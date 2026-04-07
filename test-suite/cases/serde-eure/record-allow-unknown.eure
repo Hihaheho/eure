@@ -1,0 +1,23 @@
+// Schema-guided serde-eure roundtrip for records that allow unknown fields.
+
+input_eure = ```eure
+name = "Grace"
+extra = "kept"
+metadata = { active => true, tags => ["alpha", "beta"] }
+```
+
+schema = ```eure
+name = `text`
+$unknown-fields = "allow"
+```
+
+json = ```json
+{
+  "name": "Grace",
+  "extra": "kept",
+  "metadata": {
+    "active": true,
+    "tags": ["alpha", "beta"]
+  }
+}
+```

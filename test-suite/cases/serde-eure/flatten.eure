@@ -1,0 +1,25 @@
+// Schema-guided serde-eure roundtrip for flattened record fields.
+
+input_eure = ```eure
+name = "Alice"
+city = "Tokyo"
+country = "Japan"
+```
+
+schema = ```eure
+$types.address {
+  city = `text`
+  country = `text`
+}
+
+name = `text`
+$flatten = [`$types.address`]
+```
+
+json = ```json
+{
+  "name": "Alice",
+  "city": "Tokyo",
+  "country": "Japan"
+}
+```

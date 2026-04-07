@@ -1,0 +1,77 @@
+// Schema-guided serde-eure coverage for externally tagged unions.
+
+@ cases.record-success
+input_eure = ```eure
+message = "ok"
+$variant = "success"
+```
+
+schema = ```eure
+$variant = "union"
+$interop.variant-repr = "external"
+variants.success {
+  message = `text`
+}
+variants.failure {
+  code = `integer`
+}
+variants.note = `text`
+```
+
+json = ```json
+{
+  "success": {
+    "message": "ok"
+  }
+}
+```
+
+@ cases.record-failure
+input_eure = ```eure
+code = 404
+$variant = "failure"
+```
+
+schema = ```eure
+$variant = "union"
+$interop.variant-repr = "external"
+variants.success {
+  message = `text`
+}
+variants.failure {
+  code = `integer`
+}
+variants.note = `text`
+```
+
+json = ```json
+{
+  "failure": {
+    "code": 404
+  }
+}
+```
+
+@ cases.primitive-text
+input_eure = ```eure
+= "done"
+$variant = "note"
+```
+
+schema = ```eure
+$variant = "union"
+$interop.variant-repr = "external"
+variants.success {
+  message = `text`
+}
+variants.failure {
+  code = `integer`
+}
+variants.note = `text`
+```
+
+json = ```json
+{
+  "note": "done"
+}
+```

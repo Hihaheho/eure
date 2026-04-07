@@ -1,0 +1,49 @@
+// Schema-guided serde-eure coverage for internally tagged unions.
+
+@ cases.record-success
+input_eure = ```eure
+message = "ok"
+$variant = "success"
+```
+
+schema = ```eure
+$variant = "union"
+$interop."variant-repr".tag = "type"
+variants.success {
+  message = `text`
+}
+variants.failure {
+  code = `integer`
+}
+```
+
+json = ```json
+{
+  "type": "success",
+  "message": "ok"
+}
+```
+
+@ cases.record-failure
+input_eure = ```eure
+code = 503
+$variant = "failure"
+```
+
+schema = ```eure
+$variant = "union"
+$interop."variant-repr".tag = "type"
+variants.success {
+  message = `text`
+}
+variants.failure {
+  code = `integer`
+}
+```
+
+json = ```json
+{
+  "type": "failure",
+  "code": 503
+}
+```

@@ -1,0 +1,33 @@
+// Schema-guided serde-eure roundtrip for text-key and integer-key maps.
+
+input_eure = ```eure
+by_name = { "apple" => 1, "banana" => 2 }
+by_id = { 1 => "one", 2 => "two" }
+```
+
+schema = ```eure
+by_name {
+  $variant = "map"
+  key = `text`
+  value = `integer`
+}
+
+by_id {
+  $variant = "map"
+  key = `integer`
+  value = `text`
+}
+```
+
+json = ```json
+{
+  "by_name": {
+    "apple": 1,
+    "banana": 2
+  },
+  "by_id": {
+    "1": "one",
+    "2": "two"
+  }
+}
+```

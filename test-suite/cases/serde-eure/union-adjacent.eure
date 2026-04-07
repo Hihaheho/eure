@@ -1,0 +1,70 @@
+// Schema-guided serde-eure coverage for adjacently tagged unions.
+
+@ cases.record-ok
+input_eure = ```eure
+value = "hello"
+$variant = "ok"
+```
+
+schema = ```eure
+$variant = "union"
+$interop."variant-repr".tag = "t"
+$interop."variant-repr".content = "c"
+variants.ok {
+  value = `text`
+}
+variants.err = `null`
+```
+
+json = ```json
+{
+  "t": "ok",
+  "c": {
+    "value": "hello"
+  }
+}
+```
+
+@ cases.unit-serialize
+input_eure = ```eure
+= null
+$variant = "err"
+```
+
+schema = ```eure
+$variant = "union"
+$interop."variant-repr".tag = "t"
+$interop."variant-repr".content = "c"
+variants.ok {
+  value = `text`
+}
+variants.err = `null`
+```
+
+output_json = ```json
+{
+  "t": "err"
+}
+```
+
+@ cases.unit-deserialize
+input_eure = ```eure
+= null
+$variant = "err"
+```
+
+schema = ```eure
+$variant = "union"
+$interop."variant-repr".tag = "t"
+$interop."variant-repr".content = "c"
+variants.ok {
+  value = `text`
+}
+variants.err = `null`
+```
+
+input_json = ```json
+{
+  "t": "err"
+}
+```

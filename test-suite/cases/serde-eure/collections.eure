@@ -1,0 +1,21 @@
+// Schema-guided serde-eure roundtrip for array collections.
+
+input_eure = ```eure
+strings = ["alpha", "beta", "gamma"]
+numbers = [1, 2, 3]
+matrix = [[1, 2], [3, 4]]
+```
+
+schema = ```eure
+strings = [`text`]
+numbers = [`integer`]
+matrix = [[`integer`]]
+```
+
+json = ```json
+{
+  "strings": ["alpha", "beta", "gamma"],
+  "numbers": [1, 2, 3],
+  "matrix": [[1, 2], [3, 4]]
+}
+```

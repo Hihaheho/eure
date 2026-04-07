@@ -414,6 +414,11 @@ impl Case {
             scenarios.push(Scenario::EureToJson(EureToJsonScenario {
                 input: Self::resolve_path(input_eure, INPUT_EURE_PATH),
                 output_json: Self::resolve_path(output_json, OUTPUT_JSON_PATH),
+                schema: self
+                    .data
+                    .schema
+                    .as_ref()
+                    .map(|s| Self::resolve_path(s, SCHEMA_PATH)),
                 source_name: "input_eure",
             }));
         }
@@ -423,6 +428,11 @@ impl Case {
             scenarios.push(Scenario::EureToJson(EureToJsonScenario {
                 input: Self::resolve_path(normalized, NORMALIZED_PATH),
                 output_json: Self::resolve_path(output_json, OUTPUT_JSON_PATH),
+                schema: self
+                    .data
+                    .schema
+                    .as_ref()
+                    .map(|s| Self::resolve_path(s, SCHEMA_PATH)),
                 source_name: "normalized",
             }));
         }
@@ -450,6 +460,11 @@ impl Case {
             scenarios.push(Scenario::JsonToEure(JsonToEureScenario {
                 input_json: Self::resolve_path(input_json, INPUT_JSON_PATH),
                 expected: Self::resolve_path(input_eure, INPUT_EURE_PATH),
+                schema: self
+                    .data
+                    .schema
+                    .as_ref()
+                    .map(|s| Self::resolve_path(s, SCHEMA_PATH)),
                 source_name: "input_eure",
             }));
         }
@@ -459,6 +474,11 @@ impl Case {
             scenarios.push(Scenario::JsonToEure(JsonToEureScenario {
                 input_json: Self::resolve_path(input_json, INPUT_JSON_PATH),
                 expected: Self::resolve_path(normalized, NORMALIZED_PATH),
+                schema: self
+                    .data
+                    .schema
+                    .as_ref()
+                    .map(|s| Self::resolve_path(s, SCHEMA_PATH)),
                 source_name: "normalized",
             }));
         }

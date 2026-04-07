@@ -1,0 +1,27 @@
+// Schema-guided serde-eure roundtrip for primitive record fields.
+
+input_eure = ```eure
+text = "hello"
+integer = 42
+float = 3.14
+boolean = true
+nothing = null
+```
+
+schema = ```eure
+text = `text`
+integer = `integer`
+float = `float`
+boolean = `boolean`
+nothing = `null`
+```
+
+json = ```json
+{
+  "text": "hello",
+  "integer": 42,
+  "float": 3.14,
+  "boolean": true,
+  "nothing": null
+}
+```
