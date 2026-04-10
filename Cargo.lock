@@ -1989,6 +1989,8 @@ dependencies = [
  "maud",
  "nu-ansi-term",
  "petgraph",
+ "serde",
+ "serde-eure",
  "serde_json",
  "toml",
  "url",
