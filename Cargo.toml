@@ -17,24 +17,24 @@ automod = "1"
 catppuccin = { version = "2.6.0", features = ["css-colors"] }
 clap = "4.5"
 eros = "0.5"
-eure = { path = "crates/eure", version = "0.1.7" }
-eure-codegen = { path = "crates/eure-codegen", version = "0.1.7" }
-eure-codegen-ir = { path = "crates/eure-codegen-ir", version = "0.1.7" }
-eure-env = { path = "crates/eure-env", version = "0.1.7" }
-eure-document = { path = "crates/eure-document", version = "0.1.7" }
-eure-fmt = { path = "crates/eure-fmt", version = "0.1.7" }
-eure-json = { path = "crates/eure-json", version = "0.1.7" }
-eure-json-schema = { path = "crates/eure-json-schema", version = "0.1.7" }
-eure-lint = { path = "crates/eure-lint", version = "0.1.7" }
-eure-ls = { path = "crates/eure-ls", version = "0.1.7" }
-eure-macros = { path = "crates/eure-macros", version = "0.1.7" }
-eure-mark = { path = "crates/eure-mark", version = "0.1.7" }
-eure-parol = { path = "crates/eure-parol", version = "0.1.7" }
-eure-schema = { path = "crates/eure-schema", version = "0.1.7" }
-eure-template = { path = "crates/eure-template", version = "0.1.7" }
-eure-toml = { path = "crates/eure-toml", version = "0.1.7" }
-eure-tree = { path = "crates/eure-tree", version = "0.1.7" }
-eure-yaml = { path = "crates/eure-yaml", version = "0.1.7" }
+eure = { path = "crates/eure", version = "0.1.8" }
+eure-codegen = { path = "crates/eure-codegen", version = "0.1.8" }
+eure-codegen-ir = { path = "crates/eure-codegen-ir", version = "0.1.8" }
+eure-env = { path = "crates/eure-env", version = "0.1.8" }
+eure-document = { path = "crates/eure-document", version = "0.1.8" }
+eure-fmt = { path = "crates/eure-fmt", version = "0.1.8" }
+eure-json = { path = "crates/eure-json", version = "0.1.8" }
+eure-json-schema = { path = "crates/eure-json-schema", version = "0.1.8" }
+eure-lint = { path = "crates/eure-lint", version = "0.1.8" }
+eure-ls = { path = "crates/eure-ls", version = "0.1.8" }
+eure-macros = { path = "crates/eure-macros", version = "0.1.8" }
+eure-mark = { path = "crates/eure-mark", version = "0.1.8" }
+eure-parol = { path = "crates/eure-parol", version = "0.1.8" }
+eure-schema = { path = "crates/eure-schema", version = "0.1.8" }
+eure-template = { path = "crates/eure-template", version = "0.1.8" }
+eure-toml = { path = "crates/eure-toml", version = "0.1.8" }
+eure-tree = { path = "crates/eure-tree", version = "0.1.8" }
+eure-yaml = { path = "crates/eure-yaml", version = "0.1.8" }
 indexmap = { version = "2", default-features = false }
 lsp-types = "0.97.0"
 num-bigint = "0.4"
