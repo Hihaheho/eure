@@ -39,10 +39,10 @@ indexmap = { version = "2", default-features = false }
 lsp-types = "0.97.0"
 num-bigint = "0.4"
 num-traits = "0.2"
-parol = "4.2"
-parol_runtime = "4"
+parol = "4.4"
+parol_runtime = "4.3"
 regex = "1.12"
-scnr2 = "0.3.3"
+scnr2 = "0.5"
 serde = "1"
 serde-eure = { path = "crates/serde-eure", version = "0.1.7" }
 serde_json = "1"
