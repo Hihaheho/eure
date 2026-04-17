@@ -41,6 +41,10 @@ pub mod write;
 
 /// Deterministic layout for Eure documents.
 pub mod layout;
+/// Total, verified layout plan that replaces `DocLayout` with a coverage-
+/// checked projection from [`document::EureDocument`] to
+/// [`source::SourceDocument`].
+pub mod plan;
 /// Source-level document representation with layout metadata.
 ///
 /// Used for programmatic construction of Eure documents with preserved
