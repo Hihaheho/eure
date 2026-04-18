@@ -674,6 +674,7 @@ impl InterpreterSink for SourceConstructor {
 mod tests {
     use super::*;
     use crate::document::InsertErrorKind;
+    use crate::path::ArrayIndexKind;
     use crate::source::{BindSource, SectionBody};
 
     fn ident(s: &str) -> Identifier {
@@ -1049,7 +1050,7 @@ mod tests {
             .navigate(PathSegment::Ident(ident("items")))
             .unwrap();
         constructor
-            .navigate(PathSegment::ArrayIndex(Some(0)))
+            .navigate(PathSegment::ArrayIndex(ArrayIndexKind::Specific(0)))
             .unwrap();
         constructor
             .bind_primitive(PrimitiveValue::Text(Text::plaintext("first")))
@@ -1066,7 +1067,7 @@ mod tests {
         // Path should have one segment with array marker
         assert_eq!(binding.path.len(), 1);
         assert_eq!(binding.path[0].key, SourceKey::Ident(ident("items")));
-        assert_eq!(binding.path[0].array, Some(Some(0)));
+        assert_eq!(binding.path[0].array, Some(ArrayIndexKind::Specific(0)));
     }
 
     #[test]
@@ -1079,7 +1080,9 @@ mod tests {
         constructor
             .navigate(PathSegment::Ident(ident("items")))
             .unwrap();
-        constructor.navigate(PathSegment::ArrayIndex(None)).unwrap();
+        constructor
+            .navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))
+            .unwrap();
         constructor
             .bind_primitive(PrimitiveValue::Text(Text::plaintext("new")))
             .unwrap();
@@ -1092,8 +1095,8 @@ mod tests {
         let binding = &root.bindings[0];
         assert_eq!(binding.path.len(), 1);
         assert_eq!(binding.path[0].key, SourceKey::Ident(ident("items")));
-        // None means array push (no index specified)
-        assert_eq!(binding.path[0].array, Some(None));
+        // Push means no index specified (`[]`)
+        assert_eq!(binding.path[0].array, Some(ArrayIndexKind::Push));
     }
 
     #[test]
@@ -1104,7 +1107,7 @@ mod tests {
         constructor.begin_binding();
         let _scope = constructor.begin_scope();
         // This should return an error - ArrayIndex without a preceding key segment
-        let result = constructor.navigate(PathSegment::ArrayIndex(Some(0)));
+        let result = constructor.navigate(PathSegment::ArrayIndex(ArrayIndexKind::Specific(0)));
         assert!(matches!(
             result,
             Err(InsertError {

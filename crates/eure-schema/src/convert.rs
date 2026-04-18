@@ -58,7 +58,7 @@ use eure_document::document::node::{Node, NodeValue};
 use eure_document::document::{EureDocument, InsertErrorKind, NodeId};
 use eure_document::identifier::Identifier;
 use eure_document::parse::ParseError;
-use eure_document::path::{EurePath, PathSegment};
+use eure_document::path::{ArrayIndexKind, EurePath, PathSegment};
 use eure_document::value::{ObjectKey, ValueKind};
 use indexmap::IndexMap;
 use num_bigint::BigInt;
@@ -866,7 +866,7 @@ fn collect_document_node_paths(doc: &EureDocument) -> IndexMap<NodeId, EurePath>
         match &node.content {
             NodeValue::Array(array) => {
                 for (index, &child_id) in array.iter().enumerate() {
-                    path.push(PathSegment::ArrayIndex(Some(index)));
+                    path.push(PathSegment::ArrayIndex(ArrayIndexKind::Specific(index)));
                     dfs(doc, child_id, path, out, visited);
                     path.pop();
                 }

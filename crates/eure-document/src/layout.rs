@@ -11,7 +11,7 @@ use crate::document::{EureDocument, NodeId};
 use crate::identifier::Identifier;
 use crate::parse::union::VARIANT;
 use crate::parse::variant_path::VariantPath;
-use crate::path::PathSegment;
+use crate::path::{ArrayIndexKind, PathSegment};
 use crate::source::{
     BindSource, BindingSource, EureSource, SectionBody, SectionSource, SourceDocument, SourceId,
     SourceKey, SourcePath, SourcePathSegment,
@@ -349,7 +349,7 @@ impl<'a> LayoutBuilder<'a> {
                     .unwrap_or(usize::MAX)
             });
 
-            for ((idx, _), replacement) in listed.into_iter().zip(sorted.into_iter()) {
+            for ((idx, _), replacement) in listed.into_iter().zip(sorted) {
                 out[idx] = replacement;
             }
 
@@ -831,9 +831,9 @@ fn to_source_path(path: &[PathSegment]) -> SourcePath {
                 key: SourceKey::TupleIndex(*index),
                 array: None,
             }),
-            PathSegment::ArrayIndex(index) => {
+            PathSegment::ArrayIndex(kind) => {
                 if let Some(last) = out.last_mut() {
-                    last.array = Some(*index);
+                    last.array = Some(*kind);
                 }
             }
         }
@@ -917,8 +917,13 @@ fn child_node_id(doc: &EureDocument, parent_id: NodeId, segment: &PathSegment) -
             NodeValue::PartialMap(map) => map.find(key).copied(),
             _ => None,
         },
-        PathSegment::ArrayIndex(index) => match &parent.content {
-            NodeValue::Array(array) => index.and_then(|i| array.get(i)),
+        PathSegment::ArrayIndex(kind) => match &parent.content {
+            NodeValue::Array(array) => match kind {
+                ArrayIndexKind::Specific(i) => array.get(*i),
+                // Push/Current semantics are only meaningful during construction; for lookup in a
+                // completed document they do not select a concrete element.
+                ArrayIndexKind::Push | ArrayIndexKind::Current => None,
+            },
             _ => None,
         },
         PathSegment::TupleIndex(index) => match &parent.content {

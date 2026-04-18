@@ -8,7 +8,7 @@
 
 use eure::document::EureDocument;
 use eure::document::constructor::DocumentConstructor;
-use eure::document::path::PathSegment;
+use eure::document::path::{ArrayIndexKind, PathSegment};
 use eure::eure;
 use eure::value::{ObjectKey, PrimitiveValue, Text};
 use eure_schema::interop::{UnionInterop, VariantRepr};
@@ -60,7 +60,8 @@ fn int_array_doc(values: &[i64]) -> EureDocument {
     c.bind_empty_array().unwrap();
     for &v in values {
         let scope = c.begin_scope();
-        c.navigate(PathSegment::ArrayIndex(None)).unwrap();
+        c.navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))
+            .unwrap();
         c.bind_primitive(PrimitiveValue::Integer(BigInt::from(v)))
             .unwrap();
         c.end_scope(scope).unwrap();
@@ -972,7 +973,8 @@ mod de {
         c.bind_empty_array().unwrap();
         for tag_val in &["a", "b"] {
             let scope = c.begin_scope();
-            c.navigate(PathSegment::ArrayIndex(None)).unwrap();
+            c.navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))
+                .unwrap();
             c.bind_empty_map().unwrap();
             let inner = c.begin_scope();
             c.navigate(PathSegment::Value(ObjectKey::String("tag".to_string())))

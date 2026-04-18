@@ -8,7 +8,7 @@ use crate::map::PartialNodeMap;
 use crate::prelude_internal::*;
 use crate::value::PartialObjectKey;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NodeId(pub usize);
 
 #[derive(Debug, Clone)]
@@ -46,6 +46,10 @@ pub enum InsertErrorKind {
     ScopeError(#[from] constructor::ScopeError),
     #[error("Constructor error: {0}")]
     ConstructorError(#[from] ConstructorError),
+    #[error(
+        "`[^]` has no prior push in the current block scope for the target array (node {array_node_id:?})"
+    )]
+    ArrayCurrentOutOfScope { array_node_id: NodeId },
 }
 
 /// Protocol errors for SourceConstructor operations.
@@ -297,7 +301,23 @@ impl EureDocument {
             PathSegment::PartialValue(key) => self.add_partial_map_child(key, parent_node_id),
             PathSegment::Extension(identifier) => self.add_extension(identifier, parent_node_id),
             PathSegment::TupleIndex(index) => self.add_tuple_element(index, parent_node_id),
-            PathSegment::ArrayIndex(index) => self.add_array_element(index, parent_node_id),
+            PathSegment::ArrayIndex(ArrayIndexKind::Push) => {
+                self.add_array_element(None, parent_node_id)
+            }
+            PathSegment::ArrayIndex(ArrayIndexKind::Specific(index)) => {
+                self.add_array_element(Some(index), parent_node_id)
+            }
+            PathSegment::ArrayIndex(ArrayIndexKind::Current) => {
+                // `[^]` cannot create new elements; the constructor must intercept this
+                // before reaching add_child_by_segment. If we get here, the array had no
+                // prior push in the current block scope.
+                self.node(parent_node_id)
+                    .as_array()
+                    .ok_or(InsertErrorKind::ExpectedArray)?;
+                Err(InsertErrorKind::ArrayCurrentOutOfScope {
+                    array_node_id: parent_node_id,
+                })
+            }
             PathSegment::HoleKey(label) => {
                 self.add_partial_map_child(PartialObjectKey::Hole(label), parent_node_id)
             }
@@ -374,7 +394,7 @@ impl EureDocument {
     /// Resolves a path segment to a node ID, creating if necessary.
     ///
     /// This operation is idempotent for most segments, reusing existing nodes.
-    /// Exception: `ArrayIndex(None)` always creates a new array element (push operation).
+    /// Exception: `ArrayIndex(ArrayIndexKind::Push)` always creates a new array element (push operation).
     pub fn resolve_child_by_segment(
         &mut self,
         segment: PathSegment,
@@ -421,8 +441,13 @@ impl EureDocument {
                 }),
             PathSegment::Extension(identifier) => node.get_extension(identifier),
             PathSegment::TupleIndex(index) => node.as_tuple().and_then(|t| t.get(*index as usize)),
-            PathSegment::ArrayIndex(Some(index)) => node.as_array().and_then(|a| a.get(*index)),
-            PathSegment::ArrayIndex(None) => None, // push always creates new
+            PathSegment::ArrayIndex(ArrayIndexKind::Specific(index)) => {
+                node.as_array().and_then(|a| a.get(*index))
+            }
+            PathSegment::ArrayIndex(ArrayIndexKind::Push) => None, // push always creates new
+            // `[^]` is resolved by the DocumentConstructor before reaching this point; here we
+            // fall through so add_child_by_segment yields ArrayCurrentOutOfScope.
+            PathSegment::ArrayIndex(ArrayIndexKind::Current) => None,
             PathSegment::HoleKey(label) => node
                 .as_partial_map()
                 .and_then(|pm| pm.find(&PartialObjectKey::Hole(label.clone())))
@@ -851,7 +876,7 @@ mod tests {
             let doc: &mut EureDocument = &mut doc;
             doc.create_node(NodeValue::empty_array())
         };
-        let segment = PathSegment::ArrayIndex(None);
+        let segment = PathSegment::ArrayIndex(ArrayIndexKind::Push);
 
         let result = doc.add_child_by_segment(segment, array_id);
         assert!(result.is_ok());
@@ -867,7 +892,7 @@ mod tests {
             let doc: &mut EureDocument = &mut doc;
             doc.create_node(NodeValue::empty_array())
         };
-        let segment = PathSegment::ArrayIndex(Some(0));
+        let segment = PathSegment::ArrayIndex(ArrayIndexKind::Specific(0));
 
         let result = doc.add_child_by_segment(segment, array_id);
         assert!(result.is_ok());
@@ -966,13 +991,19 @@ mod tests {
 
         // First call - creates new node
         let node_id1 = doc
-            .resolve_child_by_segment(PathSegment::ArrayIndex(Some(0)), parent_id)
+            .resolve_child_by_segment(
+                PathSegment::ArrayIndex(ArrayIndexKind::Specific(0)),
+                parent_id,
+            )
             .expect("First call failed")
             .node_id;
 
         // Second call - returns existing node
         let node_id2 = doc
-            .resolve_child_by_segment(PathSegment::ArrayIndex(Some(0)), parent_id)
+            .resolve_child_by_segment(
+                PathSegment::ArrayIndex(ArrayIndexKind::Specific(0)),
+                parent_id,
+            )
             .expect("Second call failed")
             .node_id;
 
@@ -986,17 +1017,17 @@ mod tests {
 
         // First call - creates new node
         let node_id1 = doc
-            .resolve_child_by_segment(PathSegment::ArrayIndex(None), parent_id)
+            .resolve_child_by_segment(PathSegment::ArrayIndex(ArrayIndexKind::Push), parent_id)
             .expect("First call failed")
             .node_id;
 
         // Second call - creates another new node (NOT idempotent)
         let node_id2 = doc
-            .resolve_child_by_segment(PathSegment::ArrayIndex(None), parent_id)
+            .resolve_child_by_segment(PathSegment::ArrayIndex(ArrayIndexKind::Push), parent_id)
             .expect("Second call failed")
             .node_id;
 
-        // ArrayIndex(None) always creates new nodes (push operation)
+        // ArrayIndex(ArrayIndexKind::Push) always creates new nodes (push operation)
         assert_ne!(node_id1, node_id2);
 
         // Verify both nodes exist in array
@@ -1461,7 +1492,7 @@ mod proptests {
             prop_assert_eq!(node_id1, node_id2, "TupleIndex resolution should be idempotent");
         }
 
-        /// Invariant: resolve_child_by_segment is idempotent for ArrayIndex(Some(n)) segments.
+        /// Invariant: resolve_child_by_segment is idempotent for ArrayIndex(ArrayIndexKind::Specific(n)) segments.
         #[test]
         fn resolve_array_index_some_is_idempotent(index in 0usize..10) {
             let mut doc = EureDocument::new();
@@ -1474,19 +1505,19 @@ mod proptests {
 
             // Now resolve the next index
             let node_id1 = doc
-                .resolve_child_by_segment(PathSegment::ArrayIndex(Some(index)), parent_id)
+                .resolve_child_by_segment(PathSegment::ArrayIndex(ArrayIndexKind::Specific(index)), parent_id)
                 .expect("First resolve failed")
                 .node_id;
 
             let node_id2 = doc
-                .resolve_child_by_segment(PathSegment::ArrayIndex(Some(index)), parent_id)
+                .resolve_child_by_segment(PathSegment::ArrayIndex(ArrayIndexKind::Specific(index)), parent_id)
                 .expect("Second resolve failed")
                 .node_id;
 
             prop_assert_eq!(node_id1, node_id2, "ArrayIndex(Some) resolution should be idempotent");
         }
 
-        /// Invariant: ArrayIndex(None) always creates new elements (NOT idempotent - push behavior).
+        /// Invariant: ArrayIndex(ArrayIndexKind::Push) always creates new elements (NOT idempotent - push behavior).
         #[test]
         fn resolve_array_index_none_always_creates_new(count in 1usize..10) {
             let mut doc = EureDocument::new();
@@ -1495,7 +1526,7 @@ mod proptests {
             let mut node_ids = Vec::new();
             for _ in 0..count {
                 let node_id = doc
-                    .resolve_child_by_segment(PathSegment::ArrayIndex(None), parent_id)
+                    .resolve_child_by_segment(PathSegment::ArrayIndex(ArrayIndexKind::Push), parent_id)
                     .expect("Resolve failed")
                     .node_id;
                 node_ids.push(node_id);
@@ -1505,7 +1536,7 @@ mod proptests {
             for i in 0..node_ids.len() {
                 for j in (i+1)..node_ids.len() {
                     prop_assert_ne!(node_ids[i], node_ids[j],
-                        "ArrayIndex(None) should create unique nodes");
+                        "ArrayIndex(ArrayIndexKind::Push) should create unique nodes");
                 }
             }
 
@@ -1523,7 +1554,7 @@ mod proptests {
             // Make root explicitly a map
             doc.node_mut(root_id).content = NodeValue::empty_map();
 
-            let result = doc.resolve_child_by_segment(PathSegment::ArrayIndex(Some(index)), root_id);
+            let result = doc.resolve_child_by_segment(PathSegment::ArrayIndex(ArrayIndexKind::Specific(index)), root_id);
             prop_assert!(result.is_err(), "ArrayIndex on map should fail");
             prop_assert_eq!(result.err(), Some(InsertErrorKind::ExpectedArray));
         }
@@ -1545,7 +1576,7 @@ mod proptests {
             let mut doc = EureDocument::new();
             let node_id = doc.create_node(NodeValue::Primitive(value));
 
-            let result = doc.resolve_child_by_segment(PathSegment::ArrayIndex(Some(0)), node_id);
+            let result = doc.resolve_child_by_segment(PathSegment::ArrayIndex(ArrayIndexKind::Specific(0)), node_id);
             prop_assert!(result.is_err(), "ArrayIndex on primitive should fail");
             prop_assert_eq!(result.err(), Some(InsertErrorKind::ExpectedArray));
         }
@@ -1557,7 +1588,7 @@ mod proptests {
             let parent_id = doc.create_node(NodeValue::empty_array());
 
             // Try to add at index `skip` without filling 0..skip first
-            let result = doc.resolve_child_by_segment(PathSegment::ArrayIndex(Some(skip)), parent_id);
+            let result = doc.resolve_child_by_segment(PathSegment::ArrayIndex(ArrayIndexKind::Specific(skip)), parent_id);
             prop_assert!(result.is_err(), "Non-sequential ArrayIndex should fail");
 
             match result.err() {

@@ -78,10 +78,18 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     fn visit_array_marker_opt(
         &mut self,
         handle: ArrayMarkerOptHandle,
-        view: IntegerHandle,
+        view: ArrayMarkerOptGroupHandle,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_array_marker_opt_super(handle, view, tree)
+    }
+    fn visit_array_marker_opt_group(
+        &mut self,
+        handle: ArrayMarkerOptGroupHandle,
+        view: ArrayMarkerOptGroupView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_array_marker_opt_group_super(handle, view, tree)
     }
     fn visit_array_opt(
         &mut self,
@@ -181,6 +189,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_boolean_super(handle, view, tree)
+    }
+    fn visit_caret(
+        &mut self,
+        handle: CaretHandle,
+        view: CaretView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_caret_super(handle, view, tree)
     }
     fn visit_code_block(
         &mut self,
@@ -1715,6 +1731,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_r_bracket_terminal_super(terminal, data, tree)
     }
+    fn visit_circumflex_terminal(
+        &mut self,
+        terminal: Circumflex,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_circumflex_terminal_super(terminal, data, tree)
+    }
     fn visit_l_paren_terminal(
         &mut self,
         terminal: LParen,
@@ -1912,7 +1936,18 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
     fn visit_array_marker_opt_super(
         &mut self,
         handle: ArrayMarkerOptHandle,
-        view: IntegerHandle,
+        view: ArrayMarkerOptGroupHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_array_marker_opt_group_handle(
+        &mut self,
+        handle: ArrayMarkerOptGroupHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_array_marker_opt_group_super(
+        &mut self,
+        handle: ArrayMarkerOptGroupHandle,
+        view: ArrayMarkerOptGroupView,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_array_opt_handle(&mut self, handle: ArrayOptHandle, tree: &F) -> Result<(), E>;
@@ -1998,6 +2033,13 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         &mut self,
         handle: BooleanHandle,
         view: BooleanView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_caret_handle(&mut self, handle: CaretHandle, tree: &F) -> Result<(), E>;
+    fn visit_caret_super(
+        &mut self,
+        handle: CaretHandle,
+        view: CaretView,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_code_block_handle(&mut self, handle: CodeBlockHandle, tree: &F) -> Result<(), E>;
@@ -3484,6 +3526,12 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
+    fn visit_circumflex_terminal_super(
+        &mut self,
+        terminal: Circumflex,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
     fn visit_l_paren_terminal_super(
         &mut self,
         terminal: LParen,
@@ -3931,6 +3979,51 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                         } else {
                             Ok(())
                         },
+                        visit,
+                    )
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_array_marker_opt_group_handle(
+        &mut self,
+        handle: ArrayMarkerOptGroupHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (
+                        visit.visit_array_marker_opt_group(handle, view, tree),
                         visit,
                     )
                 },
@@ -4439,6 +4532,42 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             .get_view_with_visit(
                 tree,
                 |view, visit: &mut Self| (visit.visit_boolean(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_caret_handle(&mut self, handle: CaretHandle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_caret(handle, view, tree), visit),
                 self,
             )
             .map_err(|e| e.extract_error())
@@ -10422,11 +10551,28 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
     fn visit_array_marker_opt_super(
         &mut self,
         handle: ArrayMarkerOptHandle,
-        view_param: IntegerHandle,
+        view_param: ArrayMarkerOptGroupHandle,
         tree: &F,
     ) -> Result<(), V::Error> {
         let _handle = handle;
-        self.visit_integer_handle(view_param, tree)?;
+        self.visit_array_marker_opt_group_handle(view_param, tree)?;
+        Ok(())
+    }
+    fn visit_array_marker_opt_group_super(
+        &mut self,
+        handle: ArrayMarkerOptGroupHandle,
+        view_param: ArrayMarkerOptGroupView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        match view_param {
+            ArrayMarkerOptGroupView::Integer(item) => {
+                self.visit_integer_handle(item, tree)?;
+            }
+            ArrayMarkerOptGroupView::Caret(item) => {
+                self.visit_caret_handle(item, tree)?;
+            }
+        }
         Ok(())
     }
     fn visit_array_opt_super(
@@ -10683,6 +10829,29 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                 self.visit_false_handle(item, tree)?;
             }
         }
+        Ok(())
+    }
+    fn visit_caret_super(
+        &mut self,
+        handle: CaretHandle,
+        view_param: CaretView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let CaretView { circumflex } = view_param;
+        let data = match circumflex.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    circumflex.0,
+                    NodeKind::Terminal(circumflex.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_circumflex_terminal(circumflex, data, tree)?;
         Ok(())
     }
     fn visit_code_block_super(
@@ -13777,6 +13946,15 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
         Ok(())
     }
+    fn visit_circumflex_terminal_super(
+        &mut self,
+        terminal: Circumflex,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
     fn visit_l_paren_terminal_super(
         &mut self,
         terminal: LParen,
@@ -13945,6 +14123,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     let handle = ArrayMarkerOptHandle(id);
                     self.visit_array_marker_opt_handle(handle, tree)?;
                 }
+                NonTerminalKind::ArrayMarkerOptGroup => {
+                    let handle = ArrayMarkerOptGroupHandle(id);
+                    self.visit_array_marker_opt_group_handle(handle, tree)?;
+                }
                 NonTerminalKind::ArrayOpt => {
                     let handle = ArrayOptHandle(id);
                     self.visit_array_opt_handle(handle, tree)?;
@@ -13996,6 +14178,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                 NonTerminalKind::Boolean => {
                     let handle = BooleanHandle(id);
                     self.visit_boolean_handle(handle, tree)?;
+                }
+                NonTerminalKind::Caret => {
+                    let handle = CaretHandle(id);
+                    self.visit_caret_handle(handle, tree)?;
                 }
                 NonTerminalKind::CodeBlock => {
                     let handle = CodeBlockHandle(id);
@@ -14782,6 +14968,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                 TerminalKind::RBracket => {
                     let terminal = RBracket(id);
                     self.visit_r_bracket_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::Circumflex => {
+                    let terminal = Circumflex(id);
+                    self.visit_circumflex_terminal(terminal, data, tree)?;
                 }
                 TerminalKind::LParen => {
                     let terminal = LParen(id);

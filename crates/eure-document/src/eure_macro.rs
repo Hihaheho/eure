@@ -156,7 +156,7 @@ macro_rules! eure {
     // Array items helper (@array_items)
     //
     // Processes array items using the DocumentConstructor. Each item is added
-    // by navigating to ArrayIndex(None) which appends to the array.
+    // by navigating to ArrayIndex($crate::path::ArrayIndexKind::Push) which appends to the array.
     // ========================================================================
 
     // Array items: empty (terminal)
@@ -170,7 +170,7 @@ macro_rules! eure {
     // Array items: @code literal
     (@array_items $c:ident; @ code ($content:literal) $($rest:tt)*) => {{
         let scope = $c.begin_scope();
-        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Push)).unwrap();
         $c.bind_from($crate::text::Text::inline_implicit($content)).unwrap();
         $c.end_scope(scope).unwrap();
         $crate::eure!(@array_items $c; $($rest)*);
@@ -179,7 +179,7 @@ macro_rules! eure {
     // Array items: @code with language
     (@array_items $c:ident; @ code ($lang:literal, $content:literal) $($rest:tt)*) => {{
         let scope = $c.begin_scope();
-        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Push)).unwrap();
         $c.bind_from($crate::text::Text::inline($content, $lang)).unwrap();
         $c.end_scope(scope).unwrap();
         $crate::eure!(@array_items $c; $($rest)*);
@@ -188,7 +188,7 @@ macro_rules! eure {
     // Array items: nested array
     (@array_items $c:ident; [$($inner:tt)*] $($rest:tt)*) => {{
         let scope = $c.begin_scope();
-        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Push)).unwrap();
         $c.bind_empty_array().unwrap();
         $crate::eure!(@array_items $c; $($inner)*);
         $c.end_scope(scope).unwrap();
@@ -198,7 +198,7 @@ macro_rules! eure {
     // Array items: nested tuple
     (@array_items $c:ident; ($($inner:tt)*) $($rest:tt)*) => {{
         let scope = $c.begin_scope();
-        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Push)).unwrap();
         $c.bind_empty_tuple().unwrap();
         $crate::eure!(@tuple_items $c 0; $($inner)*);
         $c.end_scope(scope).unwrap();
@@ -208,7 +208,7 @@ macro_rules! eure {
     // Array items: single item (primitive)
     (@array_items $c:ident; $item:tt $($rest:tt)*) => {{
         let scope = $c.begin_scope();
-        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Push)).unwrap();
         $c.bind_from($crate::eure!(@value_tt $item)).unwrap();
         $c.end_scope(scope).unwrap();
         $crate::eure!(@array_items $c; $($rest)*);
@@ -452,13 +452,13 @@ macro_rules! eure {
     (@stmt $c:ident; @ [] $($rest:tt)*) => {{
         $c.begin_section();
         let scope = $c.begin_scope();
-        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Push)).unwrap();
         $crate::eure!(@section_after_seg $c scope; $($rest)*);
     }};
     (@stmt $c:ident; @ [$idx:literal] $($rest:tt)*) => {{
         $c.begin_section();
         let scope = $c.begin_scope();
-        $c.navigate($crate::path::PathSegment::ArrayIndex(Some($idx))).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Specific($idx))).unwrap();
         $crate::eure!(@section_after_seg $c scope; $($rest)*);
     }};
 
@@ -494,11 +494,11 @@ macro_rules! eure {
         $crate::eure!(@section_after_seg $c $scope; $($rest)*);
     }};
     (@section_after_seg $c:ident $scope:ident; # [] $($rest:tt)*) => {{
-        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Push)).unwrap();
         $crate::eure!(@section_after_seg $c $scope; $($rest)*);
     }};
     (@section_after_seg $c:ident $scope:ident; # [$idx:literal] $($rest:tt)*) => {{
-        $c.navigate($crate::path::PathSegment::ArrayIndex(Some($idx))).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Specific($idx))).unwrap();
         $crate::eure!(@section_after_seg $c $scope; $($rest)*);
     }};
     (@section_after_seg $c:ident $scope:ident; [$($arr:tt)*] $($rest:tt)*) => {{
@@ -602,11 +602,11 @@ macro_rules! eure {
 
     // Section path: explicit array marker
     (@section_path $c:ident $section_scope:ident $scope:ident; # [] $($rest:tt)*) => {{
-        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Push)).unwrap();
         $crate::eure!(@section_terminal $c $section_scope $scope; $($rest)*);
     }};
     (@section_path $c:ident $section_scope:ident $scope:ident; # [$idx:literal] $($rest:tt)*) => {{
-        $c.navigate($crate::path::PathSegment::ArrayIndex(Some($idx))).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Specific($idx))).unwrap();
         $crate::eure!(@section_terminal $c $section_scope $scope; $($rest)*);
     }};
 
@@ -651,11 +651,11 @@ macro_rules! eure {
         $crate::eure!(@section_path $c $section_scope $scope; $($rest)+);
     }};
     (@section_terminal $c:ident $section_scope:ident $scope:ident; # [] $($rest:tt)*) => {{
-        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Push)).unwrap();
         $crate::eure!(@section_terminal $c $section_scope $scope; $($rest)*);
     }};
     (@section_terminal $c:ident $section_scope:ident $scope:ident; # [$idx:literal] $($rest:tt)*) => {{
-        $c.navigate($crate::path::PathSegment::ArrayIndex(Some($idx))).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Specific($idx))).unwrap();
         $crate::eure!(@section_terminal $c $section_scope $scope; $($rest)*);
     }};
     (@section_terminal $c:ident $section_scope:ident $scope:ident; [$($arr:tt)*] $($rest:tt)*) => {{
@@ -774,11 +774,11 @@ macro_rules! eure {
 
     // Segment: explicit array marker (e.g., `#[]`, `#[0]`)
     (@path $c:ident $scope:ident; # [] $($rest:tt)*) => {{
-        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Push)).unwrap();
         $crate::eure!(@terminal $c $scope; $($rest)*);
     }};
     (@path $c:ident $scope:ident; # [$idx:literal] $($rest:tt)*) => {{
-        $c.navigate($crate::path::PathSegment::ArrayIndex(Some($idx))).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Specific($idx))).unwrap();
         $crate::eure!(@terminal $c $scope; $($rest)*);
     }};
 
@@ -849,13 +849,13 @@ macro_rules! eure {
 
     // Empty array marker: push operation (creates new element at end)
     (@array_marker $c:ident $scope:ident []; $($rest:tt)*) => {{
-        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Push)).unwrap();
         $crate::eure!(@terminal $c $scope; $($rest)*);
     }};
 
     // Array marker with index: access at specific position
     (@array_marker $c:ident $scope:ident [$idx:literal]; $($rest:tt)*) => {{
-        $c.navigate($crate::path::PathSegment::ArrayIndex(Some($idx))).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Specific($idx))).unwrap();
         $crate::eure!(@terminal $c $scope; $($rest)*);
     }};
 
@@ -880,11 +880,11 @@ macro_rules! eure {
         $crate::eure!(@path $c $scope; $($rest)+);
     }};
     (@terminal $c:ident $scope:ident; # [] $($rest:tt)*) => {{
-        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Push)).unwrap();
         $crate::eure!(@terminal $c $scope; $($rest)*);
     }};
     (@terminal $c:ident $scope:ident; # [$idx:literal] $($rest:tt)*) => {{
-        $c.navigate($crate::path::PathSegment::ArrayIndex(Some($idx))).unwrap();
+        $c.navigate($crate::path::PathSegment::ArrayIndex($crate::path::ArrayIndexKind::Specific($idx))).unwrap();
         $crate::eure!(@terminal $c $scope; $($rest)*);
     }};
 

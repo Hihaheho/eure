@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::layout::{DocLayout, LayoutStyle};
-use eure_document::path::{EurePath, PathSegment};
+use eure_document::path::{ArrayIndexKind, EurePath, PathSegment};
 use indexmap::IndexMap;
 use thiserror::Error;
 
@@ -242,7 +242,7 @@ fn collect_document_node_paths_rec(
     match &node.content {
         eure_document::document::node::NodeValue::Array(array) => {
             for (index, &child_id) in array.iter().enumerate() {
-                path.push(PathSegment::ArrayIndex(Some(index)));
+                path.push(PathSegment::ArrayIndex(ArrayIndexKind::Specific(index)));
                 collect_document_node_paths_rec(doc, child_id, path, out, visited);
                 path.pop();
             }

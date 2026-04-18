@@ -869,6 +869,23 @@ impl From<RBracketToken> for BuilderNodeId {
         token.node_id
     }
 }
+///Branded type for Circumflex terminal
+#[derive(Debug, Clone)]
+pub struct CircumflexToken {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl CircumflexToken {
+    /// Consume this token and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<CircumflexToken> for BuilderNodeId {
+    fn from(token: CircumflexToken) -> Self {
+        token.node_id
+    }
+}
 ///Branded type for LParen terminal
 #[derive(Debug, Clone)]
 pub struct LParenToken {
@@ -1175,6 +1192,23 @@ impl From<ArrayMarkerOptNode> for BuilderNodeId {
         node.node_id
     }
 }
+///Branded type for ArrayMarkerOptGroup non-terminal
+#[derive(Debug, Clone)]
+pub struct ArrayMarkerOptGroupNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl ArrayMarkerOptGroupNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<ArrayMarkerOptGroupNode> for BuilderNodeId {
+    fn from(node: ArrayMarkerOptGroupNode) -> Self {
+        node.node_id
+    }
+}
 ///Branded type for ArrayOpt non-terminal
 #[derive(Debug, Clone)]
 pub struct ArrayOptNode {
@@ -1393,6 +1427,23 @@ impl BooleanNode {
 }
 impl From<BooleanNode> for BuilderNodeId {
     fn from(node: BooleanNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for Caret non-terminal
+#[derive(Debug, Clone)]
+pub struct CaretNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl CaretNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<CaretNode> for BuilderNodeId {
+    fn from(node: CaretNode) -> Self {
         node.node_id
     }
 }
@@ -3923,18 +3974,33 @@ impl ArrayMarkerConstructor {
 }
 #[derive(bon::Builder)]
 pub struct ArrayMarkerOptConstructor {
-    integer: Option<IntegerNode>,
+    array_marker_opt_group: Option<ArrayMarkerOptGroupNode>,
 }
 impl ArrayMarkerOptConstructor {
     pub fn build(self) -> ArrayMarkerOptNode {
         let mut builder = CstBuilder::new();
-        let children = if let Some(child) = self.integer {
+        let children = if let Some(child) = self.array_marker_opt_group {
             vec![builder.embed(child.builder)]
         } else {
             Vec::<BuilderNodeId>::new()
         };
         let node_id = builder.non_terminal(NonTerminalKind::ArrayMarkerOpt, children);
         ArrayMarkerOptNode { node_id, builder }
+    }
+}
+pub enum ArrayMarkerOptGroupConstructor {
+    Integer(IntegerNode),
+    Caret(CaretNode),
+}
+impl ArrayMarkerOptGroupConstructor {
+    pub fn build(self) -> ArrayMarkerOptGroupNode {
+        let mut builder = CstBuilder::new();
+        let child_id = match self {
+            Self::Integer(node) => builder.embed(node.builder),
+            Self::Caret(node) => builder.embed(node.builder),
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::ArrayMarkerOptGroup, vec![child_id]);
+        ArrayMarkerOptGroupNode { node_id, builder }
     }
 }
 #[derive(bon::Builder)]
@@ -4109,6 +4175,18 @@ impl BooleanConstructor {
         };
         let node_id = builder.non_terminal(NonTerminalKind::Boolean, vec![child_id]);
         BooleanNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct CaretConstructor {
+    circumflex: CircumflexToken,
+}
+impl CaretConstructor {
+    pub fn build(self) -> CaretNode {
+        let mut builder = CstBuilder::new();
+        let circumflex = builder.embed(self.circumflex.builder);
+        let node_id = builder.non_terminal(NonTerminalKind::Caret, vec![circumflex]);
+        CaretNode { node_id, builder }
     }
 }
 pub enum CodeBlockConstructor {
@@ -6655,6 +6733,11 @@ pub mod terminals {
         let mut builder = CstBuilder::new();
         let node_id = builder.terminal(TerminalKind::RBracket, "]");
         RBracketToken { node_id, builder }
+    }
+    pub fn circumflex() -> CircumflexToken {
+        let mut builder = CstBuilder::new();
+        let node_id = builder.terminal(TerminalKind::Circumflex, "");
+        CircumflexToken { node_id, builder }
     }
     pub fn l_paren() -> LParenToken {
         let mut builder = CstBuilder::new();
