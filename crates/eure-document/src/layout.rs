@@ -349,7 +349,7 @@ impl<'a> LayoutBuilder<'a> {
                     .unwrap_or(usize::MAX)
             });
 
-            for ((idx, _), replacement) in listed.into_iter().zip(sorted.into_iter()) {
+            for ((idx, _), replacement) in listed.into_iter().zip(sorted) {
                 out[idx] = replacement;
             }
 
