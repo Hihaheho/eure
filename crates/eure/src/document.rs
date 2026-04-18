@@ -573,4 +573,58 @@ mod tests {
 
         assert_eq!(reparsed, doc);
     }
+
+    // ==========================================================================
+    // End-to-end parsing tests for the `[^]` (current-index) array marker.
+    // ==========================================================================
+
+    fn try_parse_document(input: &str) -> Result<EureDocument, DocumentConstructionError> {
+        let cst = eure_parol::parse(input).unwrap();
+        cst_to_document(input, &cst)
+    }
+
+    #[test]
+    fn test_current_index_merges_with_last_push() {
+        // `users[].x = 1; users[^].y = 2` is equivalent to `users[0] = {x=1,y=2}`.
+        let actual = parse_document("users[].x = 1\nusers[^].y = 2\n");
+        let expected = parse_document("users[0].x = 1\nusers[0].y = 2\n");
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_current_index_in_nested_arrays() {
+        let actual = parse_document(
+            "orgs[].teams[].members[].name = \"Ada\"\n\
+             orgs[^].teams[^].members[].name = \"Linus\"\n",
+        );
+        let expected = parse_document(
+            "orgs[0].teams[0].members[0].name = \"Ada\"\n\
+             orgs[0].teams[0].members[1].name = \"Linus\"\n",
+        );
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_current_index_without_prior_push_errors() {
+        // `users[^]` with no matching `[]` push in scope must fail.
+        let err = try_parse_document("users[^].name = \"Alice\"").unwrap_err();
+        let msg = err.to_string();
+        // The leading `users` path creates a hole, so ExpectedArray fires first.
+        assert!(
+            msg.contains("Expected array"),
+            "expected ExpectedArray, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_current_index_after_specific_index_errors() {
+        // Seeding with a numeric index does not record a push, so `[^]` must
+        // fail with ArrayCurrentOutOfScope.
+        let err = try_parse_document("items[0].x = 1\nitems[^].y = 2\n").unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("no prior push"),
+            "expected ArrayCurrentOutOfScope, got: {msg}"
+        );
+    }
 }

@@ -231,11 +231,9 @@ pub type SourcePath = Vec<SourcePathSegment>;
 pub struct SourcePathSegment {
     /// The key part of the segment
     pub key: SourceKey,
-    /// Optional array marker:
-    /// - `None` = no marker
-    /// - `Some(None)` = `[]` (push to array)
-    /// - `Some(Some(n))` = `[n]` (index into array)
-    pub array: Option<Option<usize>>,
+    /// Optional array marker describing the kind of array index that followed
+    /// the key (`[]`, `[n]`, or `[^]`), or `None` if no array marker was present.
+    pub array: Option<crate::path::ArrayIndexKind>,
 }
 
 impl SourcePathSegment {
@@ -257,13 +255,19 @@ impl SourcePathSegment {
 
     /// Create a segment with array push marker (`[]`).
     pub fn with_array_push(mut self) -> Self {
-        self.array = Some(None);
+        self.array = Some(crate::path::ArrayIndexKind::Push);
         self
     }
 
     /// Create a segment with array index marker (`[n]`).
     pub fn with_array_index(mut self, index: usize) -> Self {
-        self.array = Some(Some(index));
+        self.array = Some(crate::path::ArrayIndexKind::Specific(index));
+        self
+    }
+
+    /// Create a segment with current-index marker (`[^]`).
+    pub fn with_array_current(mut self) -> Self {
+        self.array = Some(crate::path::ArrayIndexKind::Current);
         self
     }
 
@@ -600,7 +604,7 @@ mod tests {
         let actual = SourcePathSegment::ident(Identifier::new_unchecked("items")).with_array_push();
         let expected = SourcePathSegment {
             key: SourceKey::Ident(Identifier::new_unchecked("items")),
-            array: Some(None),
+            array: Some(crate::path::ArrayIndexKind::Push),
         };
         assert_eq!(actual, expected);
     }
@@ -611,7 +615,18 @@ mod tests {
             SourcePathSegment::ident(Identifier::new_unchecked("items")).with_array_index(0);
         let expected = SourcePathSegment {
             key: SourceKey::Ident(Identifier::new_unchecked("items")),
-            array: Some(Some(0)),
+            array: Some(crate::path::ArrayIndexKind::Specific(0)),
+        };
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_source_path_segment_with_array_current() {
+        let actual =
+            SourcePathSegment::ident(Identifier::new_unchecked("items")).with_array_current();
+        let expected = SourcePathSegment {
+            key: SourceKey::Ident(Identifier::new_unchecked("items")),
+            array: Some(crate::path::ArrayIndexKind::Current),
         };
         assert_eq!(actual, expected);
     }

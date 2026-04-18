@@ -1,0 +1,61 @@
+// Test cases for the `[^]` (current-index) array marker.
+//
+// `[^]` refers to the most recent `[]` push of the same array within the
+// current block scope. `[]` always pushes a new element; `[^]` merges into
+// the last-pushed one.
+
+input_eure = ```eure
+// At the root block scope, [^] refers back to the element most recently
+// pushed by [] into the same array.
+users[].name = "Alice"
+users[^].age = 30
+users[].name = "Bob"
+users[^].age = 25
+
+// Nested arrays: each [^] binds to the push that happened in its own
+// enclosing path.
+orgs[].teams[].members[].name = "Ada"
+orgs[^].teams[^].members[].name = "Linus"
+```
+
+normalized = ```eure
+= {
+  users => [
+    { name => "Alice", age => 30 },
+    { name => "Bob", age => 25 },
+  ]
+  orgs => [
+    {
+      teams => [
+        {
+          members => [
+            { name => "Ada" },
+            { name => "Linus" },
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+json = ```json
+{
+  "users": [
+    { "name": "Alice", "age": 30 },
+    { "name": "Bob", "age": 25 }
+  ],
+  "orgs": [
+    {
+      "teams": [
+        {
+          "members": [
+            { "name": "Ada" },
+            { "name": "Linus" }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```

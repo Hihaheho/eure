@@ -10,7 +10,7 @@ use std::cell::RefCell;
 
 use eure_document::document::EureDocument;
 use eure_document::identifier::Identifier;
-use eure_document::path::{EurePath, PathSegment};
+use eure_document::path::{ArrayIndexKind, EurePath, PathSegment};
 use eure_document::value::ObjectKey;
 
 use crate::{SchemaDocument, SchemaNodeContent, SchemaNodeId};
@@ -114,7 +114,9 @@ impl ValidationState {
 
     /// Push an array index to the path.
     pub fn push_path_index(&mut self, index: usize) {
-        self.path.0.push(PathSegment::ArrayIndex(Some(index)));
+        self.path
+            .0
+            .push(PathSegment::ArrayIndex(ArrayIndexKind::Specific(index)));
     }
 
     /// Push a tuple index to the path.

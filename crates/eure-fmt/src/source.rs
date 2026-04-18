@@ -13,6 +13,7 @@ use crate::printer::Printer;
 use eure_document::document::node::{NodeArray, NodeMap, NodeTuple, NodeValue};
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::identifier::Identifier;
+use eure_document::path::ArrayIndexKind;
 use eure_document::source::{
     ArrayElementSource, BindSource, BindingSource, Comment, EureSource, SectionBody, SectionSource,
     SourceDocument, SourceId, SourceKey, SourcePathSegment, StringStyle, Trivia,
@@ -287,8 +288,14 @@ impl<'a> SourceDocBuilder<'a> {
             result = result.concat(self.build_key(&segment.key));
             if let Some(index) = &segment.array {
                 result = result.concat(Doc::text("["));
-                if let Some(n) = index {
-                    result = result.concat(Doc::text(n.to_string()));
+                match index {
+                    ArrayIndexKind::Push => {}
+                    ArrayIndexKind::Current => {
+                        result = result.concat(Doc::text("^"));
+                    }
+                    ArrayIndexKind::Specific(n) => {
+                        result = result.concat(Doc::text(n.to_string()));
+                    }
                 }
                 result = result.concat(Doc::text("]"));
             }

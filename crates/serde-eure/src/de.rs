@@ -7,7 +7,7 @@ use eure::document::constructor::DocumentConstructor;
 use eure::document::identifier::Identifier;
 use eure::document::node::NodeValue;
 use eure::document::parse::VariantPath;
-use eure::document::path::PathSegment;
+use eure::document::path::{ArrayIndexKind, PathSegment};
 use eure::value::{ObjectKey, PrimitiveValue, Text, Tuple};
 use eure_schema::interop::VariantRepr;
 use eure_schema::{
@@ -822,7 +822,7 @@ impl<'de> DeserializeSeed<'de> for ArrayElementSeed<'_> {
     {
         let scope = self.constructor.begin_scope();
         self.constructor
-            .navigate(PathSegment::ArrayIndex(None))
+            .navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))
             .map_err(D::Error::custom)?;
         EureDocumentSeed {
             schema: self.schema,
@@ -850,7 +850,7 @@ impl<'de> DeserializeSeed<'de> for AnyArrayElementSeed<'_> {
     {
         let scope = self.constructor.begin_scope();
         self.constructor
-            .navigate(PathSegment::ArrayIndex(None))
+            .navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))
             .map_err(D::Error::custom)?;
         AnySeed {
             constructor: self.constructor,
@@ -2595,7 +2595,7 @@ fn bind_bytes_as_array(constructor: &mut DocumentConstructor, bytes: &[u8]) -> R
     constructor.bind_empty_array()?;
     for &byte in bytes {
         let scope = constructor.begin_scope();
-        constructor.navigate(PathSegment::ArrayIndex(None))?;
+        constructor.navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))?;
         constructor.bind_primitive(PrimitiveValue::Integer(BigInt::from(byte)))?;
         constructor.end_scope(scope)?;
     }

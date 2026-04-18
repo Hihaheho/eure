@@ -30,9 +30,21 @@ pub enum PathSegment {
     /// Tuple element index (0-255)
     TupleIndex(u8),
     /// Array element access
-    ArrayIndex(Option<usize>),
+    ArrayIndex(ArrayIndexKind),
     /// A hole key in a PartialMap: `!` or `!label`
     HoleKey(Option<Identifier>),
+}
+
+/// Kind of array index used in a path segment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ArrayIndexKind {
+    /// `[]` — always pushes a new element onto the array
+    Push,
+    /// `[^]` — references the element most recently pushed into this array
+    /// within the current block scope. Errors if there is no such push in scope.
+    Current,
+    /// `[n]` — references a specific index, creating the element if it does not exist
+    Specific(usize),
 }
 
 impl PathSegment {
@@ -84,8 +96,11 @@ impl Display for EurePath {
                     }
                     write!(f, "#{}", index)?;
                 }
-                PathSegment::ArrayIndex(Some(index)) => write!(f, "[{}]", index)?,
-                PathSegment::ArrayIndex(None) => write!(f, "[]")?,
+                PathSegment::ArrayIndex(ArrayIndexKind::Specific(index)) => {
+                    write!(f, "[{}]", index)?
+                }
+                PathSegment::ArrayIndex(ArrayIndexKind::Push) => write!(f, "[]")?,
+                PathSegment::ArrayIndex(ArrayIndexKind::Current) => write!(f, "[^]")?,
                 PathSegment::HoleKey(None) => {
                     if !is_first {
                         write!(f, ".")?;
@@ -145,18 +160,27 @@ mod tests {
     fn test_display_array_index() {
         let path = EurePath(vec![
             PathSegment::Ident(Identifier::new_unchecked("items")),
-            PathSegment::ArrayIndex(Some(0)),
+            PathSegment::ArrayIndex(ArrayIndexKind::Specific(0)),
         ]);
         assert_eq!(format!("{}", path), "items[0]");
     }
 
     #[test]
-    fn test_display_array_index_none() {
+    fn test_display_array_index_push() {
         let path = EurePath(vec![
             PathSegment::Ident(Identifier::new_unchecked("items")),
-            PathSegment::ArrayIndex(None),
+            PathSegment::ArrayIndex(ArrayIndexKind::Push),
         ]);
         assert_eq!(format!("{}", path), "items[]");
+    }
+
+    #[test]
+    fn test_display_array_index_current() {
+        let path = EurePath(vec![
+            PathSegment::Ident(Identifier::new_unchecked("items")),
+            PathSegment::ArrayIndex(ArrayIndexKind::Current),
+        ]);
+        assert_eq!(format!("{}", path), "items[^]");
     }
 
     #[test]
@@ -211,7 +235,7 @@ mod tests {
             PathSegment::Ident(Identifier::new_unchecked("config")),
             PathSegment::Extension(Identifier::new_unchecked("eure")),
             PathSegment::Ident(Identifier::new_unchecked("items")),
-            PathSegment::ArrayIndex(Some(0)),
+            PathSegment::ArrayIndex(ArrayIndexKind::Specific(0)),
             PathSegment::Value(ObjectKey::String("key with space".to_string())),
         ]);
         assert_eq!(

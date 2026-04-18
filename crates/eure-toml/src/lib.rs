@@ -25,7 +25,7 @@ pub use query::{TomlToEureDocument, TomlToEureSource};
 
 use eure_document::document::constructor::{DocumentConstructor, Scope};
 use eure_document::identifier::Identifier;
-use eure_document::path::PathSegment;
+use eure_document::path::{ArrayIndexKind, PathSegment};
 use eure_document::source::{
     ArrayElementSource, BindSource, BindingSource, Comment, EureSource, SectionBody,
     SourceDocument, SourceKey, SourcePathSegment, Trivia,
@@ -594,7 +594,7 @@ impl<'a> EventReceiver for TomlParserConverter<'a> {
                         .expect("binding should succeed");
                 }
                 self.constructor
-                    .navigate(PathSegment::ArrayIndex(None))
+                    .navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))
                     .expect("array navigation should succeed");
             }
         }
@@ -646,7 +646,7 @@ impl<'a> EventReceiver for TomlParserConverter<'a> {
         }) = self.context_stack.last_mut()
         {
             self.constructor
-                .navigate(PathSegment::ArrayIndex(None))
+                .navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))
                 .expect("array navigation should succeed");
 
             // Capture pending trivia for this element
@@ -721,7 +721,7 @@ impl<'a> EventReceiver for TomlParserConverter<'a> {
         }) = self.context_stack.last_mut()
         {
             self.constructor
-                .navigate(PathSegment::ArrayIndex(None))
+                .navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))
                 .expect("array navigation should succeed");
             let trivia = std::mem::take(element_pending_trivia);
             let idx = *element_index;
@@ -838,7 +838,7 @@ impl<'a> EventReceiver for TomlParserConverter<'a> {
         {
             // Navigate to array index
             self.constructor
-                .navigate(PathSegment::ArrayIndex(None))
+                .navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))
                 .expect("array navigation should succeed");
 
             // Capture pending trivia for this element
