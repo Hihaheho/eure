@@ -285,36 +285,43 @@ $ext-type.codegen-defaults.$optional = true
 @ $types.binding-style
 $variant: union
 variants {
-  /// Automatically determine the best way to represent the document path in the document.
-  auto = { = "auto", $variant => "literal" }
+  /// Binding a value to the key (grammar pattern #1).
+  /// a.b.c.this-key = /* rest */
+  inline = { = "inline", $variant => "literal" }
 
-  /// Pass through; defer to the preference of subsequent keys.
-  passthrough = { = "passthrough", $variant => "literal" }
+  /// Binding a block to the key (grammar pattern #2).
+  /// a.b.c.this-key {
+  ///   /* rest */
+  /// }
+  binding-block = { = "binding-block", $variant => "literal" }
 
-  /// Create a new section at the key.
+  /// Binding a block with a self-value to the key (grammar pattern #3).
+  /// a.b.c.this-key {
+  ///   = /* value */
+  ///   /* rest */
+  /// }
+  binding-value-block = { = "binding-value-block", $variant => "literal" }
+
+  /// Create a new section at the key (grammar pattern #4).
   /// @ a.b.c.this-key
   /// /* rest */
   section = { = "section", $variant => "literal" }
 
-  /// Create a new nested section at the key.
+  /// Create a new section-block at the key (grammar pattern #5).
   /// @ a.b.c.this-key {
   ///   /* rest */
   /// }
-  nested = { = "nested", $variant => "literal" }
+  section-block = { = "section-block", $variant => "literal" }
 
-  /// Binding a value to the key.
-  /// a.b.c.this-key = /* rest */
-  binding = { = "binding", $variant => "literal" }
-
-  /// Binding a section to the key
-  /// a.b.c.this-key {
+  /// Create a new section at the key with self-value (grammar pattern #6).
+  /// @ a.b.c.this-key {
+  ///   = /* value */
   ///   /* rest */
   /// }
-  section-binding = { = "section-binding", $variant => "literal" }
+  section-value-block = { = "section-value-block", $variant => "literal" }
 
-  /// Create a new section at the key with root binding.
-  /// @ a.b.c.this-key = /* rest */
-  section-root-binding = { = "section-root-binding", $variant => "literal" }
+  /// No self-emission; hoist children under the parent path.
+  flatten = { = "flatten", $variant => "literal" }
 }
 
 /// ============================================================================

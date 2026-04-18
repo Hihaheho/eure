@@ -1,12 +1,12 @@
 use std::path::PathBuf;
 
 use eure_document::identifier::Identifier;
-use eure_document::layout::{DocLayout, LayoutStyle};
 use eure_document::path::PathSegment;
+use eure_document::plan::{Form, LayoutPlan, PlanError};
 use eure_document::value::ObjectKey;
 use eure_fmt::source::format_source_document;
 use eure_schema::SchemaDocument;
-use eure_schema::write::{SchemaWriteError, schema_to_source_document};
+use eure_schema::write::{SchemaWriteError, schema_to_document, schema_to_source_document};
 use thiserror::Error;
 
 use crate::parser::CaseFile;
@@ -17,6 +17,8 @@ pub const CASE_SCHEMA_FILENAME: &str = "test-suite-case.schema.eure";
 pub enum CaseSchemaError {
     #[error("failed to render test-suite case schema: {0}")]
     Write(#[from] SchemaWriteError),
+    #[error("failed to plan case schema layout: {0}")]
+    Plan(#[from] PlanError),
 }
 
 pub fn case_schema_path() -> PathBuf {
@@ -27,29 +29,28 @@ pub fn case_schema_path() -> PathBuf {
 
 pub fn generate_case_schema_source() -> Result<String, CaseSchemaError> {
     let schema = SchemaDocument::of::<CaseFile>();
-    let layout = case_schema_layout(&schema);
-    let source = schema_to_source_document(&schema, &layout)?;
+    let plan = case_schema_plan(&schema)?;
+    let source = schema_to_source_document(&schema, plan)?;
     Ok(ensure_trailing_newline(format_source_document(&source)))
 }
 
-fn case_schema_layout(schema: &SchemaDocument) -> DocLayout {
-    let mut layout = DocLayout::default();
-    let types_ident: Identifier = "types".parse().expect("valid identifier");
-    let types_path = vec![PathSegment::Extension(types_ident.clone())];
+fn case_schema_plan(schema: &SchemaDocument) -> Result<LayoutPlan, CaseSchemaError> {
+    let doc = schema_to_document(schema)?;
+    let mut builder = LayoutPlan::builder(doc);
 
-    layout.add_style_rule(types_path.clone(), LayoutStyle::SectionBinding);
+    let types_ident: Identifier = "types".parse().expect("valid identifier");
+    let types_path = [PathSegment::Extension(types_ident.clone())];
+    builder.set_form_at(&types_path, Form::BindingBlock)?;
 
     for type_name in schema.types.keys() {
-        layout.add_style_rule(
-            vec![
-                PathSegment::Extension(types_ident.clone()),
-                PathSegment::Value(ObjectKey::String(type_name.to_string())),
-            ],
-            LayoutStyle::SectionBinding,
-        );
+        let path = [
+            PathSegment::Extension(types_ident.clone()),
+            PathSegment::Value(ObjectKey::String(type_name.to_string())),
+        ];
+        builder.set_form_at(&path, Form::BindingBlock)?;
     }
 
-    layout
+    Ok(builder.build()?)
 }
 
 fn ensure_trailing_newline(mut source: String) -> String {

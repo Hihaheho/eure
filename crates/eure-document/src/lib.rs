@@ -39,11 +39,8 @@ pub mod parse;
 /// Trait for writing Rust types to Eure documents.
 pub mod write;
 
-/// Deterministic layout for Eure documents.
-pub mod layout;
-/// Total, verified layout plan that replaces `DocLayout` with a coverage-
-/// checked projection from [`document::EureDocument`] to
-/// [`source::SourceDocument`].
+/// Total, verified layout plan: a coverage-checked projection from
+/// [`document::EureDocument`] to [`source::SourceDocument`].
 pub mod plan;
 /// Source-level document representation with layout metadata.
 ///

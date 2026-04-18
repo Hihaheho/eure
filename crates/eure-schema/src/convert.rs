@@ -1415,7 +1415,7 @@ mod tests {
             .expect("insert binding-style")
             .node_id;
         doc.node_mut(style_id).content =
-            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("section-binding")));
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("binding-block")));
 
         let (_schema, layout, _source_map) =
             document_to_schema_with_layout(&doc).expect("conversion succeeds");
@@ -1424,7 +1424,7 @@ mod tests {
             "item".to_string(),
         ))]);
         let style = layout.by_path.get(&expected_path).expect("style for item");
-        assert_eq!(*style, eure_document::layout::LayoutStyle::SectionBinding);
+        assert_eq!(*style, crate::BindingStyle::BindingBlock);
     }
 
     #[test]

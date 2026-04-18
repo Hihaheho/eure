@@ -31,4 +31,4 @@ test-suite:
 	@cargo run --quiet --offline -p test-suite -- --quiet
 
 eure-check:
-	@cargo run --quiet --offline --bin eure -- check --all --quiet
+	@cargo run --quiet --offline --bin eure -- check --offline schemas adr test-suite-cases --quiet

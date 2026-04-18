@@ -1,14 +1,23 @@
 use std::collections::HashSet;
 
 use eure_document::document::{EureDocument, NodeId};
-use eure_document::layout::{DocLayout, LayoutStyle};
 use eure_document::path::{EurePath, PathSegment};
+use eure_document::plan::traverse as plan_traverse;
+use eure_document::plan::{ArrayForm, Form, LayoutPlan, PlanError};
+use eure_document::value::ValueKind;
 use indexmap::IndexMap;
 use thiserror::Error;
 
 use crate::SchemaNodeId;
 
-pub type LayoutStrategy = LayoutStyle;
+/// Single-node layout strategy: a [`Form`] taken from the seven-variant
+/// taxonomy in [`eure_document::plan`].
+///
+/// For arrays the same [`Form`] is interpreted as the element form of a
+/// [`ArrayForm::PerElement`] (except `Inline`, which maps to
+/// [`ArrayForm::Inline`], and `Flatten`, which is rejected).
+pub type LayoutStrategy = Form;
+
 pub type NodeTypeTraceMap = IndexMap<NodeId, ResolvedTypeTrace>;
 pub type SchemaNodePathMap = IndexMap<SchemaNodeId, EurePath>;
 
@@ -114,60 +123,121 @@ impl LayoutStrategies {
     }
 }
 
-pub fn materialize_doc_layout(
-    doc: &EureDocument,
+/// Build a fully-validated [`LayoutPlan`] by applying the given schema-derived
+/// [`LayoutStrategies`] to `doc`.
+///
+/// Unlike the old `materialize_doc_layout` (which silently fell back to
+/// `LayoutStyle::Auto` on conflicts), every mismatch surfaces as a typed
+/// [`PlanError`] so callers cannot accidentally emit partial data.
+pub fn materialize_layout_plan(
+    doc: EureDocument,
     node_traces: &NodeTypeTraceMap,
     strategies: &LayoutStrategies,
-    fallback_style: LayoutStrategy,
-) -> DocLayout {
-    let mut layout = DocLayout::new();
-    layout.fallback_style = fallback_style;
+) -> Result<LayoutPlan, PlanError> {
+    let node_paths = collect_document_node_paths(&doc);
+    let mut builder = LayoutPlan::builder(doc);
+    let root = builder.document().get_root_id();
 
-    let node_paths = collect_document_node_paths(doc);
     for (node_id, node_path) in node_paths {
+        if node_id == root {
+            if let Some(order) = node_traces
+                .get(&node_id)
+                .and_then(|trace| resolve_order_for_trace(strategies, trace))
+            {
+                apply_order(&mut builder, node_id, &node_path, order)?;
+            }
+            continue;
+        }
+
         let Some(trace) = node_traces.get(&node_id) else {
             continue;
         };
 
-        if !node_path.is_empty()
-            && let Some(style) = resolve_style_for_trace(strategies, trace)
-        {
-            layout.add_style_rule(node_path.clone(), style);
+        if let Some(style) = resolve_style_for_trace(strategies, trace, node_id)? {
+            let kind = builder.document().node(node_id).content.value_kind();
+            if matches!(kind, ValueKind::Array) {
+                let array_form = form_to_array_form(node_id, style)?;
+                builder.set_array_form(node_id, array_form)?;
+            } else {
+                builder.set_form(node_id, style)?;
+            }
         }
 
-        if let Some(order) = resolve_order_for_trace(strategies, trace)
-            && !order.is_empty()
-        {
-            layout.add_order_rule(node_path, order, false);
+        if let Some(order) = resolve_order_for_trace(strategies, trace) {
+            apply_order(&mut builder, node_id, &node_path, order)?;
         }
     }
 
-    layout
+    builder.build()
+}
+
+fn apply_order(
+    builder: &mut eure_document::plan::PlanBuilder,
+    node_id: NodeId,
+    node_path: &[PathSegment],
+    order: Vec<PathSegment>,
+) -> Result<(), PlanError> {
+    if !is_orderable(builder.document(), node_id) {
+        return Ok(());
+    }
+    let present: Vec<PathSegment> = {
+        let direct = plan_traverse::children_of(builder.document(), node_id);
+        order
+            .into_iter()
+            .filter(|seg| direct.iter().any(|(s, _)| s == seg))
+            .collect()
+    };
+    if present.is_empty() {
+        return Ok(());
+    }
+    builder.order_at(node_path, present)?;
+    Ok(())
+}
+
+fn is_orderable(doc: &EureDocument, node: NodeId) -> bool {
+    matches!(
+        doc.node(node).content.value_kind(),
+        ValueKind::Map | ValueKind::PartialMap
+    )
+}
+
+fn form_to_array_form(node: NodeId, form: Form) -> Result<ArrayForm, PlanError> {
+    match form {
+        Form::Inline => Ok(ArrayForm::Inline),
+        Form::Flatten => Err(PlanError::IncompatibleArrayForm {
+            node,
+            form: ArrayForm::PerElement(Form::Flatten),
+            reason: eure_document::plan::ArrayFormReason::FlattenElementDisallowed,
+        }),
+        element => Ok(ArrayForm::PerElement(element)),
+    }
 }
 
 fn resolve_style_for_trace(
     strategies: &LayoutStrategies,
     trace: &ResolvedTypeTrace,
-) -> Option<LayoutStrategy> {
+    node: NodeId,
+) -> Result<Option<LayoutStrategy>, PlanError> {
     match trace {
-        ResolvedTypeTrace::Resolved(trace) => {
-            strategies.resolve(trace).map(|resolved| resolved.strategy)
-        }
+        ResolvedTypeTrace::Resolved(trace) => Ok(strategies.resolve(trace).map(|r| r.strategy)),
         ResolvedTypeTrace::Ambiguous(candidates) => {
             let mut resolved: Option<LayoutStrategy> = None;
             for candidate in candidates {
-                let candidate_style = strategies.resolve(candidate).map(|r| r.strategy)?;
-                if let Some(existing) = resolved {
-                    if existing != candidate_style {
-                        return None;
+                let candidate_style = match strategies.resolve(candidate) {
+                    Some(r) => r.strategy,
+                    None => return Ok(None),
+                };
+                match resolved {
+                    Some(existing) if existing != candidate_style => {
+                        return Err(PlanError::ConflictingOverride { node });
                     }
-                } else {
-                    resolved = Some(candidate_style);
+                    None => resolved = Some(candidate_style),
+                    _ => {}
                 }
             }
-            resolved
+            Ok(resolved)
         }
-        ResolvedTypeTrace::Unresolved(_) => None,
+        ResolvedTypeTrace::Unresolved(_) => Ok(None),
     }
 }
 
@@ -276,7 +346,6 @@ fn collect_document_node_paths_rec(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eure_document::layout::LayoutStyle;
     use eure_document::value::ObjectKey;
 
     #[test]
@@ -286,11 +355,11 @@ mod tests {
         let trace = TypePathTrace::from_hops(vec![first.clone(), second.clone()]).unwrap();
 
         let mut layout = LayoutStrategies::default();
-        layout.by_path.insert(second, LayoutStyle::Section);
-        layout.by_path.insert(first.clone(), LayoutStyle::Binding);
+        layout.by_path.insert(second, Form::Section);
+        layout.by_path.insert(first.clone(), Form::Inline);
 
         let resolved = layout.resolve(&trace).expect("should resolve");
-        assert_eq!(resolved.strategy, LayoutStyle::Binding);
+        assert_eq!(resolved.strategy, Form::Inline);
         assert_eq!(resolved.matched_path, first);
         assert_eq!(resolved.hop_index, 0);
     }
@@ -320,7 +389,7 @@ mod tests {
         let trace = TypePathTrace::single(child);
 
         let mut layout = LayoutStrategies::default();
-        layout.by_path.insert(parent, LayoutStyle::Section);
+        layout.by_path.insert(parent, Form::Section);
 
         assert!(layout.resolve(&trace).is_none());
     }
@@ -330,39 +399,34 @@ mod tests {
         let hop_a = EurePath(vec![PathSegment::Value(ObjectKey::String("a".to_string()))]);
         let hop_b = EurePath(vec![PathSegment::Value(ObjectKey::String("b".to_string()))]);
         let mut strategies = LayoutStrategies::default();
-        strategies
-            .by_path
-            .insert(hop_a.clone(), LayoutStyle::Binding);
-        strategies
-            .by_path
-            .insert(hop_b.clone(), LayoutStyle::Binding);
+        strategies.by_path.insert(hop_a.clone(), Form::Inline);
+        strategies.by_path.insert(hop_b.clone(), Form::Inline);
 
         let trace = ResolvedTypeTrace::Ambiguous(vec![
             TypePathTrace::single(hop_a),
             TypePathTrace::single(hop_b),
         ]);
         assert_eq!(
-            resolve_style_for_trace(&strategies, &trace),
-            Some(LayoutStyle::Binding)
+            resolve_style_for_trace(&strategies, &trace, NodeId(0)).unwrap(),
+            Some(Form::Inline)
         );
     }
 
     #[test]
-    fn ambiguous_trace_falls_back_when_candidates_conflict() {
+    fn ambiguous_trace_rejects_when_candidates_conflict() {
         let hop_a = EurePath(vec![PathSegment::Value(ObjectKey::String("a".to_string()))]);
         let hop_b = EurePath(vec![PathSegment::Value(ObjectKey::String("b".to_string()))]);
         let mut strategies = LayoutStrategies::default();
-        strategies
-            .by_path
-            .insert(hop_a.clone(), LayoutStyle::Binding);
-        strategies
-            .by_path
-            .insert(hop_b.clone(), LayoutStyle::SectionBinding);
+        strategies.by_path.insert(hop_a.clone(), Form::Inline);
+        strategies.by_path.insert(hop_b.clone(), Form::BindingBlock);
 
         let trace = ResolvedTypeTrace::Ambiguous(vec![
             TypePathTrace::single(hop_a),
             TypePathTrace::single(hop_b),
         ]);
-        assert!(resolve_style_for_trace(&strategies, &trace).is_none());
+        assert!(matches!(
+            resolve_style_for_trace(&strategies, &trace, NodeId(0)),
+            Err(PlanError::ConflictingOverride { .. })
+        ));
     }
 }

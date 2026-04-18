@@ -134,6 +134,8 @@ pub enum ScenarioError {
     SerializationError {
         message: String,
     },
+    /// Layout plan construction error
+    LayoutPlan(String),
     /// TOML parse error
     TomlParseError {
         message: String,
@@ -351,6 +353,9 @@ impl std::fmt::Display for ScenarioError {
             }
             ScenarioError::SerializationError { message } => {
                 write!(f, "Serialization error: {}", message)
+            }
+            ScenarioError::LayoutPlan(message) => {
+                write!(f, "Layout plan error: {}", message)
             }
             ScenarioError::TomlParseError { message } => {
                 write!(f, "TOML parse error: {}", message)

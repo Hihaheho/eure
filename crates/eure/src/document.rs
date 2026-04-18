@@ -328,7 +328,7 @@ pub fn cst_to_document_and_origin_map(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eure_document::layout::{DocLayout, project_with_layout};
+    use eure_document::plan::LayoutPlan;
     use eure_document::value::ObjectKey;
     use eure_fmt::format_source_document;
     use eure_tree::tree::CstFacade;
@@ -556,7 +556,7 @@ mod tests {
     fn test_partial_map_format_round_trip() {
         let input = "!x = 1\nnormal = 2";
         let doc = parse_document(input);
-        let source = project_with_layout(&doc, &DocLayout::new());
+        let source = LayoutPlan::auto(doc.clone()).expect("layout plan").emit();
         let formatted = format_source_document(&source);
         let reparsed = parse_document(&formatted);
 
@@ -567,7 +567,7 @@ mod tests {
     fn test_partial_tuple_key_format_round_trip() {
         let input = "(1, !) = 1";
         let doc = parse_document(input);
-        let source = project_with_layout(&doc, &DocLayout::new());
+        let source = LayoutPlan::auto(doc.clone()).expect("layout plan").emit();
         let formatted = format_source_document(&source);
         let reparsed = parse_document(&formatted);
 

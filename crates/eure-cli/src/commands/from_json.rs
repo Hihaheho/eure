@@ -3,8 +3,7 @@ use eure::query::{
 };
 use eure::query_flow::DurabilityLevel;
 use eure_json::{Config as JsonConfig, JsonToEure};
-use eure_document::document::EureDocument;
-use eure_document::source::{EureSource, SourceDocument};
+use eure_document::plan::LayoutPlan;
 use eure_schema::interop::VariantRepr;
 
 use crate::args::CacheArgs;
@@ -103,22 +102,18 @@ pub fn run(args: Args) {
         }
     };
 
-    // 6. Build minimal SourceDocument for formatting
-    let source_doc = build_minimal_source_document(document);
+    // 6. Plan layout and build SourceDocument for formatting
+    let doc = std::sync::Arc::unwrap_or_clone(document);
+    let plan = match LayoutPlan::auto(doc) {
+        Ok(plan) => plan,
+        Err(e) => {
+            eprintln!("Error: {e}");
+            std::process::exit(1);
+        }
+    };
+    let source_doc = plan.emit();
 
     // 7. Format and output
     let output = eure_fmt::format_source_document(&source_doc);
     println!("{output}");
-}
-
-fn build_minimal_source_document(document: std::sync::Arc<EureDocument>) -> SourceDocument {
-    // Create a minimal SourceDocument with a single root source
-    // that has the document's root as a value binding
-    let doc = std::sync::Arc::unwrap_or_clone(document);
-    let root_source = EureSource {
-        value: Some(doc.get_root_id()),
-        ..Default::default()
-    };
-
-    SourceDocument::new(doc, vec![root_source])
 }

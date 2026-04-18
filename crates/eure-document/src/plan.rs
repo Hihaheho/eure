@@ -148,11 +148,7 @@ pub enum PlanError {
 
 /// Returns `Ok(())` if the given [`Form`] is compatible with the given
 /// [`ValueKind`], otherwise an [`PlanError::IncompatibleForm`].
-pub(crate) fn check_form_compat(
-    id: NodeId,
-    form: Form,
-    kind: ValueKind,
-) -> Result<(), PlanError> {
+pub(crate) fn check_form_compat(id: NodeId, form: Form, kind: ValueKind) -> Result<(), PlanError> {
     let compatible = match form {
         Form::Inline => !matches!(kind, ValueKind::PartialMap),
         Form::BindingBlock | Form::Section | Form::SectionBlock | Form::Flatten => {
@@ -180,7 +176,11 @@ pub(crate) fn check_form_compat(
     if compatible {
         Ok(())
     } else {
-        Err(PlanError::IncompatibleForm { node: id, form, kind })
+        Err(PlanError::IncompatibleForm {
+            node: id,
+            form,
+            kind,
+        })
     }
 }
 
@@ -223,7 +223,9 @@ pub(crate) fn check_array_form_compat(
                     | Form::SectionValueBlock
             );
             if requires_map
-                && !kinds.iter().all(|k| matches!(k, ValueKind::Map | ValueKind::PartialMap))
+                && !kinds
+                    .iter()
+                    .all(|k| matches!(k, ValueKind::Map | ValueKind::PartialMap))
             {
                 return Err(PlanError::IncompatibleArrayForm {
                     node: id,
@@ -297,11 +299,7 @@ impl PlanBuilder {
     }
 
     /// Assign an [`ArrayForm`] to an Array node.
-    pub fn set_array_form(
-        &mut self,
-        id: NodeId,
-        form: ArrayForm,
-    ) -> Result<&mut Self, PlanError> {
+    pub fn set_array_form(&mut self, id: NodeId, form: ArrayForm) -> Result<&mut Self, PlanError> {
         let kind = self.doc.node(id).content.value_kind();
         if !matches!(kind, ValueKind::Array) {
             return Err(PlanError::ArrayFormOnNonArray(id));
@@ -323,15 +321,8 @@ impl PlanBuilder {
 
     /// Order the direct children of a non-Array parent. Unlisted children
     /// are appended after the listed ones in document order.
-    pub fn order(
-        &mut self,
-        parent: NodeId,
-        children: Vec<NodeId>,
-    ) -> Result<&mut Self, PlanError> {
-        if matches!(
-            self.doc.node(parent).content.value_kind(),
-            ValueKind::Array
-        ) {
+    pub fn order(&mut self, parent: NodeId, children: Vec<NodeId>) -> Result<&mut Self, PlanError> {
+        if matches!(self.doc.node(parent).content.value_kind(), ValueKind::Array) {
             return Err(PlanError::OrderOnArrayNode(parent));
         }
         let direct = traverse::children_of(&self.doc, parent);
@@ -387,22 +378,16 @@ impl PlanBuilder {
     /// Fill defaults, validate, and finalize.
     pub fn build(mut self) -> Result<LayoutPlan, PlanError> {
         // 1. Fill defaults via auto() policy for every unassigned reachable id.
-        let all = traverse::all_reachable_ids(&self.doc);
-        for id in &all {
-            let kind = self.doc.node(*id).content.value_kind();
-            if matches!(kind, ValueKind::Array) {
-                if !self.array_forms.contains_key(id) {
-                    let auto = auto::auto_array_form(&self.doc, *id);
-                    self.array_forms.insert(*id, auto);
-                }
-            } else if *id != self.doc.get_root_id() && !self.forms.contains_key(id) {
-                let auto = auto::auto_form(&self.doc, *id);
-                self.forms.insert(*id, auto);
-            }
-        }
+        //    Walk from root threading `allow_sections` so that auto picks a
+        //    block form (not Section) in contexts where sections are forbidden
+        //    (inside a Section / SectionValueBlock items body). This prevents
+        //    auto-assignment from generating structurally invalid plans.
+        let root = self.doc.get_root_id();
+        self.fill_defaults(root, true);
 
         // 2. Compatibility check (defensive — set_form already checks, but
         // auto-filled defaults must also be valid).
+        let all = traverse::all_reachable_ids(&self.doc);
         for id in &all {
             let kind = self.doc.node(*id).content.value_kind();
             if matches!(kind, ValueKind::Array) {
@@ -412,10 +397,7 @@ impl PlanBuilder {
                     .ok_or(PlanError::MissingForm(*id))?;
                 check_array_form_compat(&self.doc, *id, form)?;
             } else if *id != self.doc.get_root_id() {
-                let form = *self
-                    .forms
-                    .get(id)
-                    .ok_or(PlanError::MissingForm(*id))?;
+                let form = *self.forms.get(id).ok_or(PlanError::MissingForm(*id))?;
                 check_form_compat(*id, form, kind)?;
             }
         }
@@ -431,6 +413,97 @@ impl PlanBuilder {
         plan.validate_structure()?;
         Ok(plan)
     }
+
+    fn fill_defaults(&mut self, id: NodeId, allow_sections: bool) {
+        let kind = self.doc.node(id).content.value_kind();
+        let root = self.doc.get_root_id();
+
+        if matches!(kind, ValueKind::Array) {
+            let array_form = match self.array_forms.get(&id).copied() {
+                Some(f) => f,
+                None => {
+                    let auto = auto::auto_array_form(&self.doc, id, allow_sections);
+                    self.array_forms.insert(id, auto);
+                    auto
+                }
+            };
+            let elem_form: Option<Form> = match array_form {
+                ArrayForm::Inline => None,
+                ArrayForm::PerElement(f) | ArrayForm::PerElementIndexed(f) => Some(f),
+            };
+            for (_, elem_id) in traverse::children_of(&self.doc, id) {
+                self.fill_element_defaults(elem_id, allow_sections, elem_form);
+            }
+            return;
+        }
+
+        let child_allow = if id == root {
+            true
+        } else {
+            let form = match self.forms.get(&id).copied() {
+                Some(f) => f,
+                None => {
+                    let auto = auto::auto_form(&self.doc, id, allow_sections);
+                    self.forms.insert(id, auto);
+                    auto
+                }
+            };
+            child_allow_for_form(form, allow_sections)
+        };
+
+        for (_, child_id) in traverse::children_of(&self.doc, id) {
+            self.fill_defaults(child_id, child_allow);
+        }
+    }
+
+    /// Fill defaults for an array element. `elem_form` is the `Form` dictated
+    /// by the array's `ArrayForm::PerElement*` variant; when `None`, the
+    /// element is rendered as an inline value (its descendants are not
+    /// emitted as standalone nodes but we still fill defaults for validation).
+    fn fill_element_defaults(&mut self, id: NodeId, outer_allow: bool, elem_form: Option<Form>) {
+        let kind = self.doc.node(id).content.value_kind();
+
+        if matches!(kind, ValueKind::Array) {
+            self.fill_defaults(id, outer_allow);
+            return;
+        }
+
+        // Set the element's own form. This is NOT the form used to emit the
+        // element (emit_array_child uses `elem_form` directly for PerElement*),
+        // but we still must populate `forms` so the compat pass doesn't raise
+        // `MissingForm`. Prefer `elem_form` when compatible with the element's
+        // kind; otherwise fall back to the context-aware auto policy.
+        if !self.forms.contains_key(&id) {
+            let chosen = match elem_form {
+                Some(f) if check_form_compat(id, f, kind).is_ok() => f,
+                _ => auto::auto_form(&self.doc, id, outer_allow),
+            };
+            self.forms.insert(id, chosen);
+        }
+
+        // Descent into element's children uses the element's effective emit
+        // form to determine whether sections are allowed inside it.
+        let child_allow = match elem_form {
+            Some(f) => child_allow_for_form(f, outer_allow),
+            None => outer_allow,
+        };
+        for (_, child_id) in traverse::children_of(&self.doc, id) {
+            self.fill_defaults(child_id, child_allow);
+        }
+    }
+}
+
+/// Whether children of a node with the given [`Form`] may be emitted as
+/// sections. `build_items` (used by `Section` / `SectionValueBlock`) requires
+/// that its body contain no sections, so those forms propagate
+/// `allow_sections = false` to their descendants.
+fn child_allow_for_form(form: Form, outer_allow: bool) -> bool {
+    match form {
+        Form::Inline => outer_allow,
+        Form::BindingBlock | Form::BindingValueBlock | Form::SectionBlock => true,
+        Form::Section | Form::SectionValueBlock => false,
+        Form::Flatten => outer_allow,
+    }
 }
 
 // ============================================================================
@@ -443,8 +516,11 @@ pub(crate) mod auto {
     use crate::document::{EureDocument, NodeId};
     use crate::value::ValueKind;
 
-    /// The default [`Form`] for a non-root, non-Array node.
-    pub(crate) fn auto_form(doc: &EureDocument, id: NodeId) -> Form {
+    /// The default [`Form`] for a non-root, non-Array node. When
+    /// `allow_sections` is false, Map/PartialMap candidates for [`Form::Section`]
+    /// are downgraded to [`Form::BindingBlock`] — this is what keeps the
+    /// auto policy structurally valid inside `build_items` bodies.
+    pub(crate) fn auto_form(doc: &EureDocument, id: NodeId, allow_sections: bool) -> Form {
         let node = doc.node(id);
         let kind = node.content.value_kind();
         match kind {
@@ -459,7 +535,11 @@ pub(crate) mod auto {
             ValueKind::Array => unreachable!("arrays use auto_array_form"),
             ValueKind::Map | ValueKind::PartialMap => {
                 if !node.extensions.is_empty() || map_has_complex_child(doc, &node.content) {
-                    Form::Section
+                    if allow_sections {
+                        Form::Section
+                    } else {
+                        Form::BindingBlock
+                    }
                 } else if map_only_scalar_children(doc, &node.content) {
                     Form::Inline
                 } else {
@@ -469,8 +549,13 @@ pub(crate) mod auto {
         }
     }
 
-    /// The default [`ArrayForm`] for an Array node.
-    pub(crate) fn auto_array_form(doc: &EureDocument, id: NodeId) -> ArrayForm {
+    /// The default [`ArrayForm`] for an Array node. When `allow_sections` is
+    /// false, `PerElement(Section)` is downgraded to `PerElement(BindingBlock)`.
+    pub(crate) fn auto_array_form(
+        doc: &EureDocument,
+        id: NodeId,
+        allow_sections: bool,
+    ) -> ArrayForm {
         let NodeValue::Array(arr) = &doc.node(id).content else {
             return ArrayForm::Inline;
         };
@@ -484,7 +569,12 @@ pub(crate) mod auto {
             )
         });
         if all_maps {
-            ArrayForm::PerElement(Form::Section)
+            let elem_form = if allow_sections {
+                Form::Section
+            } else {
+                Form::BindingBlock
+            };
+            ArrayForm::PerElement(elem_form)
         } else {
             ArrayForm::Inline
         }
@@ -560,7 +650,7 @@ impl LayoutPlan {
                     b.set_form(id, Form::Section)?;
                 }
                 ValueKind::Array => {
-                    let form = match auto::auto_array_form(b.document(), id) {
+                    let form = match auto::auto_array_form(b.document(), id, true) {
                         ArrayForm::PerElement(_) | ArrayForm::PerElementIndexed(_) => {
                             ArrayForm::PerElement(Form::Section)
                         }
@@ -592,7 +682,7 @@ impl LayoutPlan {
                     b.set_form(id, Form::BindingBlock)?;
                 }
                 ValueKind::Array => {
-                    let form = match auto::auto_array_form(b.document(), id) {
+                    let form = match auto::auto_array_form(b.document(), id, false) {
                         ArrayForm::PerElement(_) | ArrayForm::PerElementIndexed(_) => {
                             ArrayForm::PerElement(Form::BindingBlock)
                         }
@@ -687,7 +777,10 @@ mod tests {
         let src = plan.emit();
         let root = src.root_source();
         assert_eq!(root.bindings.len(), 1);
-        assert!(matches!(root.bindings[0].bind, crate::source::BindSource::Value(_)));
+        assert!(matches!(
+            root.bindings[0].bind,
+            crate::source::BindSource::Value(_)
+        ));
         assert!(root.sections.is_empty());
     }
 

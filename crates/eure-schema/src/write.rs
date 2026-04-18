@@ -12,8 +12,8 @@ use eure_document::document::constructor::DocumentConstructor;
 use eure_document::document::node::NodeValue;
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::identifier::Identifier;
-use eure_document::layout::{DocLayout, project_with_layout};
 use eure_document::path::PathSegment;
+use eure_document::plan::{LayoutPlan, PlanError};
 use eure_document::source::SourceDocument;
 use eure_document::text::Text;
 use eure_document::value::{ObjectKey, PrimitiveValue};
@@ -51,6 +51,8 @@ pub enum SchemaWriteError {
         root_type_name: String,
         type_codegen_type_name: String,
     },
+    #[error("layout plan error: {0}")]
+    Plan(#[from] PlanError),
 }
 
 /// Emit an [`EureDocument`] from a [`SchemaDocument`].
@@ -62,13 +64,25 @@ pub fn schema_to_document(schema: &SchemaDocument) -> Result<EureDocument, Schem
     Ok(c.finish())
 }
 
-/// Project a schema document to source using a caller-provided generic layout plan.
+/// Project a schema document to source using a caller-provided [`LayoutPlan`].
+///
+/// The plan is consumed: its validated form/array-form assignments are applied
+/// during emission and the owned [`EureDocument`] inside it is moved into the
+/// resulting [`SourceDocument`].
 pub fn schema_to_source_document(
+    _schema: &SchemaDocument,
+    plan: LayoutPlan,
+) -> Result<SourceDocument, SchemaWriteError> {
+    Ok(plan.emit())
+}
+
+/// Project a schema document to source using [`LayoutPlan::auto`].
+pub fn schema_to_source_document_auto(
     schema: &SchemaDocument,
-    layout: &DocLayout,
 ) -> Result<SourceDocument, SchemaWriteError> {
     let doc = schema_to_document(schema)?;
-    Ok(project_with_layout(&doc, layout))
+    let plan = LayoutPlan::auto(doc)?;
+    Ok(plan.emit())
 }
 
 impl IntoEure for SchemaDocument {
@@ -659,13 +673,13 @@ fn write_binding_style_extension(
 
 fn binding_style_as_str(style: BindingStyle) -> &'static str {
     match style {
-        BindingStyle::Auto => "auto",
-        BindingStyle::Passthrough => "passthrough",
+        BindingStyle::Inline => "inline",
+        BindingStyle::BindingBlock => "binding-block",
+        BindingStyle::BindingValueBlock => "binding-value-block",
         BindingStyle::Section => "section",
-        BindingStyle::Nested => "nested",
-        BindingStyle::Binding => "binding",
-        BindingStyle::SectionBinding => "section-binding",
-        BindingStyle::SectionRootBinding => "section-root-binding",
+        BindingStyle::SectionBlock => "section-block",
+        BindingStyle::SectionValueBlock => "section-value-block",
+        BindingStyle::Flatten => "flatten",
     }
 }
 

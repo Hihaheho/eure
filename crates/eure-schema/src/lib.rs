@@ -48,7 +48,7 @@ use eure_document::Text;
 use eure_document::constructor::DocumentConstructor;
 use eure_document::document::EureDocument;
 use eure_document::identifier::Identifier;
-use eure_document::layout::LayoutStyle;
+use eure_document::plan::{ArrayForm, Form};
 use eure_document::write::{IntoEure, WriteError};
 use eure_macros::{FromEure, IntoEure};
 use indexmap::{IndexMap, IndexSet};
@@ -567,15 +567,23 @@ pub struct UnionSchema {
 // Binding Style
 // ============================================================================
 
-/// How to represent document paths in formatted output
+/// How to represent document paths in formatted output.
 ///
-/// Spec: lines 263-296
+/// Uses the seven-variant [`Form`] taxonomy from [`eure_document::plan`].
+///
 /// ```eure
 /// @ $types.binding-style
 /// $variant: union
-/// variants { auto, passthrough, section, nested, binding, section-binding, section-root-binding }
+/// variants { inline, binding-block, binding-value-block, section, section-block, section-value-block, flatten }
 /// ```
-pub type BindingStyle = LayoutStyle;
+pub type BindingStyle = Form;
+
+/// How to represent array-valued fields.
+///
+/// Mirrors [`eure_document::plan::ArrayForm`]: orthogonal to [`BindingStyle`];
+/// describes whether array elements are emitted inline, per-element with
+/// push (`[]`) markers, or per-element with explicit indices (`[i]`).
+pub type ArrayBindingStyle = ArrayForm;
 
 // ============================================================================
 // Type Reference
@@ -692,6 +700,23 @@ impl Default for SchemaDocument {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Build a [`LayoutPlan`] for `doc` using the schema-derived [`LayoutStrategies`].
+///
+/// This is the canonical entry point for applying schema-controlled layout to a
+/// data document: it resolves each document node's type path against `schema`,
+/// then turns each resolved trace into an explicit [`Form`] or [`ArrayForm`]
+/// assignment. Any conflict between schema-declared forms and the actual node
+/// kind surfaces as a typed [`PlanError`] instead of silently falling back to a
+/// default layout.
+pub fn layout_plan_from_schema(
+    doc: eure_document::document::EureDocument,
+    schema: &SchemaDocument,
+    strategies: &type_path_trace::LayoutStrategies,
+) -> Result<eure_document::plan::LayoutPlan, eure_document::plan::PlanError> {
+    let traces = validate::resolve_node_type_traces(&doc, schema, &strategies.schema_node_paths);
+    type_path_trace::materialize_layout_plan(doc, &traces, strategies)
 }
 
 // ============================================================================

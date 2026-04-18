@@ -287,13 +287,23 @@ pub enum FloatPrecisionIr {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BindingStyleIr {
-    Auto,
-    Passthrough,
+    Inline,
+    BindingBlock,
+    BindingValueBlock,
     Section,
-    Nested,
-    Binding,
-    SectionBinding,
-    SectionRootBinding,
+    SectionBlock,
+    SectionValueBlock,
+    Flatten,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArrayBindingStyleIr {
+    /// Single inline binding: `path = [...]`.
+    Inline,
+    /// Per-element emission with `[]` push marker.
+    PerElement(BindingStyleIr),
+    /// Per-element emission with explicit `[i]` indices.
+    PerElementIndexed(BindingStyleIr),
 }
 
 #[derive(Debug, Clone, PartialEq)]

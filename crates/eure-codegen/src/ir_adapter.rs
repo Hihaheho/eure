@@ -10,7 +10,7 @@ use eure_codegen_ir::{
 };
 use eure_document::document::node::NodeValue;
 use eure_document::document::{EureDocument, NodeId};
-use eure_document::layout::LayoutStyle;
+use eure_document::plan::Form;
 use eure_document::text::Language;
 use eure_document::value::{ObjectKey, PrimitiveValue};
 use eure_schema::{
@@ -496,15 +496,15 @@ fn convert_variant_repr(repr: &eure_schema::interop::VariantRepr) -> VariantRepr
     }
 }
 
-fn convert_binding_style(style: LayoutStyle) -> BindingStyleIr {
+fn convert_binding_style(style: Form) -> BindingStyleIr {
     match style {
-        LayoutStyle::Auto => BindingStyleIr::Auto,
-        LayoutStyle::Passthrough => BindingStyleIr::Passthrough,
-        LayoutStyle::Section => BindingStyleIr::Section,
-        LayoutStyle::Nested => BindingStyleIr::Nested,
-        LayoutStyle::Binding => BindingStyleIr::Binding,
-        LayoutStyle::SectionBinding => BindingStyleIr::SectionBinding,
-        LayoutStyle::SectionRootBinding => BindingStyleIr::SectionRootBinding,
+        Form::Inline => BindingStyleIr::Inline,
+        Form::BindingBlock => BindingStyleIr::BindingBlock,
+        Form::BindingValueBlock => BindingStyleIr::BindingValueBlock,
+        Form::Section => BindingStyleIr::Section,
+        Form::SectionBlock => BindingStyleIr::SectionBlock,
+        Form::SectionValueBlock => BindingStyleIr::SectionValueBlock,
+        Form::Flatten => BindingStyleIr::Flatten,
     }
 }
 
@@ -779,7 +779,7 @@ mod tests {
                         RecordFieldSchema {
                             schema: SchemaNodeId(1),
                             optional: false,
-                            binding_style: Some(BindingStyle::Binding),
+                            binding_style: Some(BindingStyle::Inline),
                             field_codegen: FieldCodegen {
                                 name: Some("display_name".to_string()),
                             },
@@ -858,7 +858,7 @@ mod tests {
                 .properties()
                 .get("name")
                 .map(|field| field.binding_style()),
-            Some(Some(BindingStyleIr::Binding))
+            Some(Some(BindingStyleIr::Inline))
         );
 
         let text = ty

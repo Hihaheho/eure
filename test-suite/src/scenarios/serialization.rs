@@ -1,7 +1,6 @@
 use eure::query::{DocumentToSchemaQuery, ParseDocument, TextFile};
-use eure_document::layout::{LayoutStyle, project_with_layout};
 use eure_fmt::format_source_document;
-use eure_schema::type_path_trace::materialize_doc_layout;
+use eure_schema::type_path_trace::materialize_layout_plan;
 use eure_schema::validate::validate_with_trace;
 use query_flow::Db;
 
@@ -26,13 +25,13 @@ impl Scenario for SerializationScenario {
             &schema_doc.schema,
             &schema_doc.layout.schema_node_paths,
         );
-        let runtime_layout = materialize_doc_layout(
-            &input_doc.doc,
+        let plan = materialize_layout_plan(
+            (*input_doc.doc).clone(),
             &trace.node_type_traces,
             &schema_doc.layout,
-            LayoutStyle::Auto,
-        );
-        let source = project_with_layout(&input_doc.doc, &runtime_layout);
+        )
+        .map_err(|e| ScenarioError::LayoutPlan(e.to_string()))?;
+        let source = plan.emit();
         let actual = format_source_document(&source);
 
         if actual != expected_source.get() {

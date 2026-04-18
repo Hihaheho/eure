@@ -26,7 +26,12 @@ use crate::value::{ObjectKey, PartialObjectKey};
 pub fn emit(plan: LayoutPlan) -> SourceDocument {
     // Validation during build() already checked structure; here we just walk
     // without collecting errors.
-    let LayoutPlan { doc, forms, array_forms, order } = plan;
+    let LayoutPlan {
+        doc,
+        forms,
+        array_forms,
+        order,
+    } = plan;
     let sources = {
         let mut ctx = EmitCtx {
             doc: &doc,
@@ -199,11 +204,19 @@ fn apply_order(
     parent_id: NodeId,
     children: Vec<(PathSegment, NodeId)>,
 ) -> Vec<(PathSegment, NodeId)> {
+    // Extensions always precede value children to keep tags like `$variant`
+    // at the top of a block; the user-supplied order only ranks value
+    // children.
+    let (extensions, values): (Vec<_>, Vec<_>) = children
+        .into_iter()
+        .partition(|(seg, _)| matches!(seg, PathSegment::Extension(_)));
     let Some(order) = ctx.order.get(&parent_id) else {
-        return children;
+        let mut out = extensions;
+        out.extend(values);
+        return out;
     };
-    let mut by_id: Vec<(PathSegment, NodeId)> = children;
-    let mut ordered: Vec<(PathSegment, NodeId)> = Vec::with_capacity(by_id.len());
+    let mut by_id: Vec<(PathSegment, NodeId)> = values;
+    let mut ordered: Vec<(PathSegment, NodeId)> = extensions;
     for id in order {
         if let Some(pos) = by_id.iter().position(|(_, cid)| cid == id) {
             ordered.push(by_id.remove(pos));
@@ -216,7 +229,7 @@ fn apply_order(
 fn emit_child(
     ctx: &mut EmitCtx,
     child_id: NodeId,
-    seg: &PathSegment,
+    _seg: &PathSegment,
     child_node_path: &[PathSegment],
     child_print_path: &[PathSegment],
     allow_sections: bool,
@@ -231,7 +244,6 @@ fn emit_child(
         emit_array_child(
             ctx,
             child_id,
-            seg,
             child_node_path,
             child_print_path,
             allow_sections,
@@ -372,7 +384,6 @@ fn emit_non_array_child(
 fn emit_array_child(
     ctx: &mut EmitCtx,
     child_id: NodeId,
-    _seg: &PathSegment,
     child_node_path: &[PathSegment],
     child_print_path: &[PathSegment],
     allow_sections: bool,
@@ -390,6 +401,9 @@ fn emit_array_child(
                     trailing_comment: None,
                 });
             }
+            // Emit extensions (e.g. `$optional`, `$variant`) as path-prefixed
+            // bindings, mirroring how Form::Inline handles them.
+            emit_extensions_only(ctx, child_id, child_node_path, child_print_path, dest);
         }
         ArrayForm::PerElement(element_form) | ArrayForm::PerElementIndexed(element_form) => {
             ctx.record_emission(child_id);
@@ -468,15 +482,7 @@ fn build_block(
         value,
         ..Default::default()
     };
-    emit_children(
-        ctx,
-        node_id,
-        node_path,
-        &[],
-        node_is_map,
-        true,
-        &mut inner,
-    );
+    emit_children(ctx, node_id, node_path, &[], node_is_map, true, &mut inner);
     ctx.set_source(id, inner);
     id
 }

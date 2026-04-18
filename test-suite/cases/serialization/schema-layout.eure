@@ -34,28 +34,28 @@ section.$binding-style = "section"
 nested {
   alpha = `integer`
 }
-nested.$binding-style = "nested"
+nested.$binding-style = "section-block"
 
 passthrough {
   child {
     alpha = `integer`
   }
 }
-passthrough.$binding-style = "passthrough"
-passthrough.child.$binding-style = "section-binding"
+passthrough.$binding-style = "flatten"
+passthrough.child.$binding-style = "binding-block"
 
 binding {
   alpha = `integer`
 }
-binding.$binding-style = "binding"
+binding.$binding-style = "inline"
 
 section_binding {
   alpha = `integer`
 }
-section_binding.$binding-style = "section-binding"
+section_binding.$binding-style = "binding-block"
 
 section_root_binding = `integer`
-section_root_binding.$binding-style = "section-root-binding"
+section_root_binding.$binding-style = "section-value-block"
 
 fallback {
   alpha = `integer`
@@ -95,7 +95,7 @@ variants.outer {
     payload {
       x = `integer`
     }
-    payload.$binding-style = "section-binding"
+    payload.$binding-style = "binding-block"
   }
   variants.other = `integer`
 }
@@ -118,7 +118,7 @@ schema = ```eure
 $variant = "union"
 variants.object {
   payload = `integer`
-  payload.$binding-style = "section-root-binding"
+  payload.$binding-style = "section-value-block"
 }
 variants.number = `integer`
 ```
@@ -142,7 +142,7 @@ variants.one.$unambiguous = true
 
 variants.two {
   a = `integer`
-  a.$binding-style = "section-binding"
+  a.$binding-style = "binding-block"
 }
 variants.two.$unambiguous = true
 ```
@@ -183,7 +183,7 @@ variants.strict {
   a {
     x = `integer`
   }
-  a.$binding-style = "section-binding"
+  a.$binding-style = "binding-block"
 }
 variants.strict.$deny-untagged = true
 ```
