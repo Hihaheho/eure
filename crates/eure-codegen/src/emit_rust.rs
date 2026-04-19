@@ -22,9 +22,6 @@ pub enum EmitRustUnsupportedReason {
     #[error("map keys other than text")]
     MapKeysOtherThanText,
 
-    #[error("inline union nodes as field/newtype types")]
-    InlineUnionNodesAsFieldOrNewtypeTypes,
-
     #[error("flattened struct variant `{variant_wire_name}`")]
     FlattenedStructVariant { variant_wire_name: String },
 }
@@ -643,6 +640,8 @@ fn emit_named_newtype(
     base_visiting: &BTreeSet<SchemaNodeIrId>,
 ) -> Result<String, EmitRustError> {
     let mut visiting = base_visiting.clone();
+    // Remove node_id so schema_node_type can re-insert it without falsely detecting a cycle;
+    // we've already committed to naming this type, so re-entering the node is not inline recursion.
     visiting.remove(&node_id);
     let inner_ty = schema_node_type(
         emitter,
@@ -788,7 +787,7 @@ fn flatten_target_visiting(
     source_node_id: SchemaNodeIrId,
     base_visiting: &BTreeSet<SchemaNodeIrId>,
 ) -> Result<BTreeSet<SchemaNodeIrId>, EmitRustError> {
-    let mut visiting = if std::ptr::eq(current_owner, target_owner) {
+    let mut visiting = if current_owner.id() == target_owner.id() {
         base_visiting.clone()
     } else {
         BTreeSet::new()
