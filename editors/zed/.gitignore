@@ -1,0 +1,4 @@
+!extension.toml
+!languages/eure/config.toml
+!languages/eure/*.scm
+grammars/

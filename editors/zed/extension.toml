@@ -1,0 +1,11 @@
+id = "eure"
+name = "Eure"
+version = "0.1.0"
+schema_version = 1
+authors = ["Ryo Hirayama <ryo12redstone@gmail.com>"]
+description = "Eure language support for Zed (syntax highlighting, bracket matching, code outline)"
+repository = "https://github.com/Hihaheho/eure"
+
+[grammars.eure]
+repository = "https://github.com/eure-lang/tree-sitter-eure"
+commit = "e4ecb904ac254b7c38c349d4784a6c97c9473ebb"

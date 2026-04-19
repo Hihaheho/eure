@@ -1,0 +1,4 @@
+name = "Eure"
+grammar = "eure"
+path_suffixes = ["eure"]
+line_comments = ["// "]
