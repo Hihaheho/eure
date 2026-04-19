@@ -1,0 +1,1238 @@
+@ cases.readme
+schema = path`crates/eure-dev/assets/readme.schema.eure`
+scenarios_expected = ["rust_codegen"]
+rust = ```rust
+pub struct RootName {
+    pub value: String,
+    pub pronunciation: Option<String>,
+    pub note: Option<String>,
+    pub origin: Option<String>,
+    pub github: Option<String>,
+    pub version: String,
+    pub description: String,
+}
+
+pub struct RootStatus {
+    pub phase: String,
+}
+
+pub struct Root {
+    pub name: RootName,
+    pub status: Option<RootStatus>,
+    pub features: Vec<Feature>,
+    pub credits: Option<Vec<Credit>>,
+}
+
+#[eure(type_name = "credit")]
+pub struct Credit {
+    pub name: String,
+    pub url: String,
+    pub description: String,
+}
+
+#[eure(type_name = "feature")]
+pub enum Feature {
+    #[eure(rename = "done")]
+    Done { title: String, icon: String, description: String },
+    #[eure(rename = "in-progress")]
+    InProgress { title: String, icon: String, description: String, milestone: String },
+    #[eure(rename = "planned")]
+    Planned { title: String, icon: String, description: String, target: String },
+}
+```
+
+@ cases.adr
+schema = path`assets/schemas/eure-adr.schema.eure`
+scenarios_expected = ["rust_codegen"]
+rust = ```rust
+pub enum RootStatus {
+    #[eure(rename = "proposed")]
+    Proposed(::eure_document::document::EureDocument),
+    #[eure(rename = "accepted")]
+    Accepted(::eure_document::document::EureDocument),
+    #[eure(rename = "rejected")]
+    Rejected { reason: String },
+    #[eure(rename = "deprecated")]
+    Deprecated { reason: String },
+    #[eure(rename = "superseded")]
+    Superseded { superseded_by: AdrId },
+}
+
+pub struct Root {
+    pub id: AdrId,
+    pub title: String,
+    pub status: RootStatus,
+    #[eure(rename = "decision-date")]
+    pub decision_date: String,
+    pub context: String,
+    pub decision: String,
+    pub consequences: String,
+    #[eure(rename = "related-adrs")]
+    pub related_adrs: Option<Vec<AdrId>>,
+    #[eure(rename = "related-links")]
+    pub related_links: Option<Vec<String>>,
+    #[eure(rename = "alternatives-considered")]
+    pub alternatives_considered: Option<Vec<String>>,
+    pub tags: Option<Vec<String>>,
+    pub authors: Option<Vec<String>>,
+}
+
+#[eure(type_name = "adr-id")]
+pub struct AdrId(pub String);
+```
+
+@ cases.hello-world
+schema = path`crates/eure-dev/assets/examples/hello-world.schema.eure`
+scenarios_expected = ["rust_codegen"]
+rust = ```rust
+pub struct Root {
+    pub title: String,
+}
+```
+
+@ cases.cargo
+schema = path`crates/eure-dev/assets/examples/cargo.schema.eure`
+scenarios_expected = ["rust_codegen"]
+rust = ```rust
+pub struct RootPackage {
+    pub name: String,
+    pub version: String,
+    pub description: Option<String>,
+    pub keywords: Option<Vec<String>>,
+    pub homepage: Option<String>,
+    pub license: Option<String>,
+    pub repository: Option<String>,
+    pub edition: Option<String>,
+    pub authors: Option<Vec<String>>,
+}
+
+pub struct RootLib {
+    pub name: Option<String>,
+    pub path: Option<String>,
+    #[eure(rename = "crate-type")]
+    pub crate_type: Option<Vec<String>>,
+}
+
+pub struct Root {
+    pub package: RootPackage,
+    pub dependencies: Option<::std::collections::BTreeMap<String, Dependency>>,
+    #[eure(rename = "dev-dependencies")]
+    pub dev_dependencies: Option<::std::collections::BTreeMap<String, Dependency>>,
+    #[eure(rename = "build-dependencies")]
+    pub build_dependencies: Option<::std::collections::BTreeMap<String, Dependency>>,
+    pub example: Option<Vec<Example>>,
+    pub bin: Option<Vec<Example>>,
+    pub lib: Option<RootLib>,
+    pub target: Option<::std::collections::BTreeMap<String, TargetDeps>>,
+}
+
+#[eure(type_name = "dependency")]
+pub enum Dependency {
+    #[eure(rename = "detailed")]
+    Detailed { version: Option<String>, path: Option<String>, git: Option<String>, branch: Option<String>, tag: Option<String>, rev: Option<String>, features: Option<Vec<String>>, optional: Option<bool>, #[eure(rename = "default-features")] default_features: Option<bool> },
+    #[eure(rename = "version")]
+    Version(String),
+}
+
+#[eure(type_name = "example")]
+pub struct Example {
+    pub name: String,
+    pub path: Option<String>,
+}
+
+#[eure(type_name = "target-deps")]
+pub struct TargetDeps {
+    pub dependencies: Option<::std::collections::BTreeMap<String, Dependency>>,
+    #[eure(rename = "dev-dependencies")]
+    pub dev_dependencies: Option<::std::collections::BTreeMap<String, Dependency>>,
+    #[eure(rename = "build-dependencies")]
+    pub build_dependencies: Option<::std::collections::BTreeMap<String, Dependency>>,
+}
+```
+
+@ cases.github-action
+schema = path`crates/eure-dev/assets/examples/github-action.schema.eure`
+scenarios_expected = ["rust_codegen"]
+rust = ```rust
+pub struct RootOnPush {
+    pub branches: Option<Vec<String>>,
+    pub tags: Option<Vec<String>>,
+    pub paths: Option<Vec<String>>,
+    #[eure(rename = "paths-ignore")]
+    pub paths_ignore: Option<Vec<String>>,
+}
+
+pub enum RootOnPullRequest {
+    #[eure(rename = "config")]
+    Config { branches: Option<Vec<String>>, paths: Option<Vec<String>>, #[eure(rename = "paths-ignore")] paths_ignore: Option<Vec<String>>, types: Option<Vec<String>> },
+    #[eure(rename = "null")]
+    Null,
+}
+
+pub struct RootOnWorkflowDispatch {
+    pub inputs: Option<::std::collections::BTreeMap<String, WorkflowInput>>,
+    pub schedule: Option<Vec<Cron>>,
+}
+
+pub struct RootOn {
+    pub push: Option<RootOnPush>,
+    pub pull_request: Option<RootOnPullRequest>,
+    pub workflow_dispatch: Option<RootOnWorkflowDispatch>,
+}
+
+pub struct RootConcurrency {
+    pub group: String,
+    #[eure(rename = "cancel-in-progress")]
+    pub cancel_in_progress: Option<ExpressionOrBoolean>,
+}
+
+pub struct Root {
+    pub name: Option<String>,
+    pub permissions: Option<::std::collections::BTreeMap<String, String>>,
+    pub on: Option<RootOn>,
+    pub env: Option<::std::collections::BTreeMap<String, String>>,
+    pub concurrency: Option<RootConcurrency>,
+    pub jobs: ::std::collections::BTreeMap<String, Job>,
+}
+
+#[eure(type_name = "cron")]
+pub struct Cron {
+    pub cron: String,
+}
+
+#[eure(type_name = "expression-or-boolean")]
+pub enum ExpressionOrBoolean {
+    #[eure(rename = "expression")]
+    Expression(String),
+    #[eure(rename = "boolean")]
+    Boolean(bool),
+}
+
+pub struct JobStrategy {
+    pub matrix: Option<::std::collections::BTreeMap<String, ::eure_document::document::EureDocument>>,
+    #[eure(rename = "fail-fast")]
+    pub fail_fast: Option<bool>,
+    #[eure(rename = "max-parallel")]
+    pub max_parallel: Option<i64>,
+}
+
+pub struct JobContainerCredentials {
+    pub username: String,
+    pub password: String,
+}
+
+pub struct JobContainer {
+    pub image: String,
+    pub credentials: Option<JobContainerCredentials>,
+    pub env: Option<::std::collections::BTreeMap<String, String>>,
+}
+
+#[eure(type_name = "job")]
+pub struct Job {
+    #[eure(rename = "runs-on")]
+    pub runs_on: String,
+    pub needs: Option<Vec<String>>,
+    pub r#if: Option<String>,
+    pub env: Option<::std::collections::BTreeMap<String, String>>,
+    pub strategy: Option<JobStrategy>,
+    pub container: Option<JobContainer>,
+    pub steps: Vec<Step>,
+}
+
+#[eure(type_name = "step")]
+pub struct Step {
+    pub name: Option<String>,
+    pub id: Option<String>,
+    pub r#if: Option<String>,
+    pub uses: Option<String>,
+    pub run: Option<String>,
+    pub shell: Option<String>,
+    #[eure(rename = "working-directory")]
+    pub working_directory: Option<String>,
+    pub with: Option<::std::collections::BTreeMap<String, ::eure_document::document::EureDocument>>,
+    pub env: Option<::std::collections::BTreeMap<String, String>>,
+}
+
+#[eure(type_name = "workflow-input")]
+pub struct WorkflowInput {
+    pub description: Option<String>,
+    pub required: Option<bool>,
+    pub default: Option<String>,
+    pub r#type: Option<String>,
+    pub options: Option<Vec<String>>,
+}
+```
+
+@ cases.syntax-reference
+schema = path`crates/eure-dev/assets/examples/syntax-reference.schema.eure`
+scenarios_expected = ["rust_codegen"]
+rust = ```rust
+pub struct RootMultiSegment {
+    pub key: String,
+}
+
+pub struct RootMulti {
+    pub segment: RootMultiSegment,
+}
+
+pub struct RootSectionExample {
+    pub nested_key: String,
+    pub another: i64,
+}
+
+pub struct RootPrimitives {
+    pub bool_true: bool,
+    pub bool_false: bool,
+    pub null_value: (),
+    pub positive_int: i64,
+    pub negative_int: i64,
+    pub integer_with_underscores: i64,
+    pub zero: i64,
+    pub basic_float: f64,
+    pub negative_float: f64,
+    pub float_with_exponent: f64,
+    pub float_with_negative_exponent: f64,
+    pub float_with_underscores: f64,
+    pub with_f32_suffix: f64,
+    pub with_f64_suffix: f64,
+    pub exp_with_suffix: f64,
+    pub positive_infinity: f64,
+    pub negative_infinity: f64,
+    pub not_a_number: f64,
+    pub hole_simple: ::eure_document::document::EureDocument,
+    pub hole_underscore: ::eure_document::document::EureDocument,
+    pub hole_with_dash: ::eure_document::document::EureDocument,
+    pub hole_with_number: ::eure_document::document::EureDocument,
+}
+
+pub struct RootStrings {
+    pub escaped_basic: String,
+    pub escaped_newline: String,
+    pub escaped_tab: String,
+    pub escaped_quote: String,
+    pub escaped_backslash: String,
+    pub literal_basic: String,
+    pub literal_with_backslash: String,
+    pub literal_cannot_contain_quote: String,
+    pub delimited_1: String,
+    pub delimited_2: String,
+    pub delimited_3: String,
+    pub continued_string: String,
+    pub continued_mixed: String,
+    pub empty_escaped: String,
+    pub empty_literal: String,
+    pub empty_delimited: String,
+}
+
+pub struct RootCollectionsSimpleObject {
+    pub a: i64,
+    pub b: i64,
+    pub c: i64,
+}
+
+pub struct RootCollections {
+    pub simple_array: Vec<i64>,
+    pub mixed_array: Vec<::eure_document::document::EureDocument>,
+    pub nested_array: Vec<Vec<i64>>,
+    pub empty_array: Vec<::eure_document::document::EureDocument>,
+    pub trailing_comma: Vec<i64>,
+    pub simple_tuple: (i64, i64, i64),
+    pub mixed_tuple: (i64, String, bool, ()),
+    pub nested_tuple: ((i64, i64), (i64, i64)),
+    pub empty_tuple: ::eure_document::document::EureDocument,
+    pub single_element: (i64,),
+    pub simple_object: RootCollectionsSimpleObject,
+    pub empty_object: ::eure_document::document::EureDocument,
+    pub nested_object: ::eure_document::document::EureDocument,
+    pub explicit_map: ::eure_document::document::EureDocument,
+    pub varied_keys: ::eure_document::document::EureDocument,
+}
+
+pub struct RootCodeExamples {
+    pub inline_plain: String,
+    pub inline_rust: String,
+    pub inline_javascript: String,
+    pub inline_python: String,
+    pub inline_no_lang: String,
+    pub code_block_3: String,
+    pub code_block_4: String,
+    pub code_block_5: String,
+    pub code_block_6: String,
+    pub delimited_code_1: String,
+    pub delimited_code_2: String,
+    pub delimited_code_3: String,
+}
+
+pub struct RootSectionBasic {
+    pub key: String,
+}
+
+pub struct RootSectionNestedDeep {
+    pub deeply_nested: bool,
+}
+
+pub struct RootSectionNested {
+    pub deep: RootSectionNestedDeep,
+}
+
+pub struct RootSection {
+    pub basic: RootSectionBasic,
+    pub nested: RootSectionNested,
+}
+
+pub struct RootItemsItem {
+    pub name: String,
+    pub value: i64,
+}
+
+pub struct RootMeta {
+
+}
+
+pub struct RootMapExamples {
+    pub simple_map: ::eure_document::document::EureDocument,
+}
+
+pub struct RootComplexExampleMetadata {
+    pub title: String,
+    pub version: String,
+    pub tags: Vec<String>,
+}
+
+pub struct RootComplexExample {
+    pub data: Vec<::eure_document::document::EureDocument>,
+    pub matrix: Vec<Vec<i64>>,
+    pub metadata: RootComplexExampleMetadata,
+}
+
+pub struct RootEdgeCasesABCDE {
+    pub f: String,
+}
+
+pub struct RootEdgeCasesABCD {
+    pub e: RootEdgeCasesABCDE,
+}
+
+pub struct RootEdgeCasesABC {
+    pub d: RootEdgeCasesABCD,
+}
+
+pub struct RootEdgeCasesAB {
+    pub c: RootEdgeCasesABC,
+}
+
+pub struct RootEdgeCasesA {
+    pub b: RootEdgeCasesAB,
+}
+
+pub struct RootEdgeCases {
+    pub empty_string: String,
+    pub empty_array: Vec<::eure_document::document::EureDocument>,
+    pub empty_object: ::eure_document::document::EureDocument,
+    pub empty_tuple: ::eure_document::document::EureDocument,
+    pub deep: ::eure_document::document::EureDocument,
+    pub mixed: Vec<::eure_document::document::EureDocument>,
+    pub a: RootEdgeCasesA,
+}
+
+pub struct RootKeywordsAsKeys {
+    pub r#true: String,
+    pub r#false: String,
+    pub null: String,
+}
+
+pub struct Root {
+    pub title: String,
+    pub description: String,
+    pub simple_key: String,
+    pub text_binding: String,
+    pub indented_text: String,
+    pub value_with_comments: i64,
+    pub multi: RootMulti,
+    pub section_example: RootSectionExample,
+    pub primitives: RootPrimitives,
+    pub strings: RootStrings,
+    pub collections: RootCollections,
+    pub code_examples: RootCodeExamples,
+    pub section: RootSection,
+    pub items: Vec<RootItemsItem>,
+    pub union_example: Option<Vec<::eure_document::document::EureDocument>>,
+    pub meta: Option<RootMeta>,
+    pub map_examples: Option<RootMapExamples>,
+    pub key_tuples: Option<::std::collections::BTreeMap<::eure_document::value::ObjectKey, String>>,
+    pub complex_example: RootComplexExample,
+    pub edge_cases: RootEdgeCases,
+    pub keywords_as_keys: RootKeywordsAsKeys,
+}
+```
+
+@ cases.eure-config
+schema = path`assets/schemas/eure-config.schema.eure`
+scenarios_expected = ["rust_codegen"]
+rust = ```rust
+pub struct RootCli {
+    #[eure(rename = "default-targets")]
+    pub default_targets: Option<Vec<String>>,
+}
+
+pub struct RootLs {
+    #[eure(rename = "format-on-save")]
+    pub format_on_save: Option<bool>,
+}
+
+pub struct Root {
+    pub targets: ::std::collections::BTreeMap<String, Target>,
+    pub cli: Option<RootCli>,
+    pub ls: Option<RootLs>,
+}
+
+#[eure(type_name = "target")]
+pub struct Target {
+    pub globs: Vec<String>,
+    pub schema: Option<String>,
+}
+```
+
+@ cases.eure-md
+schema = path`assets/schemas/eure-md.schema.eure`
+scenarios_expected = ["rust_codegen"]
+rust = ```rust
+pub struct Root(pub ::eure_document::document::EureDocument);
+```
+
+@ cases.textmate-grammar
+schema = path`assets/schemas/textmate-grammar.schema.eure`
+scenarios_expected = ["rust_codegen"]
+rust = ```rust
+pub struct Root {
+    pub name: String,
+    #[eure(rename = "scopeName")]
+    pub scopename: String,
+    #[eure(rename = "$schema")]
+    pub schema: Option<String>,
+    pub patterns: Option<Vec<Pattern>>,
+    pub repository: Option<::eure_document::document::EureDocument>,
+}
+
+#[eure(type_name = "pattern")]
+pub struct Pattern {
+    pub comment: Option<String>,
+    pub begin: Option<String>,
+    pub end: Option<String>,
+    pub r#match: Option<String>,
+    pub name: Option<String>,
+    #[eure(rename = "contentName")]
+    pub contentname: Option<String>,
+    pub include: Option<String>,
+    pub patterns: Option<Vec<Pattern>>,
+    #[eure(rename = "beginCaptures")]
+    pub begincaptures: Option<::eure_document::document::EureDocument>,
+    #[eure(rename = "endCaptures")]
+    pub endcaptures: Option<::eure_document::document::EureDocument>,
+    pub captures: Option<::eure_document::document::EureDocument>,
+}
+```
+
+@ cases.eure-schema
+schema = path`assets/schemas/eure-schema.schema.eure`
+scenarios_expected = ["rust_codegen"]
+rust = ```rust
+pub struct EureSchema(pub Type);
+
+#[eure(type_name = "base-codegen")]
+pub struct BaseCodegen {
+    pub r#type: Option<String>,
+    pub derive: Option<Vec<String>>,
+}
+
+#[eure(type_name = "binding-style")]
+pub enum BindingStyle {
+    #[eure(rename = "auto")]
+    Auto(::eure_document::document::EureDocument),
+    #[eure(rename = "passthrough")]
+    Passthrough(::eure_document::document::EureDocument),
+    #[eure(rename = "section")]
+    Section(::eure_document::document::EureDocument),
+    #[eure(rename = "nested")]
+    Nested(::eure_document::document::EureDocument),
+    #[eure(rename = "binding")]
+    Binding(::eure_document::document::EureDocument),
+    #[eure(rename = "section-binding")]
+    SectionBinding(::eure_document::document::EureDocument),
+    #[eure(rename = "section-root-binding")]
+    SectionRootBinding(::eure_document::document::EureDocument),
+}
+
+#[eure(type_name = "codegen-defaults")]
+pub struct CodegenDefaults {
+    pub derive: Option<Vec<String>>,
+    #[eure(rename = "ext-types-field-prefix")]
+    pub ext_types_field_prefix: Option<String>,
+    #[eure(rename = "ext-types-type-prefix")]
+    pub ext_types_type_prefix: Option<String>,
+    #[eure(rename = "document-node-id-field")]
+    pub document_node_id_field: Option<String>,
+}
+
+#[eure(type_name = "export-policy")]
+pub enum ExportPolicy {
+    #[eure(rename = "all")]
+    All(::eure_document::document::EureDocument),
+    #[eure(rename = "explicit")]
+    Explicit(Vec<Ident>),
+}
+
+#[eure(type_name = "field-codegen")]
+pub struct FieldCodegen {
+    pub name: Option<String>,
+}
+
+#[eure(type_name = "ident")]
+pub struct Ident(pub String);
+
+#[eure(type_name = "range-string")]
+pub struct RangeString(pub String);
+
+#[eure(type_name = "record-codegen")]
+pub struct RecordCodegen {
+    pub r#type: Option<String>,
+    pub derive: Option<Vec<String>>,
+}
+
+#[eure(type_name = "root-codegen")]
+pub struct RootCodegen {
+    pub r#type: Option<String>,
+}
+
+pub struct TextType {
+    pub language: Option<String>,
+    #[eure(rename = "min-length")]
+    pub min_length: Option<i64>,
+    #[eure(rename = "max-length")]
+    pub max_length: Option<i64>,
+    pub pattern: Option<String>,
+}
+
+pub struct TextShorthandType(pub String);
+
+pub struct IntegerType {
+    pub range: Option<RangeString>,
+    #[eure(rename = "multiple-of")]
+    pub multiple_of: Option<i64>,
+}
+
+pub struct IntegerShorthandType(pub ::eure_document::document::EureDocument);
+
+pub struct FloatType {
+    pub range: Option<RangeString>,
+    #[eure(rename = "multiple-of")]
+    pub multiple_of: Option<f64>,
+}
+
+pub struct FloatShorthandType(pub ::eure_document::document::EureDocument);
+
+pub struct BooleanType(pub ::eure_document::document::EureDocument);
+
+pub struct NullType(pub ::eure_document::document::EureDocument);
+
+pub struct AnyType(pub ::eure_document::document::EureDocument);
+
+pub struct RecordType(pub ::std::collections::BTreeMap<String, Type>);
+
+pub struct UnionType {
+    pub variants: ::std::collections::BTreeMap<String, Type>,
+}
+
+pub struct ArrayType {
+    pub item: Type,
+    #[eure(rename = "min-length")]
+    pub min_length: Option<i64>,
+    #[eure(rename = "max-length")]
+    pub max_length: Option<i64>,
+    pub unique: Option<bool>,
+    pub contains: Option<Type>,
+}
+
+pub struct ArrayShorthandType(pub Vec<Type>);
+
+pub struct MapType {
+    pub key: Type,
+    pub value: Type,
+    #[eure(rename = "min-size")]
+    pub min_size: Option<i64>,
+    #[eure(rename = "max-size")]
+    pub max_size: Option<i64>,
+}
+
+pub struct TupleType {
+    pub elements: Vec<Type>,
+}
+
+pub struct Tuple1Type(pub Type);
+
+pub struct Tuple2Type(pub Type, pub Type);
+
+pub struct Tuple3Type(pub Type, pub Type, pub Type);
+
+pub struct Tuple4Type(pub Type, pub Type, pub Type, pub Type);
+
+pub struct Tuple5Type(pub Type, pub Type, pub Type, pub Type, pub Type);
+
+pub struct Tuple6Type(pub Type, pub Type, pub Type, pub Type, pub Type, pub Type);
+
+pub struct Tuple7Type(pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type);
+
+pub struct Tuple8Type(pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type);
+
+pub struct Tuple9Type(pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type);
+
+pub struct Tuple10Type(pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type);
+
+pub struct Tuple11Type(pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type);
+
+pub struct Tuple12Type(pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type);
+
+pub struct Tuple13Type(pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type);
+
+pub struct Tuple14Type(pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type);
+
+pub struct Tuple15Type(pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type);
+
+pub struct Tuple16Type(pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type, pub Type);
+
+pub enum TupleShorthandType {
+    #[eure(rename = "tuple1")]
+    Tuple1(Tuple1Type),
+    #[eure(rename = "tuple2")]
+    Tuple2(Tuple2Type),
+    #[eure(rename = "tuple3")]
+    Tuple3(Tuple3Type),
+    #[eure(rename = "tuple4")]
+    Tuple4(Tuple4Type),
+    #[eure(rename = "tuple5")]
+    Tuple5(Tuple5Type),
+    #[eure(rename = "tuple6")]
+    Tuple6(Tuple6Type),
+    #[eure(rename = "tuple7")]
+    Tuple7(Tuple7Type),
+    #[eure(rename = "tuple8")]
+    Tuple8(Tuple8Type),
+    #[eure(rename = "tuple9")]
+    Tuple9(Tuple9Type),
+    #[eure(rename = "tuple10")]
+    Tuple10(Tuple10Type),
+    #[eure(rename = "tuple11")]
+    Tuple11(Tuple11Type),
+    #[eure(rename = "tuple12")]
+    Tuple12(Tuple12Type),
+    #[eure(rename = "tuple13")]
+    Tuple13(Tuple13Type),
+    #[eure(rename = "tuple14")]
+    Tuple14(Tuple14Type),
+    #[eure(rename = "tuple15")]
+    Tuple15(Tuple15Type),
+    #[eure(rename = "tuple16")]
+    Tuple16(Tuple16Type),
+}
+
+pub struct RefType(pub String);
+
+pub struct LiteralType(pub ::eure_document::document::EureDocument);
+
+#[eure(type_name = "type")]
+pub enum Type {
+    #[eure(rename = "text")]
+    Text(TextType),
+    #[eure(rename = "text-shorthand")]
+    TextShorthand(TextShorthandType),
+    #[eure(rename = "integer")]
+    Integer(IntegerType),
+    #[eure(rename = "integer-shorthand")]
+    IntegerShorthand(IntegerShorthandType),
+    #[eure(rename = "float")]
+    Float(FloatType),
+    #[eure(rename = "float-shorthand")]
+    FloatShorthand(FloatShorthandType),
+    #[eure(rename = "boolean")]
+    Boolean(BooleanType),
+    #[eure(rename = "null")]
+    Null(NullType),
+    #[eure(rename = "any")]
+    Any(AnyType),
+    #[eure(rename = "record")]
+    Record(RecordType),
+    #[eure(rename = "union")]
+    Union(UnionType),
+    #[eure(rename = "array")]
+    Array(ArrayType),
+    #[eure(rename = "array-shorthand")]
+    ArrayShorthand(ArrayShorthandType),
+    #[eure(rename = "map")]
+    Map(MapType),
+    #[eure(rename = "tuple")]
+    Tuple(TupleType),
+    #[eure(rename = "tuple-shorthand")]
+    TupleShorthand(TupleShorthandType),
+    #[eure(rename = "ref")]
+    Ref(RefType),
+    #[eure(rename = "literal")]
+    Literal(LiteralType),
+}
+
+#[eure(type_name = "union-codegen")]
+pub struct UnionCodegen {
+    pub r#type: Option<String>,
+    pub derive: Option<Vec<String>>,
+    #[eure(rename = "variant-types")]
+    pub variant_types: Option<bool>,
+    #[eure(rename = "variant-types-suffix")]
+    pub variant_types_suffix: Option<String>,
+}
+
+#[eure(type_name = "union-interop")]
+pub struct UnionInterop {
+    #[eure(rename = "variant-repr")]
+    pub variant_repr: Option<VariantRepr>,
+}
+
+#[eure(type_name = "unknown-fields-policy")]
+pub enum UnknownFieldsPolicy {
+    #[eure(rename = "deny")]
+    Deny(::eure_document::document::EureDocument),
+    #[eure(rename = "allow")]
+    Allow(::eure_document::document::EureDocument),
+    #[eure(rename = "schema")]
+    Schema(Type),
+}
+
+#[eure(type_name = "variant-repr")]
+pub enum VariantRepr {
+    #[eure(rename = "untagged")]
+    Untagged(::eure_document::document::EureDocument),
+    #[eure(rename = "internal")]
+    Internal { tag: String },
+    #[eure(rename = "adjacent")]
+    Adjacent { tag: String, content: String },
+    #[eure(rename = "external")]
+    External(::eure_document::document::EureDocument),
+}
+```
+
+@ cases.test-suite-case
+schema = path`assets/schemas/test-suite-case.schema.eure`
+scenarios_expected = ["rust_codegen"]
+rust = ```rust
+pub struct Root(pub CaseFile);
+
+pub enum CaseDataInputJson {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseDataOutputJson {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseDataInputJsonSchema {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseDataOutputJsonSchema {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseDataInputEure {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseDataInputToml {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseDataNormalized {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseDataSchema {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseDataSchemaConversionError {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseDataUnimplemented {
+    #[eure(rename = "some")]
+    Some(UnimplementedReason),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseDataFormattedInput {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseDataFormattedNormalized {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseDataSerialized {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseDataEditor {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseDataTrigger {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseDataRust {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+#[eure(type_name = "case-data")]
+pub struct CaseData {
+    pub json: Option<String>,
+    pub input_json: Option<CaseDataInputJson>,
+    pub output_json: Option<CaseDataOutputJson>,
+    pub json_schema: Option<String>,
+    pub input_json_schema: Option<CaseDataInputJsonSchema>,
+    pub output_json_schema: Option<CaseDataOutputJsonSchema>,
+    pub input_eure: Option<CaseDataInputEure>,
+    pub input_toml: Option<CaseDataInputToml>,
+    pub normalized: Option<CaseDataNormalized>,
+    pub schema: Option<CaseDataSchema>,
+    pub schema_errors: Option<Vec<String>>,
+    pub schema_conversion_error: Option<CaseDataSchemaConversionError>,
+    pub meta_schema_errors: Option<Vec<String>>,
+    pub json_schema_errors: Option<Vec<String>>,
+    pub unimplemented: Option<CaseDataUnimplemented>,
+    pub formatted_input: Option<CaseDataFormattedInput>,
+    pub formatted_normalized: Option<CaseDataFormattedNormalized>,
+    pub serialized: Option<CaseDataSerialized>,
+    pub euremark_errors: Option<Vec<String>>,
+    pub editor: Option<CaseDataEditor>,
+    pub completions: Option<Vec<CompletionItem>>,
+    pub trigger: Option<CaseDataTrigger>,
+    pub diagnostics: Option<Vec<DiagnosticItem>>,
+    pub json_errors: Option<Vec<String>>,
+    pub semantic_tokens: Option<Vec<SemanticTokenItem>>,
+    pub rust: Option<CaseDataRust>,
+    pub scenario_errors: Option<Vec<ScenarioErrorItem>>,
+    pub scenarios_expected: Option<Vec<String>>,
+}
+
+pub enum CaseFileInputJson {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseFileOutputJson {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseFileInputJsonSchema {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseFileOutputJsonSchema {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseFileInputEure {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseFileInputToml {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseFileNormalized {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseFileSchema {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseFileSchemaConversionError {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseFileUnimplemented {
+    #[eure(rename = "some")]
+    Some(UnimplementedReason),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseFileFormattedInput {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseFileFormattedNormalized {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseFileSerialized {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseFileEditor {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseFileTrigger {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum CaseFileRust {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+#[eure(type_name = "case-file")]
+pub struct CaseFile {
+    pub json: Option<String>,
+    pub input_json: Option<CaseFileInputJson>,
+    pub output_json: Option<CaseFileOutputJson>,
+    pub json_schema: Option<String>,
+    pub input_json_schema: Option<CaseFileInputJsonSchema>,
+    pub output_json_schema: Option<CaseFileOutputJsonSchema>,
+    pub input_eure: Option<CaseFileInputEure>,
+    pub input_toml: Option<CaseFileInputToml>,
+    pub normalized: Option<CaseFileNormalized>,
+    pub schema: Option<CaseFileSchema>,
+    pub schema_errors: Option<Vec<String>>,
+    pub schema_conversion_error: Option<CaseFileSchemaConversionError>,
+    pub meta_schema_errors: Option<Vec<String>>,
+    pub json_schema_errors: Option<Vec<String>>,
+    pub unimplemented: Option<CaseFileUnimplemented>,
+    pub formatted_input: Option<CaseFileFormattedInput>,
+    pub formatted_normalized: Option<CaseFileFormattedNormalized>,
+    pub serialized: Option<CaseFileSerialized>,
+    pub euremark_errors: Option<Vec<String>>,
+    pub editor: Option<CaseFileEditor>,
+    pub completions: Option<Vec<CompletionItem>>,
+    pub trigger: Option<CaseFileTrigger>,
+    pub diagnostics: Option<Vec<DiagnosticItem>>,
+    pub json_errors: Option<Vec<String>>,
+    pub semantic_tokens: Option<Vec<SemanticTokenItem>>,
+    pub rust: Option<CaseFileRust>,
+    pub scenario_errors: Option<Vec<ScenarioErrorItem>>,
+    pub scenarios_expected: Option<Vec<String>>,
+    pub cases: Option<::std::collections::BTreeMap<String, CaseData>>,
+}
+
+pub enum CompletionItemKind {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+#[eure(type_name = "completion-item")]
+pub struct CompletionItem {
+    pub label: String,
+    pub kind: Option<CompletionItemKind>,
+}
+
+pub enum DiagnosticItemSeverity {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum DiagnosticItemSource {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum DiagnosticItemMessage {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum DiagnosticItemCode {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum DiagnosticItemSpan {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum DiagnosticItemSpanIndex {
+    #[eure(rename = "some")]
+    Some(i64),
+    #[eure(rename = "none")]
+    None,
+}
+
+#[eure(type_name = "diagnostic-item")]
+pub struct DiagnosticItem {
+    pub severity: Option<DiagnosticItemSeverity>,
+    pub source: Option<DiagnosticItemSource>,
+    pub message: Option<DiagnosticItemMessage>,
+    pub code: Option<DiagnosticItemCode>,
+    pub span: Option<DiagnosticItemSpan>,
+    pub span_index: Option<DiagnosticItemSpanIndex>,
+}
+
+pub enum JsonDataSeparateInputJson {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum JsonDataSeparateOutputJson {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+#[eure(type_name = "json-data")]
+pub enum JsonData {
+    Both { json: String },
+    Separate { input_json: Option<JsonDataSeparateInputJson>, output_json: Option<JsonDataSeparateOutputJson> },
+}
+
+pub enum JsonSchemaDataSeparateInputJsonSchema {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+pub enum JsonSchemaDataSeparateOutputJsonSchema {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+#[eure(type_name = "json-schema-data")]
+pub enum JsonSchemaData {
+    Both { json_schema: String },
+    Separate { input_json_schema: Option<JsonSchemaDataSeparateInputJsonSchema>, output_json_schema: Option<JsonSchemaDataSeparateOutputJsonSchema> },
+}
+
+#[eure(type_name = "scenario-error-item")]
+pub struct ScenarioErrorItem {
+    pub scenario: String,
+    pub output: String,
+}
+
+#[eure(type_name = "semantic-token-item")]
+pub enum SemanticTokenItem {
+    WithModifiers(String, String, Vec<String>),
+    Plain(String, String),
+}
+
+#[eure(type_name = "unimplemented-reason")]
+pub enum UnimplementedReason {
+    Boolean(bool),
+    Text(String),
+}
+```

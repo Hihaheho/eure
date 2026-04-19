@@ -1,0 +1,59 @@
+// Simple record schema with primitive fields → single Root struct
+
+schema = ```eure
+name = `text`
+age = `integer`
+```
+
+scenarios_expected = ["rust_codegen"]
+
+rust = ```rust
+pub struct Root {
+    pub name: String,
+    pub age: i64,
+}
+```
+
+@ cases.with-optional
+schema = ```eure
+name = `text`
+age = `integer`
+age.$optional = true
+```
+
+scenarios_expected = ["rust_codegen"]
+
+rust = ```rust
+pub struct Root {
+    pub name: String,
+    pub age: Option<i64>,
+}
+```
+
+@ cases.bool-and-float
+schema = ```eure
+flag = `boolean`
+ratio = `float`
+```
+
+scenarios_expected = ["rust_codegen"]
+
+rust = ```rust
+pub struct Root {
+    pub flag: bool,
+    pub ratio: f64,
+}
+```
+
+@ cases.array-field
+schema = ```eure
+tags = [`text`]
+```
+
+scenarios_expected = ["rust_codegen"]
+
+rust = ```rust
+pub struct Root {
+    pub tags: Vec<String>,
+}
+```

@@ -117,6 +117,9 @@ $types {
     json_errors.$optional = true
     semantic_tokens = [`$types.semantic-token-item`]
     semantic_tokens.$optional = true
+    rust = { variants => { some => `text`, none => `null` } }
+    rust.$variant = "union"
+    rust.$optional = true
     scenario_errors = [`$types.scenario-error-item`]
     scenario_errors.$optional = true
     scenarios_expected = [`text`]

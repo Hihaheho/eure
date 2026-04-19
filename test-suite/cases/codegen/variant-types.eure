@@ -1,0 +1,61 @@
+// union-codegen variant-types: generate companion structs for each variant
+
+schema = ```eure
+@ $types.result {
+  $variant: union
+  $codegen.variant-types = true
+  variants.ok = `text`
+  variants.err = `integer`
+}
+```
+
+scenarios_expected = ["rust_codegen"]
+
+rust = ```rust
+pub struct Root {
+
+}
+
+pub struct OkData(pub String);
+
+pub struct ErrData(pub i64);
+
+#[eure(type_name = "result")]
+pub enum Result {
+    #[eure(rename = "ok")]
+    Ok(OkData),
+    #[eure(rename = "err")]
+    Err(ErrData),
+}
+```
+
+@ cases.custom-suffix
+schema = ```eure
+@ $types.event {
+  $variant: union
+  $codegen.variant-types = true
+  $codegen.variant-types-suffix = "Payload"
+  variants.click = `text`
+  variants.hover = `boolean`
+}
+```
+
+scenarios_expected = ["rust_codegen"]
+
+rust = ```rust
+pub struct Root {
+
+}
+
+pub struct ClickPayload(pub String);
+
+pub struct HoverPayload(pub bool);
+
+#[eure(type_name = "event")]
+pub enum Event {
+    #[eure(rename = "click")]
+    Click(ClickPayload),
+    #[eure(rename = "hover")]
+    Hover(HoverPayload),
+}
+```

@@ -14,6 +14,7 @@ pub mod formatting;
 pub mod json_to_eure;
 pub mod meta_schema;
 pub mod normalization;
+pub mod rust_codegen;
 pub mod schema_conversion_error;
 pub mod schema_error_validation;
 pub mod schema_validation;
@@ -179,6 +180,15 @@ pub enum ScenarioError {
     SemanticTokensMismatch {
         expected: Vec<String>,
         actual: Vec<String>,
+    },
+    /// Rust codegen output mismatch (expected vs actual)
+    RustCodegenMismatch {
+        expected: String,
+        actual: String,
+    },
+    /// Rust codegen emission error
+    RustCodegenError {
+        message: String,
     },
     /// Query error
     QueryError(QueryError),
@@ -479,6 +489,24 @@ impl std::fmt::Display for ScenarioError {
                     writeln!(f, "{}", token)?;
                 }
                 Ok(())
+            }
+            ScenarioError::RustCodegenMismatch { expected, actual } => {
+                use similar::{ChangeTag, TextDiff};
+                writeln!(f, "Rust codegen output mismatch.")?;
+                let diff = TextDiff::from_lines(expected, actual);
+                writeln!(f, "Diff (expected → actual):")?;
+                for change in diff.iter_all_changes() {
+                    let sign = match change.tag() {
+                        ChangeTag::Delete => "-",
+                        ChangeTag::Insert => "+",
+                        ChangeTag::Equal => " ",
+                    };
+                    write!(f, "{}{}", sign, change)?;
+                }
+                Ok(())
+            }
+            ScenarioError::RustCodegenError { message } => {
+                write!(f, "Rust codegen error: {}", message)
             }
             ScenarioError::QueryError(error) => {
                 write!(f, "Query error: {}", error)
