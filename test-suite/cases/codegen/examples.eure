@@ -543,6 +543,8 @@ pub struct EureSchema(pub Type);
 pub struct BaseCodegen {
     pub r#type: Option<String>,
     pub derive: Option<Vec<String>>,
+    #[eure(rename = "inline-derive")]
+    pub inline_derive: Option<Vec<String>>,
 }
 
 #[eure(type_name = "binding-style")]
@@ -566,6 +568,10 @@ pub enum BindingStyle {
 #[eure(type_name = "codegen-defaults")]
 pub struct CodegenDefaults {
     pub derive: Option<Vec<String>>,
+    #[eure(rename = "inline-derive")]
+    pub inline_derive: Option<Vec<String>>,
+    #[eure(rename = "variant-type-derive")]
+    pub variant_type_derive: Option<Vec<String>>,
     #[eure(rename = "ext-types-field-prefix")]
     pub ext_types_field_prefix: Option<String>,
     #[eure(rename = "ext-types-type-prefix")]
@@ -597,6 +603,8 @@ pub struct RangeString(pub String);
 pub struct RecordCodegen {
     pub r#type: Option<String>,
     pub derive: Option<Vec<String>>,
+    #[eure(rename = "inline-derive")]
+    pub inline_derive: Option<Vec<String>>,
 }
 
 #[eure(type_name = "root-codegen")]
@@ -783,10 +791,14 @@ pub enum Type {
 pub struct UnionCodegen {
     pub r#type: Option<String>,
     pub derive: Option<Vec<String>>,
+    #[eure(rename = "inline-derive")]
+    pub inline_derive: Option<Vec<String>>,
     #[eure(rename = "variant-types")]
     pub variant_types: Option<bool>,
     #[eure(rename = "variant-types-suffix")]
     pub variant_types_suffix: Option<String>,
+    #[eure(rename = "variant-type-derive")]
+    pub variant_type_derive: Option<Vec<String>>,
 }
 
 #[eure(type_name = "union-interop")]

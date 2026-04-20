@@ -1,0 +1,7 @@
+schema = ```eure
+name = `text`
+```
+
+scenarios_expected = ["rust_codegen"]
+
+rust = path`test-suite/cases/codegen/rust-path-output.rs`

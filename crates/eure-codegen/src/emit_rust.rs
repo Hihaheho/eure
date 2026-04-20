@@ -46,9 +46,17 @@ struct NestedTypeEmitter<'a> {
     ty: &'a TypeDefIr,
     allow_warnings: bool,
     visibility: &'a str,
-    derives: Vec<String>,
+    main_derives: Vec<String>,
+    inline_derives: Vec<String>,
+    variant_type_derives: Vec<String>,
     used_type_names: BTreeSet<String>,
     generated_chunks: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GeneratedTypeKind {
+    Inline,
+    VariantType,
 }
 
 impl<'a> NestedTypeEmitter<'a> {
@@ -57,7 +65,9 @@ impl<'a> NestedTypeEmitter<'a> {
         ty: &'a TypeDefIr,
         allow_warnings: bool,
         visibility: &'a str,
-        derives: Vec<String>,
+        main_derives: Vec<String>,
+        inline_derives: Vec<String>,
+        variant_type_derives: Vec<String>,
     ) -> Self {
         let used_type_names = module
             .types()
@@ -70,7 +80,9 @@ impl<'a> NestedTypeEmitter<'a> {
             ty,
             allow_warnings,
             visibility,
-            derives,
+            main_derives,
+            inline_derives,
+            variant_type_derives,
             used_type_names,
             generated_chunks: Vec::new(),
         }
@@ -80,13 +92,13 @@ impl<'a> NestedTypeEmitter<'a> {
         &self.ty.id().0
     }
 
-    fn render_type_block(&self, body: String) -> String {
+    fn render_type_block(&self, body: String, derives: &[String]) -> String {
         let mut header = Vec::new();
         if self.allow_warnings {
             header.push("#[allow(dead_code)]".to_string());
         }
-        if !self.derives.is_empty() {
-            header.push(format!("#[derive({})]", self.derives.join(", ")));
+        if !derives.is_empty() {
+            header.push(format!("#[derive({})]", derives.join(", ")));
         }
 
         if header.is_empty() {
@@ -96,8 +108,17 @@ impl<'a> NestedTypeEmitter<'a> {
         }
     }
 
-    fn push_generated_type(&mut self, body: String) {
-        self.generated_chunks.push(self.render_type_block(body));
+    fn generated_type_derives(&self, kind: GeneratedTypeKind) -> &[String] {
+        match kind {
+            GeneratedTypeKind::Inline => &self.inline_derives,
+            GeneratedTypeKind::VariantType => &self.variant_type_derives,
+        }
+    }
+
+    fn push_generated_type(&mut self, body: String, kind: GeneratedTypeKind) {
+        let derives = self.generated_type_derives(kind).to_vec();
+        let rendered = self.render_type_block(body, &derives);
+        self.generated_chunks.push(rendered);
     }
 
     fn type_name_attr(&self) -> Option<String> {
@@ -161,9 +182,18 @@ fn emit_type(
     };
 
     let type_name = effective_type_name(module, ty);
-    let derives = effective_derives(module, ty, config);
-    let mut emitter =
-        NestedTypeEmitter::new(module, ty, config.allow_warnings, visibility, derives);
+    let main_derives = effective_derives(module, ty, config);
+    let inline_derives = effective_inline_derives(module, ty, config);
+    let variant_type_derives = effective_variant_type_derives(module, ty, config);
+    let mut emitter = NestedTypeEmitter::new(
+        module,
+        ty,
+        config.allow_warnings,
+        visibility,
+        main_derives,
+        inline_derives,
+        variant_type_derives,
+    );
 
     let body = match &root.content() {
         SchemaNodeContentIr::Record(record) => {
@@ -179,7 +209,7 @@ fn emit_type(
     };
 
     let type_name_attr = emitter.type_name_attr();
-    let rendered_body = emitter.render_type_block(body);
+    let rendered_body = emitter.render_type_block(body, &emitter.main_derives);
     let main_chunk = match type_name_attr {
         Some(attr) => format!("{attr}\n{rendered_body}"),
         None => rendered_body,
@@ -211,9 +241,61 @@ fn effective_type_name(module: &IrModule, ty: &TypeDefIr) -> String {
 
 fn effective_derives(module: &IrModule, ty: &TypeDefIr, config: &GenerationConfig) -> Vec<String> {
     let desired = match &ty.type_codegen() {
-        TypeCodegenIr::Record(record) => resolve_derive_codegen(&record.derive, module),
-        TypeCodegenIr::Union(union) => resolve_derive_codegen(&union.derive, module),
+        TypeCodegenIr::Record(record) => {
+            resolve_derive_codegen(&record.derive, &module.codegen_defaults().derive)
+        }
+        TypeCodegenIr::Union(union) => {
+            resolve_derive_codegen(&union.derive, &module.codegen_defaults().derive)
+        }
         TypeCodegenIr::None => module.codegen_defaults().derive.clone(),
+    };
+
+    let defaults = EmissionDefaultsIr {
+        serde_serialize: module.emission_defaults().serde_serialize && config.serde_serialize,
+        serde_deserialize: module.emission_defaults().serde_deserialize && config.serde_deserialize,
+        derive_allow: module.emission_defaults().derive_allow.clone(),
+    };
+
+    filter_desired_derives(&desired, &defaults, ty.rust_binding().emission())
+}
+
+fn effective_inline_derives(
+    module: &IrModule,
+    ty: &TypeDefIr,
+    config: &GenerationConfig,
+) -> Vec<String> {
+    let desired = match &ty.type_codegen() {
+        TypeCodegenIr::Record(record) => resolve_derive_codegen(
+            &record.inline_derive,
+            &module.codegen_defaults().inline_derive,
+        ),
+        TypeCodegenIr::Union(union) => resolve_derive_codegen(
+            &union.inline_derive,
+            &module.codegen_defaults().inline_derive,
+        ),
+        TypeCodegenIr::None => module.codegen_defaults().inline_derive.clone(),
+    };
+
+    let defaults = EmissionDefaultsIr {
+        serde_serialize: module.emission_defaults().serde_serialize && config.serde_serialize,
+        serde_deserialize: module.emission_defaults().serde_deserialize && config.serde_deserialize,
+        derive_allow: module.emission_defaults().derive_allow.clone(),
+    };
+
+    filter_desired_derives(&desired, &defaults, ty.rust_binding().emission())
+}
+
+fn effective_variant_type_derives(
+    module: &IrModule,
+    ty: &TypeDefIr,
+    config: &GenerationConfig,
+) -> Vec<String> {
+    let desired = match &ty.type_codegen() {
+        TypeCodegenIr::Union(union) => resolve_derive_codegen(
+            &union.variant_type_derive,
+            &module.codegen_defaults().variant_type_derive,
+        ),
+        _ => module.codegen_defaults().variant_type_derive.clone(),
     };
 
     let defaults = EmissionDefaultsIr {
@@ -303,6 +385,7 @@ fn emit_union_type(
                 &companion_name,
                 *schema_id,
                 &companion_visiting,
+                GeneratedTypeKind::VariantType,
             )?;
             variants.push(format!(
                 "{rename_prefix}    {variant_name}({companion_name}),"
@@ -485,7 +568,14 @@ fn schema_node_type(
                 )
             }));
             let base_visiting = visiting.clone();
-            emit_named_schema_type(emitter, schema_owner, &type_name, node_id, &base_visiting)?;
+            emit_named_schema_type(
+                emitter,
+                schema_owner,
+                &type_name,
+                node_id,
+                &base_visiting,
+                GeneratedTypeKind::Inline,
+            )?;
             type_name
         }
         SchemaNodeContentIr::Union(_) => {
@@ -497,7 +587,14 @@ fn schema_node_type(
                 )
             }));
             let base_visiting = visiting.clone();
-            emit_named_schema_type(emitter, schema_owner, &type_name, node_id, &base_visiting)?;
+            emit_named_schema_type(
+                emitter,
+                schema_owner,
+                &type_name,
+                node_id,
+                &base_visiting,
+                GeneratedTypeKind::Inline,
+            )?;
             type_name
         }
     };
@@ -581,6 +678,7 @@ fn emit_named_schema_type(
     type_name: &str,
     node_id: SchemaNodeIrId,
     base_visiting: &BTreeSet<SchemaNodeIrId>,
+    generated_type_kind: GeneratedTypeKind,
 ) -> Result<(), EmitRustError> {
     let node = lookup_schema_node(emitter, schema_owner, node_id)?;
 
@@ -597,7 +695,7 @@ fn emit_named_schema_type(
         }
         _ => emit_named_newtype(emitter, schema_owner, type_name, node_id, base_visiting)?,
     };
-    emitter.push_generated_type(body);
+    emitter.push_generated_type(body, generated_type_kind);
     Ok(())
 }
 
@@ -906,12 +1004,10 @@ fn resolve_map_key_type(
 
 fn resolve_derive_codegen(
     derive: &InheritableCodegenValueIr<Vec<String>>,
-    module: &IrModule,
+    defaults: &[String],
 ) -> Vec<String> {
     match derive {
-        InheritableCodegenValueIr::InheritCodegenDefaults => {
-            module.codegen_defaults().derive.clone()
-        }
+        InheritableCodegenValueIr::InheritCodegenDefaults => defaults.to_vec(),
         InheritableCodegenValueIr::Value(derive) => derive.clone(),
     }
 }
@@ -1060,14 +1156,14 @@ fn is_rust_keyword(ident: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use indexmap::IndexMap;
+    use indexmap::{IndexMap, IndexSet};
 
     use eure_codegen_ir::{
-        ArraySchemaIr, FieldCodegenIr, IntegerSchemaIr, IrModule, MapSchemaIr, QualifiedTypeName,
-        RecordFieldSchemaIr, RecordSchemaIr, RootCodegenIr, RustBindingIr, RustTypeKindIr,
-        SchemaMetadataIr, SchemaNodeContentIr, SchemaNodeIr, SchemaNodeIrId, TextSchemaIr,
-        TupleSchemaIr, TypeCodegenIr, TypeDefIr, TypeId, TypeNamesIr, TypeOriginIr, UnionCodegenIr,
-        UnionSchemaIr, UnknownFieldsPolicyIr,
+        ArraySchemaIr, EmissionDefaultsIr, FieldCodegenIr, IntegerSchemaIr, IrModule, MapSchemaIr,
+        QualifiedTypeName, RecordFieldSchemaIr, RecordSchemaIr, RootCodegenIr, RustBindingIr,
+        RustTypeKindIr, SchemaMetadataIr, SchemaNodeContentIr, SchemaNodeIr, SchemaNodeIrId,
+        TextSchemaIr, TupleSchemaIr, TypeCodegenIr, TypeDefIr, TypeId, TypeNamesIr, TypeOriginIr,
+        UnionCodegenIr, UnionSchemaIr, UnknownFieldsPolicyIr,
     };
 
     use super::*;
@@ -1213,8 +1309,22 @@ mod tests {
             RustTypeKindIr::Record,
         );
 
-        let generated = emit_rust_types(&base_module(ty), &GenerationConfig::builder().build())
-            .expect("emit rust");
+        let mut module = base_module(ty);
+        module.set_emission_defaults(EmissionDefaultsIr {
+            serde_serialize: false,
+            serde_deserialize: false,
+            derive_allow: IndexSet::from([
+                "Debug".to_string(),
+                "Clone".to_string(),
+                "Eq".to_string(),
+            ]),
+        });
+
+        let generated = emit_rust_types(
+            &module,
+            &GenerationConfig::builder().allow_warnings(false).build(),
+        )
+        .expect("emit rust");
         assert!(
             generated.contains("street: String"),
             "expected flattened field in parent struct, got:\n{generated}"
@@ -1494,8 +1604,22 @@ mod tests {
             RustTypeKindIr::Enum,
         );
 
-        let generated = emit_rust_types(&base_module(ty), &GenerationConfig::builder().build())
-            .expect("emit rust");
+        let mut module = base_module(ty);
+        module.set_emission_defaults(EmissionDefaultsIr {
+            serde_serialize: false,
+            serde_deserialize: false,
+            derive_allow: IndexSet::from([
+                "Debug".to_string(),
+                "Clone".to_string(),
+                "Eq".to_string(),
+            ]),
+        });
+
+        let generated = emit_rust_types(
+            &module,
+            &GenerationConfig::builder().allow_warnings(false).build(),
+        )
+        .expect("emit rust");
         assert!(generated.contains("enum ResultType"));
         assert!(generated.contains("Ok"));
     }
@@ -1982,12 +2106,28 @@ mod tests {
         *ty.type_codegen_mut() = TypeCodegenIr::Union(UnionCodegenIr {
             type_name_override: None,
             derive: InheritableCodegenValueIr::inherit(),
+            inline_derive: InheritableCodegenValueIr::inherit(),
             variant_types: true,
             variant_types_suffix_override: None,
+            variant_type_derive: InheritableCodegenValueIr::inherit(),
         });
 
-        let generated = emit_rust_types(&base_module(ty), &GenerationConfig::builder().build())
-            .expect("emit rust");
+        let mut module = base_module(ty);
+        module.set_emission_defaults(EmissionDefaultsIr {
+            serde_serialize: false,
+            serde_deserialize: false,
+            derive_allow: IndexSet::from([
+                "Debug".to_string(),
+                "Clone".to_string(),
+                "Eq".to_string(),
+            ]),
+        });
+
+        let generated = emit_rust_types(
+            &module,
+            &GenerationConfig::builder().allow_warnings(false).build(),
+        )
+        .expect("emit rust");
         assert!(
             generated.contains("struct OkData"),
             "expected default Data suffix for record companion, got:\n{generated}"
@@ -2008,6 +2148,117 @@ mod tests {
             generated.find("struct OkData").expect("ok companion")
                 < generated.find("enum ResultType").expect("enum"),
             "expected companion types before enum, got:\n{generated}"
+        );
+    }
+
+    #[test]
+    fn uses_separate_derives_for_main_inline_and_variant_types() {
+        let mut nested_record_nodes = IndexMap::new();
+        nested_record_nodes.insert(
+            SchemaNodeIrId(3),
+            node(SchemaNodeContentIr::Text(TextSchemaIr {
+                language: None,
+                min_length: None,
+                max_length: None,
+                pattern: None,
+                unknown_fields: IndexMap::new(),
+            })),
+        );
+        nested_record_nodes.insert(
+            SchemaNodeIrId(2),
+            node(SchemaNodeContentIr::Record(RecordSchemaIr::new(
+                IndexMap::from([(
+                    "street".to_string(),
+                    RecordFieldSchemaIr::new(
+                        SchemaNodeIrId(3),
+                        false,
+                        None,
+                        FieldCodegenIr::default(),
+                    ),
+                )]),
+                Vec::new(),
+                UnknownFieldsPolicyIr::Deny,
+            ))),
+        );
+        nested_record_nodes.insert(
+            SchemaNodeIrId(1),
+            node(SchemaNodeContentIr::Record(RecordSchemaIr::new(
+                IndexMap::from([(
+                    "address".to_string(),
+                    RecordFieldSchemaIr::new(
+                        SchemaNodeIrId(2),
+                        false,
+                        None,
+                        FieldCodegenIr::default(),
+                    ),
+                )]),
+                Vec::new(),
+                UnknownFieldsPolicyIr::Deny,
+            ))),
+        );
+        nested_record_nodes.insert(
+            SchemaNodeIrId(0),
+            node(SchemaNodeContentIr::Union(UnionSchemaIr::new(
+                IndexMap::from([("ok".to_string(), SchemaNodeIrId(1))]),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+            ))),
+        );
+
+        let mut ty = type_def(
+            "union-derive-split",
+            "ResultType",
+            None,
+            nested_record_nodes,
+            SchemaNodeIrId(0),
+            RustTypeKindIr::Enum,
+        );
+        *ty.type_codegen_mut() = TypeCodegenIr::Union(UnionCodegenIr {
+            type_name_override: None,
+            derive: InheritableCodegenValueIr::explicit(vec!["Debug".to_string()]),
+            inline_derive: InheritableCodegenValueIr::explicit(vec!["Clone".to_string()]),
+            variant_types: true,
+            variant_types_suffix_override: None,
+            variant_type_derive: InheritableCodegenValueIr::explicit(vec!["Eq".to_string()]),
+        });
+
+        let mut module = base_module(ty);
+        module.set_emission_defaults(EmissionDefaultsIr {
+            serde_serialize: false,
+            serde_deserialize: false,
+            derive_allow: IndexSet::from([
+                "Debug".to_string(),
+                "Clone".to_string(),
+                "Eq".to_string(),
+            ]),
+        });
+
+        let generated = emit_rust_types(
+            &module,
+            &GenerationConfig::builder().allow_warnings(false).build(),
+        )
+        .expect("emit rust");
+
+        assert!(
+            generated.contains("#[derive(Clone)]\npub struct OkDataAddress"),
+            "expected inline helper derive to apply only to nested inline record, got:\n{generated}"
+        );
+        assert!(
+            generated.contains("#[derive(Eq)]\npub struct OkData"),
+            "expected variant companion derive to apply to variant type, got:\n{generated}"
+        );
+        assert!(
+            generated.contains("#[derive(Debug)]\npub enum ResultType"),
+            "expected main derive to apply to root union, got:\n{generated}"
+        );
+        assert!(
+            !generated.contains("#[derive(Debug)]\npub struct OkDataAddress"),
+            "did not expect main derive on inline helper, got:\n{generated}"
+        );
+        assert!(
+            !generated.contains("#[derive(Debug)]\npub struct OkData"),
+            "did not expect main derive on variant companion, got:\n{generated}"
         );
     }
 

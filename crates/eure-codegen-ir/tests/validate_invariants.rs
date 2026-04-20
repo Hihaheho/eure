@@ -136,6 +136,7 @@ fn rejects_empty_codegen_overrides() {
     *ty.type_codegen_mut() = TypeCodegenIr::Record(RecordCodegenIr {
         type_name_override: Some("  ".to_string()),
         derive: InheritableCodegenValueIr::InheritCodegenDefaults,
+        inline_derive: InheritableCodegenValueIr::InheritCodegenDefaults,
     });
 
     let err = module.clone().into_checked().unwrap_err();
@@ -146,8 +147,10 @@ fn rejects_empty_codegen_overrides() {
     *ty.type_codegen_mut() = TypeCodegenIr::Union(UnionCodegenIr {
         type_name_override: Some("ExampleUnion".to_string()),
         derive: InheritableCodegenValueIr::InheritCodegenDefaults,
+        inline_derive: InheritableCodegenValueIr::InheritCodegenDefaults,
         variant_types: false,
         variant_types_suffix_override: Some("  ".to_string()),
+        variant_type_derive: InheritableCodegenValueIr::InheritCodegenDefaults,
     });
 
     let err = module.clone().into_checked().unwrap_err();
@@ -200,6 +203,7 @@ fn rejects_conflicting_root_and_type_codegen_type_names() {
     *ty.type_codegen_mut() = TypeCodegenIr::Record(RecordCodegenIr {
         type_name_override: Some("NotRoot".to_string()),
         derive: InheritableCodegenValueIr::InheritCodegenDefaults,
+        inline_derive: InheritableCodegenValueIr::InheritCodegenDefaults,
     });
 
     let err = module.clone().into_checked().unwrap_err();

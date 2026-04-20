@@ -27,6 +27,10 @@ pub struct CodegenDefaultsIr {
     #[builder(default)]
     pub derive: Vec<String>,
     #[builder(default)]
+    pub inline_derive: Vec<String>,
+    #[builder(default)]
+    pub variant_type_derive: Vec<String>,
+    #[builder(default)]
     pub ext_types_field_prefix: String,
     #[builder(default)]
     pub ext_types_type_prefix: String,
@@ -47,6 +51,8 @@ pub struct RecordCodegenIr {
     pub type_name_override: Option<String>,
     #[builder(default)]
     pub derive: InheritableCodegenValueIr<Vec<String>>,
+    #[builder(default)]
+    pub inline_derive: InheritableCodegenValueIr<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, bon::Builder)]
@@ -55,8 +61,12 @@ pub struct UnionCodegenIr {
     #[builder(default)]
     pub derive: InheritableCodegenValueIr<Vec<String>>,
     #[builder(default)]
+    pub inline_derive: InheritableCodegenValueIr<Vec<String>>,
+    #[builder(default)]
     pub variant_types: bool,
     pub variant_types_suffix_override: Option<String>,
+    #[builder(default)]
+    pub variant_type_derive: InheritableCodegenValueIr<Vec<String>>,
 }
 
 impl Default for UnionCodegenIr {
@@ -64,8 +74,10 @@ impl Default for UnionCodegenIr {
         Self {
             type_name_override: None,
             derive: InheritableCodegenValueIr::InheritCodegenDefaults,
+            inline_derive: InheritableCodegenValueIr::InheritCodegenDefaults,
             variant_types: false,
             variant_types_suffix_override: None,
+            variant_type_derive: InheritableCodegenValueIr::InheritCodegenDefaults,
         }
     }
 }

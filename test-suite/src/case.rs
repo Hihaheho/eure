@@ -111,6 +111,7 @@ const FORMATTED_INPUT_PATH: &str = "formatted_input.eure";
 const FORMATTED_NORMALIZED_PATH: &str = "formatted_normalized.eure";
 const SERIALIZED_PATH: &str = "serialized.eure";
 const OUTPUT_JSON_SCHEMA_PATH: &str = "output.json-schema.json";
+const OUTPUT_RUST_PATH: &str = "output.rs";
 const EDITOR_PATH: &str = "editor.eure";
 const WORKSPACE_PATH: &str = "/test-workspace";
 const META_SCHEMA_PATH: &str = "$eure/meta-schema.eure";
@@ -336,6 +337,11 @@ impl Case {
         // output_json_schema → "output.json-schema.json"
         if let Some(output_json_schema) = self.data.json_schema.output_json_schema() {
             Self::resolve_asset(runtime, OUTPUT_JSON_SCHEMA_PATH, output_json_schema)?;
+        }
+
+        // rust → "output.rs"
+        if let Some(rust) = &self.data.rust {
+            Self::resolve_asset(runtime, OUTPUT_RUST_PATH, rust)?;
         }
 
         // editor → "editor.eure" or "/test-workspace/editor.eure" for implicit schema
@@ -676,7 +682,7 @@ impl Case {
         if let (Some(schema), Some(rust)) = (&self.data.schema, &self.data.rust) {
             scenarios.push(Scenario::RustCodegen(RustCodegenScenario {
                 schema: Self::resolve_path(schema, &self.schema_file_path()),
-                expected_rust: rust.as_str().to_string(),
+                expected_rust: Self::resolve_path(rust, OUTPUT_RUST_PATH),
             }));
         }
 

@@ -6,7 +6,7 @@ use crate::scenarios::{Scenario, ScenarioError};
 
 pub struct RustCodegenScenario {
     pub schema: TextFile,
-    pub expected_rust: String,
+    pub expected_rust: TextFile,
 }
 
 impl Scenario for RustCodegenScenario {
@@ -31,7 +31,8 @@ impl Scenario for RustCodegenScenario {
             message: e.to_string(),
         })?;
 
-        let expected = self.expected_rust.trim().to_string();
+        let expected = db.asset(self.expected_rust.clone())?;
+        let expected = expected.get().trim().to_string();
         let actual = actual.trim().to_string();
 
         if actual == expected {

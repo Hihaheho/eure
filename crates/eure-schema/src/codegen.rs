@@ -18,6 +18,12 @@ pub struct CodegenDefaults {
     /// Default derives for emitted Rust types.
     #[eure(default)]
     pub derive: Option<Vec<String>>,
+    /// Default derives for generated inline companion types.
+    #[eure(default)]
+    pub inline_derive: Option<Vec<String>>,
+    /// Default derives for generated `variant_types` companion types.
+    #[eure(default)]
+    pub variant_type_derive: Option<Vec<String>>,
     /// Prefix for generated extension field names.
     #[eure(default)]
     pub ext_types_field_prefix: Option<String>,
@@ -31,7 +37,7 @@ pub struct CodegenDefaults {
 
 /// Record type-level codegen metadata (`$codegen` on record schema nodes).
 #[derive(Debug, Clone, Default, PartialEq, Eq, FromEure, IntoEure)]
-#[eure(crate = eure_document)]
+#[eure(crate = eure_document, rename_all = "kebab-case")]
 pub struct RecordCodegen {
     /// Override generated Rust type name.
     #[eure(rename = "type", default)]
@@ -39,6 +45,9 @@ pub struct RecordCodegen {
     /// Override derives for this type.
     #[eure(default)]
     pub derive: Option<Vec<String>>,
+    /// Override derives for generated inline companion types.
+    #[eure(default)]
+    pub inline_derive: Option<Vec<String>>,
 }
 
 /// Union type-level codegen metadata (`$codegen` on union schema nodes).
@@ -51,12 +60,18 @@ pub struct UnionCodegen {
     /// Override derives for this type.
     #[eure(default)]
     pub derive: Option<Vec<String>>,
+    /// Override derives for generated inline companion types.
+    #[eure(default)]
+    pub inline_derive: Option<Vec<String>>,
     /// Generate dedicated types for variants.
     #[eure(default)]
     pub variant_types: Option<bool>,
     /// Suffix for generated variant types.
     #[eure(default)]
     pub variant_types_suffix: Option<String>,
+    /// Override derives for generated `variant_types` companion types.
+    #[eure(default)]
+    pub variant_type_derive: Option<Vec<String>>,
 }
 
 /// Field-level codegen metadata (`$codegen` on record field entries).

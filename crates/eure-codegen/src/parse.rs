@@ -30,6 +30,8 @@ mod tests {
 
         let result: CodegenDefaults = doc.parse(node_id).unwrap();
         assert!(result.derive.is_none());
+        assert!(result.inline_derive.is_none());
+        assert!(result.variant_type_derive.is_none());
         assert!(result.ext_types_field_prefix.is_none());
         assert!(result.ext_types_type_prefix.is_none());
         assert!(result.document_node_id_field.is_none());
@@ -43,8 +45,10 @@ mod tests {
         let result: UnionCodegen = doc.parse(node_id).unwrap();
         assert!(result.type_name.is_none());
         assert!(result.derive.is_none());
+        assert!(result.inline_derive.is_none());
         assert!(result.variant_types.is_none());
         assert!(result.variant_types_suffix.is_none());
+        assert!(result.variant_type_derive.is_none());
     }
 
     #[test]
@@ -55,6 +59,7 @@ mod tests {
         let result: RecordCodegen = doc.parse(node_id).unwrap();
         assert!(result.type_name.is_none());
         assert!(result.derive.is_none());
+        assert!(result.inline_derive.is_none());
     }
 
     #[test]

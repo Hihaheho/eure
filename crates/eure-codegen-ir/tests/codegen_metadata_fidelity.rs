@@ -52,6 +52,8 @@ fn preserves_root_and_default_codegen_metadata() {
     });
     *module.codegen_defaults_mut() = CodegenDefaultsIr {
         derive: vec!["Debug".to_string(), "Clone".to_string()],
+        inline_derive: vec!["Clone".to_string()],
+        variant_type_derive: vec!["Debug".to_string()],
         ext_types_field_prefix: "ext_".to_string(),
         ext_types_type_prefix: "Ext".to_string(),
         document_node_id_field: "doc_node".to_string(),
@@ -73,6 +75,7 @@ fn preserves_root_and_default_codegen_metadata() {
                     "Debug".to_string(),
                     "Serialize".to_string(),
                 ]),
+                inline_derive: InheritableCodegenValueIr::Value(vec!["Clone".to_string()]),
             }),
             TypeOriginIr::Schema,
         ),

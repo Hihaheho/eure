@@ -176,6 +176,8 @@ fn convert_root_codegen(codegen: &RootCodegen) -> RootCodegenIr {
 fn convert_codegen_defaults(defaults: &CodegenDefaults) -> CodegenDefaultsIr {
     CodegenDefaultsIr {
         derive: defaults.derive.clone().unwrap_or_default(),
+        inline_derive: defaults.inline_derive.clone().unwrap_or_default(),
+        variant_type_derive: defaults.variant_type_derive.clone().unwrap_or_default(),
         ext_types_field_prefix: defaults.ext_types_field_prefix.clone().unwrap_or_default(),
         ext_types_type_prefix: defaults.ext_types_type_prefix.clone().unwrap_or_default(),
         document_node_id_field: defaults.document_node_id_field.clone().unwrap_or_default(),
@@ -197,6 +199,10 @@ fn convert_record_codegen(codegen: &RecordCodegen) -> RecordCodegenIr {
             InheritableCodegenValueIr::InheritCodegenDefaults,
             InheritableCodegenValueIr::Value,
         ),
+        inline_derive: codegen.inline_derive.clone().map_or(
+            InheritableCodegenValueIr::InheritCodegenDefaults,
+            InheritableCodegenValueIr::Value,
+        ),
     }
 }
 
@@ -207,8 +213,16 @@ fn convert_union_codegen(codegen: &UnionCodegen) -> UnionCodegenIr {
             InheritableCodegenValueIr::InheritCodegenDefaults,
             InheritableCodegenValueIr::Value,
         ),
+        inline_derive: codegen.inline_derive.clone().map_or(
+            InheritableCodegenValueIr::InheritCodegenDefaults,
+            InheritableCodegenValueIr::Value,
+        ),
         variant_types: codegen.variant_types.unwrap_or_default(),
         variant_types_suffix_override: codegen.variant_types_suffix.clone(),
+        variant_type_derive: codegen.variant_type_derive.clone().map_or(
+            InheritableCodegenValueIr::InheritCodegenDefaults,
+            InheritableCodegenValueIr::Value,
+        ),
     }
 }
 
@@ -765,8 +779,10 @@ mod tests {
             type_codegen: TypeCodegen::Union(UnionCodegen {
                 type_name: Some("ApiResult".to_string()),
                 derive: Some(vec!["Debug".to_string(), "Clone".to_string()]),
+                inline_derive: Some(vec!["Clone".to_string()]),
                 variant_types: Some(true),
                 variant_types_suffix: Some("Type".to_string()),
+                variant_type_derive: Some(vec!["Eq".to_string()]),
             }),
         };
 
@@ -795,6 +811,7 @@ mod tests {
             type_codegen: TypeCodegen::Record(RecordCodegen {
                 type_name: Some("RootRecord".to_string()),
                 derive: Some(vec!["Debug".to_string()]),
+                inline_derive: Some(vec!["Clone".to_string()]),
             }),
         };
 
@@ -828,6 +845,8 @@ mod tests {
             },
             codegen_defaults: CodegenDefaults {
                 derive: Some(vec!["Debug".to_string(), "Clone".to_string()]),
+                inline_derive: Some(vec!["Clone".to_string()]),
+                variant_type_derive: Some(vec!["Eq".to_string()]),
                 ext_types_field_prefix: Some("ext_".to_string()),
                 ext_types_type_prefix: Some("Ext".to_string()),
                 document_node_id_field: Some("node_id".to_string()),
@@ -892,12 +911,24 @@ mod tests {
             Some("RootRecord")
         );
         assert_eq!(module.codegen_defaults().document_node_id_field, "node_id");
+        assert_eq!(
+            module.codegen_defaults().inline_derive,
+            ["Clone".to_string()]
+        );
+        assert_eq!(
+            module.codegen_defaults().variant_type_derive,
+            ["Eq".to_string()]
+        );
         let TypeCodegenIr::Record(record_codegen) = ty.type_codegen() else {
             panic!("expected record codegen")
         };
         assert_eq!(
             record_codegen.type_name_override.as_deref(),
             Some("RootRecord")
+        );
+        assert_eq!(
+            record_codegen.inline_derive,
+            InheritableCodegenValueIr::Value(vec!["Clone".to_string()])
         );
         assert_eq!(
             record

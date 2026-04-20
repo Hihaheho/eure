@@ -376,6 +376,7 @@ fn write_root_codegen_extension(
                     record_codegen.type_name.as_deref(),
                 )?,
                 derive: record_codegen.derive.clone(),
+                inline_derive: record_codegen.inline_derive.clone(),
             };
             if merged == RecordCodegen::default() {
                 return Ok(());
@@ -389,8 +390,10 @@ fn write_root_codegen_extension(
                     union_codegen.type_name.as_deref(),
                 )?,
                 derive: union_codegen.derive.clone(),
+                inline_derive: union_codegen.inline_derive.clone(),
                 variant_types: union_codegen.variant_types,
                 variant_types_suffix: union_codegen.variant_types_suffix.clone(),
+                variant_type_derive: union_codegen.variant_type_derive.clone(),
             };
             if merged == UnionCodegen::default() {
                 return Ok(());
@@ -1109,6 +1112,8 @@ mod tests {
         };
         schema.codegen_defaults = CodegenDefaults {
             derive: Some(vec!["Debug".to_string(), "Clone".to_string()]),
+            inline_derive: Some(vec!["Clone".to_string()]),
+            variant_type_derive: Some(vec!["Eq".to_string()]),
             ext_types_field_prefix: Some("ext_".to_string()),
             ext_types_type_prefix: Some("Ext".to_string()),
             document_node_id_field: Some("node_id".to_string()),
@@ -1133,6 +1138,7 @@ mod tests {
         schema.node_mut(schema.root).type_codegen = TypeCodegen::Record(RecordCodegen {
             type_name: Some("User".to_string()),
             derive: Some(vec!["Debug".to_string()]),
+            inline_derive: Some(vec!["Clone".to_string()]),
         });
 
         let doc = schema_to_document(&schema).expect("write schema");
@@ -1143,11 +1149,23 @@ mod tests {
             roundtrip.codegen_defaults.document_node_id_field.as_deref(),
             Some("node_id")
         );
+        assert_eq!(
+            roundtrip.codegen_defaults.inline_derive.as_deref(),
+            Some(&["Clone".to_string()][..])
+        );
+        assert_eq!(
+            roundtrip.codegen_defaults.variant_type_derive.as_deref(),
+            Some(&["Eq".to_string()][..])
+        );
         let TypeCodegen::Record(record_codegen) = &roundtrip.node(roundtrip.root).type_codegen
         else {
             panic!("expected record codegen")
         };
         assert_eq!(record_codegen.type_name.as_deref(), Some("User"));
+        assert_eq!(
+            record_codegen.inline_derive.as_deref(),
+            Some(&["Clone".to_string()][..])
+        );
         let record = match &roundtrip.node(roundtrip.root).content {
             SchemaNodeContent::Record(record) => record,
             _ => panic!("expected record root"),
@@ -1168,6 +1186,7 @@ mod tests {
         schema.node_mut(schema.root).type_codegen = TypeCodegen::Record(RecordCodegen {
             type_name: Some("User".to_string()),
             derive: None,
+            inline_derive: None,
         });
 
         let error = schema_to_document(&schema).expect_err("conflict must be rejected");
