@@ -260,6 +260,9 @@ pub struct CaseData {
     // Semantic tokens scenario fields
     #[eure(default)]
     pub semantic_tokens: Vec<SemanticTokenItem>,
+    // Rust codegen testing field
+    #[eure(default)]
+    pub rust: Option<Text>,
     // Scenario error testing fields
     /// Assert that specific scenarios fail with expected error output
     #[eure(default)]
@@ -289,6 +292,7 @@ impl CaseData {
             && self.editor.is_none()
             && self.json_errors.is_empty()
             && self.semantic_tokens.is_empty()
+            && self.rust.is_none()
             && self.scenario_errors.is_empty()
             && self.scenarios_expected.is_empty()
     }

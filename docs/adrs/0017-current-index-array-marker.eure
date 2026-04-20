@@ -1,0 +1,160 @@
+$schema: ../../assets/schemas/eure-adr.schema.eure
+
+id = "0017-current-index-array-marker"
+title = "Current-Index Array Marker `[^]` for Block-Scoped Merging"
+status = "accepted"
+decision-date = `2026-04-17`
+tags = ["syntax", "interpreter", "arrays", "block-scope"]
+
+context = ````markdown
+Eure arrays are grown by the `[]` marker, which always pushes a new element into the target
+array. Historically this was the only array marker besides the explicit numeric index `[n]`, so
+attaching multiple fields to the same new element required repetition of a numeric index (or of
+a `{ ... }` block):
+
+```eure
+users[0].name = "Alice"
+users[0].age = 30
+```
+
+or
+
+```eure
+users[] { name = "Alice", age = 30 }
+```
+
+Users coming from TOML, where `[[users]]` followed by subsequent `users.x` / `users.y`
+assignments all attach to the most recent pushed element, repeatedly asked whether consecutive
+`[]` segments could implicitly refer to the same element. Reinterpreting `[]` that way was
+rejected: it would change an existing, well-understood operator (every `[]` pushes) and make
+"push a new element" harder to express unambiguously.
+
+The open question was therefore whether a **new marker** could provide the convenience of "reuse
+the last push" without mutating the meaning of `[]`, and what its scoping rules should be so
+that its behavior is predictable in nested blocks and across sections.
+````
+
+decision = ````markdown
+Introduce a new path segment `[^]` (the **current-index** marker) that resolves to the element
+most recently pushed into the target array **within the current block scope**. `[]` keeps its
+existing semantics of always pushing a new element.
+
+## Surface syntax
+
+The grammar is extended so that the array marker accepts an integer, `^`, or nothing:
+
+```
+ArrayMarker: ArrayBegin [ Integer | Caret ] ArrayEnd ;
+```
+
+Concretely:
+- `users[]` — push a new element (unchanged behavior).
+- `users[^]` — reuse the element most recently pushed by a `[]` into `users` in the current
+  block scope.
+- `users[3]` — refer to the existing element at index 3 (or create it as the next element).
+
+## Semantics
+
+Path segments are represented as `PathSegment::ArrayIndex(ArrayIndexKind)` with three variants:
+
+```rust
+enum ArrayIndexKind { Push, Current, Specific(usize) }
+```
+
+The document constructor maintains a **block-scope stack** (distinct from the existing path
+scope stack used for per-binding transient state). Each entry on the block-scope stack holds a
+map from array `NodeId` to the `NodeId` of the child that was most recently pushed into that
+array while this block scope was active.
+
+Navigation semantics are:
+
+- `Push` — create a new element in the target array, and record that `(array, new_child)` pair
+  in the topmost block scope.
+- `Current` — look up the target array in the topmost block scope; if an entry exists, reuse
+  that child. If the target is not an array, error with `ExpectedArray` (consistent with how
+  other markers behave). If the target is an array but no `Push` has been recorded for it in
+  this scope, error with `ArrayCurrentOutOfScope`.
+- `Specific(n)` — unchanged from previous behavior. Does **not** record a push, so a subsequent
+  `[^]` in the same scope will not resolve to an index specified this way.
+
+A new block scope is pushed for every `{ ... }` body and for the items body of a section
+(`@header\n...`). It is popped when the body ends. This is the smallest scoping rule that
+matches user intuition: `[^]` only "sees" pushes that happened in sibling statements of the
+same block.
+
+## Error surface
+
+A new error variant is added to `InsertErrorKind`:
+
+```rust
+#[error("`[^]` has no prior push in the current block scope for the target array (node {array_node_id:?})")]
+ArrayCurrentOutOfScope { array_node_id: NodeId },
+```
+
+Scope violations are **hard errors**, not silent fallbacks. If the current block scope has not
+pushed anything into the target array, the document fails to construct rather than quietly
+reusing a push from an enclosing scope. This keeps `[^]` local and predictable: the element it
+refers to is always visible in the same block where it is written.
+````
+
+consequences = ````markdown
+**Positive**
+
+- Users can merge multiple bindings into the same pushed element without repeating a numeric
+  index or switching to a `{ ... }` block:
+
+  ```eure
+  users[].name = "Alice"
+  users[^].age  = 30
+  ```
+
+- `[]` keeps its single, familiar meaning ("always push"), so existing documents and mental
+  models are unaffected.
+
+- The scoping rule makes `[^]` safe in nested contexts: a `[^]` inside a `{ ... }` body or a
+  section body cannot accidentally latch onto an unrelated outer push.
+
+**Negative / trade-offs**
+
+- There is now a third array marker to learn (`[]`, `[^]`, `[n]`). We judged this cost
+  acceptable because `[^]` is opt-in and the common case (`[]` pushing) is unchanged.
+
+- `[^]` is only meaningful after a `[]` push in the same block scope. When the first thing
+  written to an array in a scope is `[^]`, the error is `ArrayCurrentOutOfScope` rather than a
+  silent push, which may surprise users migrating from TOML. The error message names the
+  missing prior push, and documentation calls this out.
+
+- `[n]` does not record a push, so `items[0].x = 1; items[^].y = 2` is an error even though the
+  array is non-empty. This keeps `[^]` strictly tied to explicit `[]` usage and avoids an
+  asymmetric "sometimes the last index counts as a push" rule.
+
+**Implementation notes**
+
+- The visitor for `ArrayMarker` maps `^` to `ArrayIndexKind::Current` and routes the navigation
+  through the document constructor's per-block-scope tracking.
+- The `eure!` macro and `SourcePathSegment` both expose the same enum so that formatter output
+  and macro inputs stay in sync.
+- Unit tests in `eure-document` cover: root-scope merging, inner-block merging, cross-scope
+  error, scope-local recency, no-prior-push error, deep nesting, `[^]` followed by `[]` in a
+  child array, and the `ExpectedArray` precedence. Integration tests in `eure` cover the
+  end-to-end parser path.
+````
+
+alternatives-considered = [
+  ````markdown
+  **Reinterpret `[]` so consecutive markers merge (TOML-like).** Rejected because it changes
+  the meaning of an existing, broadly used operator. Any Eure file that today relies on
+  `a[].x = 1; a[].y = 2` producing two elements would silently change behavior.
+  ````,
+  ````markdown
+  **Treat `[^]` as "use the last index if any, otherwise push".** Rejected: a silent fallback
+  makes scope violations invisible and defeats the purpose of having an explicit marker.
+  Authors who intend to reference the last push get a clear error instead of a surprising
+  new element.
+  ````,
+  ````markdown
+  **Make the scope the whole document.** Rejected: scope-less `[^]` would cross section and
+  block boundaries, producing fragile action-at-a-distance. Block-scoped lookup matches the
+  reading order in the source file.
+  ````,
+]

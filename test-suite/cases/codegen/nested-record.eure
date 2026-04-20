@@ -1,0 +1,44 @@
+// Inline nested record fields → auto-generated companion structs
+
+schema = ```eure
+address.street = `text`
+address.city = `text`
+name = `text`
+```
+
+scenarios_expected = ["rust_codegen"]
+
+rust = ```rust
+pub struct RootAddress {
+    pub street: String,
+    pub city: String,
+}
+
+pub struct Root {
+    pub address: RootAddress,
+    pub name: String,
+}
+```
+
+@ cases.deeply-nested
+schema = ```eure
+user.profile.bio = `text`
+user.name = `text`
+```
+
+scenarios_expected = ["rust_codegen"]
+
+rust = ```rust
+pub struct RootUserProfile {
+    pub bio: String,
+}
+
+pub struct RootUser {
+    pub profile: RootUserProfile,
+    pub name: String,
+}
+
+pub struct Root {
+    pub user: RootUser,
+}
+```

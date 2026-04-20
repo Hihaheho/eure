@@ -8,13 +8,14 @@ use crate::{
 };
 use dioxus::prelude::*;
 use eure::query::{
-    DecorStyle, DecorStyleKey, DiagnosticMessage, EureQueryError, GetFileDiagnostics,
-    GetFileErrorReports, GetSemanticTokens, OpenDocuments, OpenDocumentsList, SemanticToken,
-    TextFile, TextFileContent, TextFileLocator, Workspace, WorkspaceId,
+    DecorStyle, DecorStyleKey, DiagnosticMessage, DocumentToSchemaQuery, EureQueryError,
+    GetFileDiagnostics, GetFileErrorReports, GetSemanticTokens, OpenDocuments, OpenDocumentsList,
+    SemanticToken, TextFile, TextFileContent, TextFileLocator, Workspace, WorkspaceId,
 };
 use eure::report::{
     ErrorReports, error_reports_comparator, format_error_report, format_error_reports,
 };
+use eure_codegen::{GenerationConfig, emit_rust_types, schema_to_ir_module};
 use eure_json::EureToJsonFormatted;
 use query_flow::{DurabilityLevel, QueryError, QueryRuntime, QueryRuntimeBuilder, Tracer};
 use url::Url;
@@ -58,6 +59,7 @@ enum RightTab {
     #[default]
     JsonOutput,
     Schema,
+    RustOutput,
     Errors,
     Trace,
 }
@@ -67,6 +69,7 @@ impl RightTab {
         match self {
             RightTab::JsonOutput => "json",
             RightTab::Schema => "schema",
+            RightTab::RustOutput => "rust",
             RightTab::Errors => "errors",
             RightTab::Trace => "trace",
         }
@@ -76,6 +79,7 @@ impl RightTab {
         match value {
             "json" => Some(RightTab::JsonOutput),
             "schema" => Some(RightTab::Schema),
+            "rust" => Some(RightTab::RustOutput),
             "errors" => Some(RightTab::Errors),
             "trace" => Some(RightTab::Trace),
             _ => None,
@@ -411,6 +415,8 @@ fn run_queries<T: query_flow::tracer::Tracer>(
     mut schema_tokens: Signal<Vec<SemanticToken>>,
     mut json_output: Signal<String>,
     mut json_errors: Signal<Vec<String>>,
+    mut rust_output: Signal<String>,
+    mut rust_errors: Signal<Vec<String>>,
     mut all_errors: Signal<AllErrors>,
     mut formatted_errors_html: Signal<String>,
 ) -> Vec<Url> {
@@ -469,6 +475,37 @@ fn run_queries<T: query_flow::tracer::Tracer>(
                     vec![e.to_string()]
                 };
                 json_errors.set(errors);
+            }
+        }
+    }
+
+    // Get Rust codegen output (only when RustOutput tab is active)
+    if active_tab == RightTab::RustOutput {
+        match runtime.query(DocumentToSchemaQuery::new(schema_file.clone())) {
+            Ok(validated) => {
+                match schema_to_ir_module(&validated.schema) {
+                    Ok(module) => {
+                        match emit_rust_types(&module, &GenerationConfig::builder().allow_warnings(false).build()) {
+                            Ok(code) => {
+                                rust_output.set(code);
+                                rust_errors.set(vec![]);
+                            }
+                            Err(e) => {
+                                rust_output.set(String::new());
+                                rust_errors.set(vec![e.to_string()]);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        rust_output.set(String::new());
+                        rust_errors.set(vec![e.to_string()]);
+                    }
+                }
+            }
+            Err(QueryError::Suspend { .. }) => collect_pending_urls(),
+            Err(e) => {
+                rust_output.set(String::new());
+                rust_errors.set(vec![e.to_string()]);
             }
         }
     }
@@ -579,6 +616,8 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
     let schema_tokens: Signal<Vec<SemanticToken>> = use_signal(Vec::new);
     let json_output: Signal<String> = use_signal(String::new);
     let json_errors: Signal<Vec<String>> = use_signal(Vec::new);
+    let rust_output: Signal<String> = use_signal(String::new);
+    let rust_errors: Signal<Vec<String>> = use_signal(Vec::new);
     let all_errors: Signal<AllErrors> = use_signal(AllErrors::default);
     let formatted_errors_html: Signal<String> = use_signal(String::new);
 
@@ -603,6 +642,8 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
             schema_tokens,
             json_output,
             json_errors,
+            rust_output,
+            rust_errors,
             all_errors,
             formatted_errors_html,
         );
@@ -633,6 +674,8 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                 schema_tokens,
                 json_output,
                 json_errors,
+                rust_output,
+                rust_errors,
                 all_errors,
                 formatted_errors_html,
             );
@@ -661,6 +704,8 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                     schema_tokens,
                     json_output,
                     json_errors,
+                    rust_output,
+                    rust_errors,
                     all_errors,
                     formatted_errors_html,
                 );
@@ -811,6 +856,17 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                         "Schema"
                     }
                     button {
+                        class: "px-4 py-2 text-base font-semibold border-b-2 transition-colors",
+                        style: if active_tab() == RightTab::RustOutput { "border-color: currentColor" } else { "border-color: transparent" },
+                        onclick: move |_| {
+                            navigator.push(Route::Home {
+                                example: example(),
+                                tab: Some(RightTab::RustOutput.value().to_string()),
+                            });
+                        },
+                        "Rust"
+                    }
+                    button {
                         class: "px-4 py-2 text-base font-semibold border-b-2 transition-colors flex items-center gap-2",
                         style: if active_tab() == RightTab::Errors { "border-color: currentColor" } else { "border-color: transparent" },
                         onclick: move |_| {
@@ -887,6 +943,26 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                                     errors: combined_schema_errors,
                                     theme,
                                     on_change: update_schema,
+                                }
+                            }
+                        },
+                        RightTab::RustOutput => rsx! {
+                            div { class: "p-3 font-mono text-sm",
+                                if !rust_errors().is_empty() {
+                                    div {
+                                        class: "mb-3 p-2 rounded",
+                                        style: "background: rgba(255, 100, 100, 0.1); border-left: 3px solid {error_color}",
+                                        for error in rust_errors().iter() {
+                                            pre { class: "whitespace-pre-wrap", style: "color: {error_color}", "{error}" }
+                                        }
+                                    }
+                                }
+                                pre {
+                                    if rust_output().is_empty() && rust_errors().is_empty() {
+                                        span { class: "opacity-50", "// Switch to Rust tab to generate Rust types from the schema" }
+                                    } else {
+                                        "{rust_output()}"
+                                    }
                                 }
                             }
                         },

@@ -12,7 +12,7 @@ use eure_document::document::constructor::DocumentConstructor;
 use eure_document::document::node::NodeValue;
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::identifier::Identifier;
-use eure_document::path::PathSegment;
+use eure_document::path::{ArrayIndexKind, PathSegment};
 use eure_document::plan::{LayoutPlan, PlanError};
 use eure_document::source::SourceDocument;
 use eure_document::text::Text;
@@ -249,7 +249,7 @@ fn write_array_schema(
     if use_shorthand {
         c.bind_empty_array()?;
         let scope = c.begin_scope();
-        c.navigate(PathSegment::ArrayIndex(None))?;
+        c.navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))?;
         write_schema_node(schema_doc, schema.item, c)?;
         c.end_scope(scope)?;
         return Ok(());
@@ -295,7 +295,7 @@ fn write_tuple_schema(
             c.bind_empty_array()?;
             for schema_id in &schema.elements {
                 let scope = c.begin_scope();
-                c.navigate(PathSegment::ArrayIndex(None))?;
+                c.navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))?;
                 write_schema_node(schema_doc, *schema_id, c)?;
                 c.end_scope(scope)?;
             }
@@ -578,7 +578,7 @@ fn write_metadata(
             c.bind_empty_array()?;
             for example in examples {
                 let scope = c.begin_scope();
-                c.navigate(PathSegment::ArrayIndex(None))?;
+                c.navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))?;
                 copy_subtree(example, example.get_root_id(), c, false)?;
                 c.end_scope(scope)?;
             }
@@ -616,7 +616,7 @@ fn write_flatten(
         c.bind_empty_array()?;
         for schema_id in flatten {
             let scope = c.begin_scope();
-            c.navigate(PathSegment::ArrayIndex(None))?;
+            c.navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))?;
             write_schema_node(schema_doc, *schema_id, c)?;
             c.end_scope(scope)?;
         }
@@ -739,7 +739,7 @@ fn copy_subtree(
             c.bind_empty_array()?;
             for &child_id in array.iter() {
                 let scope = c.begin_scope();
-                c.navigate(PathSegment::ArrayIndex(None))?;
+                c.navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))?;
                 copy_subtree(src_doc, child_id, c, skip_variant_extension)?;
                 c.end_scope(scope)?;
             }

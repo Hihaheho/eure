@@ -20,7 +20,7 @@ use crate::document::InsertError;
 use crate::document::constructor::ScopeError;
 use crate::identifier::IdentifierError;
 use crate::parse::VariantPath;
-use crate::path::PathSegment;
+use crate::path::{ArrayIndexKind, PathSegment};
 use crate::prelude_internal::*;
 use crate::text::Text;
 use crate::value::ValueKind;
@@ -150,7 +150,7 @@ fn write_subtree_node(
             c.bind_empty_array()?;
             for &child_id in array.iter() {
                 let scope = c.begin_scope();
-                c.navigate(PathSegment::ArrayIndex(None))?;
+                c.navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))?;
                 write_subtree_node(src, child_id, c)?;
                 c.end_scope(scope)?;
             }
@@ -331,7 +331,7 @@ where
         c.bind_empty_array().map_err(WriteError::from)?;
         for item in value {
             let scope = c.begin_scope();
-            c.navigate(PathSegment::ArrayIndex(None))
+            c.navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))
                 .map_err(WriteError::from)?;
             M::write(item, c)?;
             c.end_scope(scope).map_err(WriteError::from)?;
@@ -350,7 +350,7 @@ where
         c.bind_empty_array().map_err(WriteError::from)?;
         for item in value {
             let scope = c.begin_scope();
-            c.navigate(PathSegment::ArrayIndex(None))
+            c.navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))
                 .map_err(WriteError::from)?;
             M::write(item, c)?;
             c.end_scope(scope).map_err(WriteError::from)?;

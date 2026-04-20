@@ -1,4 +1,4 @@
-pub const DEFAULT_VARIANT_TYPES_SUFFIX: &str = "Type";
+pub const DEFAULT_VARIANT_TYPES_SUFFIX: &str = "Data";
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum InheritableCodegenValueIr<T> {

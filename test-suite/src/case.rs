@@ -21,6 +21,7 @@ use crate::scenarios::formatting::FormattingScenario;
 use crate::scenarios::json_to_eure::JsonToEureScenario;
 use crate::scenarios::meta_schema::MetaSchemaScenario;
 use crate::scenarios::normalization::NormalizationScenario;
+use crate::scenarios::rust_codegen::RustCodegenScenario;
 use crate::scenarios::schema_conversion_error::SchemaConversionErrorScenario;
 use crate::scenarios::schema_error_validation::SchemaErrorValidationScenario;
 use crate::scenarios::schema_validation::SchemaValidationScenario;
@@ -145,6 +146,7 @@ pub enum Scenario {
     Completions(CompletionsScenario),
     Diagnostics(DiagnosticsScenario),
     SemanticTokens(SemanticTokensScenario),
+    RustCodegen(RustCodegenScenario),
 }
 
 impl Scenario {
@@ -171,6 +173,7 @@ impl Scenario {
             Scenario::Completions(_) => "completions".to_string(),
             Scenario::Diagnostics(_) => "diagnostics".to_string(),
             Scenario::SemanticTokens(_) => "semantic_tokens".to_string(),
+            Scenario::RustCodegen(_) => "rust_codegen".to_string(),
         }
     }
 
@@ -195,6 +198,7 @@ impl Scenario {
             Scenario::Completions(s) => s.run(db),
             Scenario::Diagnostics(s) => s.run(db),
             Scenario::SemanticTokens(s) => s.run(db),
+            Scenario::RustCodegen(s) => s.run(db),
         }
     }
 }
@@ -666,6 +670,14 @@ impl Case {
                     semantic_tokens: self.data.semantic_tokens.clone(),
                 }));
             }
+        }
+
+        // Rust codegen scenario: fires when both schema and rust are present
+        if let (Some(schema), Some(rust)) = (&self.data.schema, &self.data.rust) {
+            scenarios.push(Scenario::RustCodegen(RustCodegenScenario {
+                schema: Self::resolve_path(schema, &self.schema_file_path()),
+                expected_rust: rust.as_str().to_string(),
+            }));
         }
 
         scenarios

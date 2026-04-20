@@ -141,6 +141,10 @@ $types {
     $variant = "union"
     $optional = true
     variants = { some => `text`, none => `null` }
+    @ rust
+    $variant = "union"
+    $optional = true
+    variants = { some => `text`, none => `null` }
   }
   case-file {
     $flatten = [`$types.case-data`]

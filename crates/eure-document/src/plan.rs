@@ -82,9 +82,8 @@ pub struct PlanBuilder {
 /// Reason an [`ArrayForm`] assignment is incompatible with the array content.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ArrayFormReason {
-    /// `PerElement(<block/section form>)` but some element is not a Map or
-    /// PartialMap.
-    ElementNotMap,
+    /// Some element is incompatible with the requested per-element [`Form`].
+    ElementIncompatibleForm { element: NodeId, kind: ValueKind },
     /// `PerElement(Flatten)` — flattening anonymous array elements into the
     /// parent path is always rejected (it would collapse distinct elements
     /// onto the same path).
@@ -129,6 +128,11 @@ pub enum PlanError {
     #[error("ordered children for parent {parent:?} contain duplicate {child:?}")]
     OrderDuplicateChild { parent: NodeId, child: NodeId },
 
+    #[error(
+        "ordered child {child:?} of parent {parent:?} is an extension; extension order is fixed"
+    )]
+    OrderExtensionChild { parent: NodeId, child: NodeId },
+
     #[error("set_form called on array node {0:?}; use set_array_form")]
     FormOnArrayNode(NodeId),
 
@@ -160,9 +164,7 @@ pub(crate) fn check_form_compat(id: NodeId, form: Form, kind: ValueKind) -> Resu
             // `path { = value ... }` / `@ path { = value ... }`.
             matches!(
                 kind,
-                ValueKind::Map
-                    | ValueKind::PartialMap
-                    | ValueKind::Hole
+                ValueKind::Hole
                     | ValueKind::Null
                     | ValueKind::Bool
                     | ValueKind::Integer
@@ -184,17 +186,6 @@ pub(crate) fn check_form_compat(id: NodeId, form: Form, kind: ValueKind) -> Resu
     }
 }
 
-fn array_element_kinds(doc: &EureDocument, array_id: NodeId) -> Option<Vec<ValueKind>> {
-    match &doc.node(array_id).content {
-        NodeValue::Array(arr) => Some(
-            arr.iter()
-                .map(|&el| doc.node(el).content.value_kind())
-                .collect(),
-        ),
-        _ => None,
-    }
-}
-
 /// Validate an [`ArrayForm`] assignment on an array node.
 pub(crate) fn check_array_form_compat(
     doc: &EureDocument,
@@ -211,27 +202,22 @@ pub(crate) fn check_array_form_compat(
             })
         }
         ArrayForm::PerElement(element) | ArrayForm::PerElementIndexed(element) => {
-            let Some(kinds) = array_element_kinds(doc, id) else {
-                return Err(PlanError::ArrayFormOnNonArray(id));
+            let element_ids = match &doc.node(id).content {
+                NodeValue::Array(arr) => arr.iter().copied().collect::<Vec<_>>(),
+                _ => return Err(PlanError::ArrayFormOnNonArray(id)),
             };
-            let requires_map = matches!(
-                element,
-                Form::BindingBlock
-                    | Form::BindingValueBlock
-                    | Form::Section
-                    | Form::SectionBlock
-                    | Form::SectionValueBlock
-            );
-            if requires_map
-                && !kinds
-                    .iter()
-                    .all(|k| matches!(k, ValueKind::Map | ValueKind::PartialMap))
-            {
-                return Err(PlanError::IncompatibleArrayForm {
-                    node: id,
-                    form,
-                    reason: ArrayFormReason::ElementNotMap,
-                });
+            for element_id in element_ids {
+                let kind = doc.node(element_id).content.value_kind();
+                if check_form_compat(element_id, element, kind).is_err() {
+                    return Err(PlanError::IncompatibleArrayForm {
+                        node: id,
+                        form,
+                        reason: ArrayFormReason::ElementIncompatibleForm {
+                            element: element_id,
+                            kind,
+                        },
+                    });
+                }
             }
             Ok(())
         }
@@ -326,12 +312,17 @@ impl PlanBuilder {
             return Err(PlanError::OrderOnArrayNode(parent));
         }
         let direct = traverse::children_of(&self.doc, parent);
-        let direct_ids: Vec<NodeId> = direct.iter().map(|(_, id)| *id).collect();
 
         let mut seen = Vec::with_capacity(children.len());
         for child in &children {
-            if !direct_ids.contains(child) {
+            let Some((segment, _)) = direct.iter().find(|(_, id)| id == child) else {
                 return Err(PlanError::OrderChildNotDirect {
+                    parent,
+                    child: *child,
+                });
+            };
+            if matches!(segment, PathSegment::Extension(_)) {
+                return Err(PlanError::OrderExtensionChild {
                     parent,
                     child: *child,
                 });
@@ -733,6 +724,7 @@ impl LayoutPlan {
 mod tests {
     use super::*;
     use crate::document::constructor::DocumentConstructor;
+    use crate::path::ArrayIndexKind;
     use crate::value::{ObjectKey, PrimitiveValue};
     use alloc::vec;
 
@@ -757,7 +749,8 @@ mod tests {
 
         for name in ["a", "b"] {
             let elem_scope = c.begin_scope();
-            c.navigate(PathSegment::ArrayIndex(None)).unwrap();
+            c.navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))
+                .unwrap();
             c.bind_empty_map().unwrap();
             let inner = c.begin_scope();
             c.navigate(PathSegment::Value(ObjectKey::String("name".into())))
@@ -767,6 +760,111 @@ mod tests {
             c.end_scope(elem_scope).unwrap();
         }
         c.end_scope(outer).unwrap();
+        c.finish()
+    }
+
+    fn nested_map_doc() -> EureDocument {
+        let mut c = DocumentConstructor::new();
+        c.bind_empty_map().unwrap();
+
+        let outer = c.begin_scope();
+        c.navigate(PathSegment::Value(ObjectKey::String("outer".into())))
+            .unwrap();
+        c.bind_empty_map().unwrap();
+
+        let inner_scope = c.begin_scope();
+        c.navigate(PathSegment::Value(ObjectKey::String("inner".into())))
+            .unwrap();
+        c.bind_empty_map().unwrap();
+
+        let leaf_scope = c.begin_scope();
+        c.navigate(PathSegment::Value(ObjectKey::String("name".into())))
+            .unwrap();
+        c.bind_primitive(PrimitiveValue::from("Ada")).unwrap();
+        c.end_scope(leaf_scope).unwrap();
+
+        c.end_scope(inner_scope).unwrap();
+        c.end_scope(outer).unwrap();
+        c.finish()
+    }
+
+    fn scalar_array_doc() -> EureDocument {
+        let mut c = DocumentConstructor::new();
+        c.bind_empty_map().unwrap();
+        let outer = c.begin_scope();
+        c.navigate(PathSegment::Value(ObjectKey::String("items".into())))
+            .unwrap();
+        c.bind_empty_array().unwrap();
+
+        for value in [1_i64, 2] {
+            let elem_scope = c.begin_scope();
+            c.navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))
+                .unwrap();
+            c.bind_primitive(PrimitiveValue::Integer(value.into()))
+                .unwrap();
+            c.end_scope(elem_scope).unwrap();
+        }
+
+        c.end_scope(outer).unwrap();
+        c.finish()
+    }
+
+    fn array_of_partial_maps_doc() -> EureDocument {
+        let mut c = DocumentConstructor::new();
+        c.bind_empty_map().unwrap();
+        let outer = c.begin_scope();
+        c.navigate(PathSegment::Value(ObjectKey::String("items".into())))
+            .unwrap();
+        c.bind_empty_array().unwrap();
+
+        let elem_scope = c.begin_scope();
+        c.navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))
+            .unwrap();
+        c.bind_empty_partial_map().unwrap();
+        let map_scope = c.begin_scope();
+        c.navigate(PathSegment::HoleKey(Some("x".parse().unwrap())))
+            .unwrap();
+        c.bind_primitive(PrimitiveValue::Integer(1.into())).unwrap();
+        c.end_scope(map_scope).unwrap();
+        c.end_scope(elem_scope).unwrap();
+
+        c.end_scope(outer).unwrap();
+        c.finish()
+    }
+
+    fn scalar_with_extension_doc() -> EureDocument {
+        let mut c = DocumentConstructor::new();
+        c.bind_empty_map().unwrap();
+
+        let outer = c.begin_scope();
+        c.navigate(PathSegment::Value(ObjectKey::String("name".into())))
+            .unwrap();
+        c.bind_primitive(PrimitiveValue::from("Alice")).unwrap();
+
+        let ext_scope = c.begin_scope();
+        c.navigate(PathSegment::Extension("meta".parse().unwrap()))
+            .unwrap();
+        c.bind_empty_map().unwrap();
+        let meta_scope = c.begin_scope();
+        c.navigate(PathSegment::Value(ObjectKey::String("alpha".into())))
+            .unwrap();
+        c.bind_primitive(PrimitiveValue::Integer(1.into())).unwrap();
+        c.end_scope(meta_scope).unwrap();
+        c.end_scope(ext_scope).unwrap();
+
+        c.end_scope(outer).unwrap();
+        c.finish()
+    }
+
+    fn root_extension_doc() -> EureDocument {
+        let mut c = DocumentConstructor::new();
+        c.bind_empty_map().unwrap();
+        c.set_extension("meta", true).unwrap();
+        let scope = c.begin_scope();
+        c.navigate(PathSegment::Value(ObjectKey::String("name".into())))
+            .unwrap();
+        c.bind_primitive(PrimitiveValue::from("Alice")).unwrap();
+        c.end_scope(scope).unwrap();
         c.finish()
     }
 
@@ -796,7 +894,7 @@ mod tests {
             let last = section.path.last().unwrap();
             assert_eq!(
                 last.array,
-                Some(None),
+                Some(ArrayIndexKind::Push),
                 "expected push marker `[]` on array section"
             );
         }
@@ -813,7 +911,7 @@ mod tests {
         assert_eq!(root.bindings.len(), 2);
         for b in &root.bindings {
             assert!(matches!(b.bind, crate::source::BindSource::Block(_)));
-            assert_eq!(b.path.last().unwrap().array, Some(None));
+            assert_eq!(b.path.last().unwrap().array, Some(ArrayIndexKind::Push));
         }
     }
 
@@ -853,6 +951,97 @@ mod tests {
     }
 
     #[test]
+    fn sectioned_nested_maps_rejected_in_items_context() {
+        let err = LayoutPlan::sectioned(nested_map_doc()).unwrap_err();
+        assert!(matches!(err, PlanError::SectionInForbiddenContext(_)));
+    }
+
+    #[test]
+    fn value_block_forms_rejected_for_maps() {
+        let doc = nested_map_doc();
+        let mut b = LayoutPlan::builder(doc);
+        let outer_id = b
+            .node_at(&[PathSegment::Value(ObjectKey::String("outer".into()))])
+            .unwrap();
+
+        let err = b.set_form(outer_id, Form::BindingValueBlock).unwrap_err();
+        assert!(matches!(err, PlanError::IncompatibleForm { .. }));
+
+        let err = b.set_form(outer_id, Form::SectionValueBlock).unwrap_err();
+        assert!(matches!(err, PlanError::IncompatibleForm { .. }));
+    }
+
+    #[test]
+    fn scalar_arrays_support_section_value_block_elements() {
+        let doc = scalar_array_doc();
+        let mut b = LayoutPlan::builder(doc);
+        let items_id = b
+            .node_at(&[PathSegment::Value(ObjectKey::String("items".into()))])
+            .unwrap();
+        b.set_array_form(items_id, ArrayForm::PerElement(Form::SectionValueBlock))
+            .unwrap();
+
+        let src = b.build().unwrap().emit();
+        let root = src.root_source();
+        assert_eq!(root.sections.len(), 2);
+        for section in &root.sections {
+            match &section.body {
+                crate::source::SectionBody::Items { value, bindings } => {
+                    assert!(value.is_some());
+                    assert!(bindings.is_empty());
+                }
+                other => panic!("expected items body, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn per_element_inline_rejected_for_partial_map_elements() {
+        let doc = array_of_partial_maps_doc();
+        let mut b = LayoutPlan::builder(doc);
+        let items_id = b
+            .node_at(&[PathSegment::Value(ObjectKey::String("items".into()))])
+            .unwrap();
+        let err = b
+            .set_array_form(items_id, ArrayForm::PerElement(Form::Inline))
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            PlanError::IncompatibleArrayForm {
+                reason: ArrayFormReason::ElementIncompatibleForm {
+                    kind: ValueKind::PartialMap,
+                    ..
+                },
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn inline_extensions_inherit_section_context() {
+        let doc = scalar_with_extension_doc();
+        let mut b = LayoutPlan::builder(doc);
+        b.set_form_at(
+            &[PathSegment::Value(ObjectKey::String("name".into()))],
+            Form::Inline,
+        )
+        .unwrap();
+        b.set_form_at(
+            &[
+                PathSegment::Value(ObjectKey::String("name".into())),
+                PathSegment::Extension("meta".parse().unwrap()),
+            ],
+            Form::Section,
+        )
+        .unwrap();
+
+        let src = b.build().unwrap().emit();
+        let root = src.root_source();
+        assert_eq!(root.bindings.len(), 1);
+        assert_eq!(root.sections.len(), 1);
+    }
+
+    #[test]
     fn per_element_section_block_roundtrips_path_with_push_marker() {
         let doc = array_of_maps_doc();
         let mut b = LayoutPlan::builder(doc);
@@ -867,7 +1056,10 @@ mod tests {
         assert_eq!(root.sections.len(), 2);
         for section in &root.sections {
             assert!(matches!(section.body, crate::source::SectionBody::Block(_)));
-            assert_eq!(section.path.last().unwrap().array, Some(None));
+            assert_eq!(
+                section.path.last().unwrap().array,
+                Some(ArrayIndexKind::Push)
+            );
         }
     }
 
@@ -890,6 +1082,16 @@ mod tests {
             .unwrap();
         let err = b.order(items_id, vec![]).unwrap_err();
         assert!(matches!(err, PlanError::OrderOnArrayNode(_)));
+    }
+
+    #[test]
+    fn ordering_extensions_is_rejected() {
+        let doc = root_extension_doc();
+        let mut b = LayoutPlan::builder(doc);
+        let err = b
+            .order_at(&[], vec![PathSegment::Extension("meta".parse().unwrap())])
+            .unwrap_err();
+        assert!(matches!(err, PlanError::OrderExtensionChild { .. }));
     }
 
     #[test]

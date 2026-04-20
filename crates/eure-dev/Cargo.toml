@@ -16,6 +16,7 @@ eure = { workspace = true }
 eure-fmt = { workspace = true }
 eure-json = { workspace = true }
 eure-parol = { workspace = true }
+eure-codegen = { workspace = true }
 eure-schema = { workspace = true }
 query-flow = { workspace = true }
 serde_json = { workspace = true, features = ["preserve_order"] }

@@ -69,7 +69,7 @@ pub(crate) mod prelude_internal {
     pub use crate::eure;
     pub use crate::identifier::Identifier;
     pub use crate::map::Map;
-    pub use crate::path::{EurePath, PathSegment};
+    pub use crate::path::{ArrayIndexKind, EurePath, PathSegment};
     pub use crate::text::{Language, SyntaxHint, Text, TextParseError};
     pub use crate::value::{ObjectKey, PrimitiveValue};
     pub use alloc::boxed::Box;

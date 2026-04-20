@@ -6,7 +6,7 @@ use alloc::string::ToString;
 
 use crate::document::node::NodeValue;
 use crate::document::{EureDocument, NodeId};
-use crate::path::PathSegment;
+use crate::path::{ArrayIndexKind, PathSegment};
 use crate::value::{ObjectKey, PartialObjectKey};
 
 /// Return every [`NodeId`] reachable from the document root, in a stable
@@ -83,7 +83,7 @@ pub fn children_of(doc: &EureDocument, parent: NodeId) -> Vec<(PathSegment, Node
         }
         NodeValue::Array(arr) => {
             for (i, &child) in arr.iter().enumerate() {
-                out.push((PathSegment::ArrayIndex(Some(i)), child));
+                out.push((PathSegment::ArrayIndex(ArrayIndexKind::Specific(i)), child));
             }
         }
         NodeValue::Tuple(tup) => {
@@ -130,7 +130,10 @@ pub fn child_node_id(
             _ => None,
         },
         PathSegment::ArrayIndex(index) => match &parent.content {
-            NodeValue::Array(array) => index.and_then(|i| array.get(i)),
+            NodeValue::Array(array) => match index {
+                ArrayIndexKind::Specific(i) => array.get(*i),
+                ArrayIndexKind::Push | ArrayIndexKind::Current => None,
+            },
             _ => None,
         },
         PathSegment::TupleIndex(index) => match &parent.content {

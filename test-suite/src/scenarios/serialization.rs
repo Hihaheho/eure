@@ -30,7 +30,7 @@ impl Scenario for SerializationScenario {
             &trace.node_type_traces,
             &schema_doc.layout,
         )
-        .map_err(|e| ScenarioError::LayoutPlan(e.to_string()))?;
+        .map_err(ScenarioError::LayoutPlan)?;
         let source = plan.emit();
         let actual = format_source_document(&source);
 

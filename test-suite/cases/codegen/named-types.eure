@@ -1,0 +1,45 @@
+// Named types in $types → named Rust structs
+// Root with a named type as field type
+
+schema = ```eure
+$types.address = {
+  street => `text`
+  city => `text`
+}
+
+name = `text`
+home = `$types.address`
+```
+
+scenarios_expected = ["rust_codegen"]
+
+rust = ```rust
+pub struct Root {
+    pub name: String,
+    pub home: Address,
+}
+
+#[eure(type_name = "address")]
+pub struct Address {
+    pub street: String,
+    pub city: String,
+}
+```
+
+@ cases.union-with-null-variants
+schema = ```eure
+$variant: union
+variants.active = `text`
+variants.inactive = `null`
+```
+
+scenarios_expected = ["rust_codegen"]
+
+rust = ```rust
+pub enum Root {
+    #[eure(rename = "active")]
+    Active(String),
+    #[eure(rename = "inactive")]
+    Inactive,
+}
+```

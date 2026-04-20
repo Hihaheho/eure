@@ -11,7 +11,7 @@ use alloc::vec::Vec;
 use crate::document::node::NodeValue;
 use crate::document::{EureDocument, NodeId};
 use crate::identifier::Identifier;
-use crate::path::PathSegment;
+use crate::path::{ArrayIndexKind, PathSegment};
 use crate::plan::{ArrayForm, Form, LayoutPlan, PlanError};
 use crate::source::{
     BindSource, BindingSource, EureSource, SectionBody, SectionSource, SourceDocument, SourceId,
@@ -300,7 +300,14 @@ fn emit_non_array_child(
             }
             // Inline binds the value; extensions are not lost — they descend
             // as bindings prefixed by the inline path.
-            emit_extensions_only(ctx, child_id, child_node_path, child_print_path, dest);
+            emit_extensions_only(
+                ctx,
+                child_id,
+                child_node_path,
+                child_print_path,
+                allow_sections,
+                dest,
+            );
         }
         Form::BindingBlock => {
             ctx.record_emission(child_id);
@@ -403,7 +410,14 @@ fn emit_array_child(
             }
             // Emit extensions (e.g. `$optional`, `$variant`) as path-prefixed
             // bindings, mirroring how Form::Inline handles them.
-            emit_extensions_only(ctx, child_id, child_node_path, child_print_path, dest);
+            emit_extensions_only(
+                ctx,
+                child_id,
+                child_node_path,
+                child_print_path,
+                allow_sections,
+                dest,
+            );
         }
         ArrayForm::PerElement(element_form) | ArrayForm::PerElementIndexed(element_form) => {
             ctx.record_emission(child_id);
@@ -415,12 +429,12 @@ fn emit_array_child(
             for (i, el_id) in ids.into_iter().enumerate() {
                 let mut element_print_path = child_print_path.to_vec();
                 element_print_path.push(PathSegment::ArrayIndex(if indexed {
-                    Some(i)
+                    ArrayIndexKind::Specific(i)
                 } else {
-                    None
+                    ArrayIndexKind::Push
                 }));
                 let mut element_node_path = child_node_path.to_vec();
-                element_node_path.push(PathSegment::ArrayIndex(Some(i)));
+                element_node_path.push(PathSegment::ArrayIndex(ArrayIndexKind::Specific(i)));
                 emit_non_array_child(
                     ctx,
                     el_id,
@@ -440,6 +454,7 @@ fn emit_extensions_only(
     node_id: NodeId,
     child_node_path: &[PathSegment],
     child_print_path: &[PathSegment],
+    allow_sections: bool,
     dest: &mut EureSource,
 ) {
     let node = ctx.doc.node(node_id);
@@ -460,7 +475,7 @@ fn emit_extensions_only(
             ext_print_path.last().unwrap(),
             &ext_node_path,
             &ext_print_path,
-            false,
+            allow_sections,
             dest,
         );
     }
@@ -503,27 +518,9 @@ fn build_items(
         value: if with_value { Some(node_id) } else { None },
         ..Default::default()
     };
-    emit_children(ctx, node_id, node_path, &[], node_is_map, true, &mut inner);
-    // Nested sections emitted into `inner.sections` must be hoisted into the
-    // caller's sections to preserve section-at-top-of-block semantics. We
-    // return only bindings and value from the Items body.
+    emit_children(ctx, node_id, node_path, &[], node_is_map, false, &mut inner);
     let value = inner.value;
     let bindings = inner.bindings;
-    // Any sections hoist: we just move them into the outer EureSource by
-    // appending to `sources` via the `dest` we came from. Since we built
-    // them inside `inner`, we need to re-append. For simplicity here, nested
-    // sections produced at this layer are flattened by setting the caller's
-    // context `allow_sections=true` and recursing via emit_children which
-    // writes directly to `dest` when present. In this build_items helper we
-    // specifically don't carry sections: any section is already written into
-    // the parent scope because emit_children does not write sections into a
-    // different buffer.
-    //
-    // However, since we pass `&mut inner` above, sections are actually
-    // written into `inner.sections`. Those sections belong to the same
-    // outer scope. Push them back into the caller via an out-parameter is
-    // not available here, so callers using build_items must not produce
-    // sections — enforced by validation (section context rule).
     debug_assert!(inner.sections.is_empty());
     (value, bindings)
 }

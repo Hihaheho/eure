@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use eure::query::TextFile;
+use eure_document::plan::PlanError;
 use query_flow::{Db, QueryError};
 
 pub mod completions;
@@ -14,6 +15,7 @@ pub mod formatting;
 pub mod json_to_eure;
 pub mod meta_schema;
 pub mod normalization;
+pub mod rust_codegen;
 pub mod schema_conversion_error;
 pub mod schema_error_validation;
 pub mod schema_validation;
@@ -135,7 +137,7 @@ pub enum ScenarioError {
         message: String,
     },
     /// Layout plan construction error
-    LayoutPlan(String),
+    LayoutPlan(PlanError),
     /// TOML parse error
     TomlParseError {
         message: String,
@@ -181,6 +183,15 @@ pub enum ScenarioError {
     SemanticTokensMismatch {
         expected: Vec<String>,
         actual: Vec<String>,
+    },
+    /// Rust codegen output mismatch (expected vs actual)
+    RustCodegenMismatch {
+        expected: String,
+        actual: String,
+    },
+    /// Rust codegen emission error
+    RustCodegenError {
+        message: String,
     },
     /// Query error
     QueryError(QueryError),
@@ -354,8 +365,8 @@ impl std::fmt::Display for ScenarioError {
             ScenarioError::SerializationError { message } => {
                 write!(f, "Serialization error: {}", message)
             }
-            ScenarioError::LayoutPlan(message) => {
-                write!(f, "Layout plan error: {}", message)
+            ScenarioError::LayoutPlan(error) => {
+                write!(f, "Layout plan error: {}", error)
             }
             ScenarioError::TomlParseError { message } => {
                 write!(f, "TOML parse error: {}", message)
@@ -485,6 +496,24 @@ impl std::fmt::Display for ScenarioError {
                 }
                 Ok(())
             }
+            ScenarioError::RustCodegenMismatch { expected, actual } => {
+                use similar::{ChangeTag, TextDiff};
+                writeln!(f, "Rust codegen output mismatch.")?;
+                let diff = TextDiff::from_lines(expected, actual);
+                writeln!(f, "Diff (expected → actual):")?;
+                for change in diff.iter_all_changes() {
+                    let sign = match change.tag() {
+                        ChangeTag::Delete => "-",
+                        ChangeTag::Insert => "+",
+                        ChangeTag::Equal => " ",
+                    };
+                    write!(f, "{}{}", sign, change)?;
+                }
+                Ok(())
+            }
+            ScenarioError::RustCodegenError { message } => {
+                write!(f, "Rust codegen error: {}", message)
+            }
             ScenarioError::QueryError(error) => {
                 write!(f, "Query error: {}", error)
             }
@@ -495,7 +524,14 @@ impl std::fmt::Display for ScenarioError {
     }
 }
 
-impl std::error::Error for ScenarioError {}
+impl std::error::Error for ScenarioError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ScenarioError::LayoutPlan(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 /// Format helper for displaying expected error not found with actual errors list
 fn format_expected_error_not_found(

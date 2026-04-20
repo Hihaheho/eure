@@ -312,7 +312,8 @@ impl<'a> SemanticTokenVisitor<'a> {
             | TerminalKind::MapBind
             | TerminalKind::Dot
             | TerminalKind::Comma
-            | TerminalKind::Esc => Some(SemanticTokenType::Operator),
+            | TerminalKind::Esc
+            | TerminalKind::Circumflex => Some(SemanticTokenType::Operator),
 
             // Punctuation
             TerminalKind::LBrace

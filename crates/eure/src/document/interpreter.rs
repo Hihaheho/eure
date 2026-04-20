@@ -2,7 +2,7 @@ use eure_document::value::Tuple;
 use eure_document::{
     document::{EureDocument, constructor::DocumentConstructor},
     identifier::Identifier,
-    path::PathSegment,
+    path::{ArrayIndexKind, PathSegment},
     text::{Language, SyntaxHint, Text, TextParseError},
     value::{ObjectKey, PartialObjectKey, PrimitiveValue},
 };
@@ -630,7 +630,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 let scope = self.document.begin_scope();
                 let node_id = self
                     .document
-                    .navigate(PathSegment::ArrayIndex(Some(index)))
+                    .navigate(PathSegment::ArrayIndex(ArrayIndexKind::Specific(index)))
                     .map_err(|e| DocumentConstructionError::DocumentInsert {
                         error: e,
                         node_id: handle.node_id(),
@@ -878,18 +878,23 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         view: ArrayMarkerView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        let index = if let Some(int_handle) = view.array_marker_opt.get_view(tree)? {
-            let int_view = int_handle.get_view(tree)?;
-            let str = self.get_terminal_str(tree, int_view.integer)?;
-            let index: usize = str
-                .parse()
-                .map_err(|_| DocumentConstructionError::InvalidInteger(str.to_string()))?;
-            Some(index)
+        let kind = if let Some(group_handle) = view.array_marker_opt.get_view(tree)? {
+            match group_handle.get_view(tree)? {
+                ArrayMarkerOptGroupView::Integer(int_handle) => {
+                    let int_view = int_handle.get_view(tree)?;
+                    let str = self.get_terminal_str(tree, int_view.integer)?;
+                    let index: usize = str
+                        .parse()
+                        .map_err(|_| DocumentConstructionError::InvalidInteger(str.to_string()))?;
+                    ArrayIndexKind::Specific(index)
+                }
+                ArrayMarkerOptGroupView::Caret(_) => ArrayIndexKind::Current,
+            }
         } else {
-            None
+            ArrayIndexKind::Push
         };
         self.document
-            .navigate(PathSegment::ArrayIndex(index))
+            .navigate(PathSegment::ArrayIndex(kind))
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
