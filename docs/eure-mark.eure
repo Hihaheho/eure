@@ -1,0 +1,641 @@
+$frontmatter {
+  title: eure-mark
+  description: eure-mark is a generic renderer for articles authored in Eure. This guide covers the article file format, content types, the Rust rendering API, and integration patterns.
+  tags = ["tooling", "rendering", "docs"]
+}
+
+"#": eure-mark
+
+"body" = ```markdown
+`eure-mark` is a generic renderer for articles and pages authored in Eure. It provides a standard article schema, an HTML rendering pipeline, and syntax highlighting — without imposing any product-specific site policy.
+```
+
+"toc".$toc = true
+
+@ "overview" {
+  "##": Overview
+
+  "body" = ```markdown
+`eure-mark` provides:
+
+- A standard `article.schema.eure` schema for structuring documents
+- Parsing for `$frontmatter` + nested-heading article documents
+- HTML rendering for markdown bodies, code blocks, table of contents, alerts, and trusted HTML blocks
+- Generic syntax highlighting via `giallo` (Catppuccin Mocha theme)
+- Optional Eure-specific semantic highlighting via the `eure-highlight` feature flag
+```
+
+  @ "license" {
+    "###": License
+
+    "body" = ```markdown
+Unlike the rest of the Eure workspace, `eure-mark` is licensed under **MPL-2.0**.
+
+This is intentional: `eure-mark` depends on `giallo`, a copyleft-licensed syntax highlighter. Any project embedding `eure-mark` must comply with MPL-2.0 for the portions covered by this crate.
+```
+
+  }
+
+  @ "use-cases" {
+    "###": Use Cases
+
+    "body" = ```markdown
+`eure-mark` is designed as a building block for:
+
+- **Documentation sites** — render `docs/` directories to HTML (as used by `eure-doc-builder`)
+- **Blogs** — author posts in Eure, render to static HTML
+- **Static site generators** — integrate as a content rendering stage
+
+It does not handle navigation, routing, or site assembly — those concerns belong to the consuming crate (e.g. `eure-doc-builder`).
+```
+
+  }
+
+}
+
+@ "article-format" {
+  "##": Article File Format
+
+  "body" = ```markdown
+An article file is a `.eure` document that conforms to `assets/schemas/article.schema.eure`. The schema enforces a specific top-level structure: a frontmatter block, a top-level heading, and named sections.
+```
+
+  @ "frontmatter" {
+    "###": Frontmatter
+
+    "body" = ```markdown
+Every article must begin with a `$frontmatter` extension block containing metadata:
+```
+
+    "eure-snippet" = ```eure
+$frontmatter {
+  title: My Article Title
+  description: A one-paragraph summary of this article.
+  tags = ["tooling", "guide"]
+}
+```
+
+    "body-2" = ```markdown
+Fields:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `title` | text | yes | Page title, used in `<title>` and `<h1>` |
+| `description` | text | yes | Summary text, used in meta tags |
+| `tags` | `[text]` | no | Classification tags |
+| `date` | text | no | Publication date (free-form text) |
+| `draft` | `true` | no | When set to `true`, marks the page as a draft |
+
+Setting `draft = true` adds a draft flag to `PageMetadata`; downstream consumers decide whether to publish draft pages.
+```
+
+  }
+
+  @ "heading" {
+    "###": Top-Level Heading
+
+    "body" = ```markdown
+The article's main heading is set with the `"#"` key:
+```
+
+    "eure-snippet" = ```eure
+"#": My Article Title
+```
+
+    "body-2" = ```markdown
+This heading is rendered as the first `<h1>` in the HTML output and is also returned as `RenderedPage::title`.
+```
+
+  }
+
+  @ "sections" {
+    "###": Sections
+
+    "body" = ```markdown
+The rest of an article is composed of named sections. Each section is a key–value pair inside a `@ "key" { ... }` block:
+```
+
+    "eure-snippet" = ````eure
+@ "introduction" {
+  "##": Introduction
+
+  "body" = ```markdown
+  Section body content goes here.
+  ```
+}
+
+@ "next-steps" {
+  "##": Next Steps
+
+  "body" = ```markdown
+  Here are the next steps.
+  ```
+}
+````
+
+    "body-2" = ```markdown
+Section keys are arbitrary strings. The `"##"` key inside each section is the heading rendered as `<h2>`. The section key is used to derive the HTML `id` attribute for linking; duplicate section IDs across the document are an error.
+
+Sections are order-preserving: the rendered output reflects declaration order in the source file.
+```
+
+  }
+
+  @ "minimal-example" {
+    "###": Minimal Complete Example
+
+    "body" = ```markdown
+Putting it all together, the minimal valid article looks like:
+```
+
+    "eure-snippet" = ````eure
+$schema = "../../assets/schemas/article.schema.eure"
+
+$frontmatter {
+  title: Hello World
+  description: A minimal eure-mark article.
+}
+
+"#": Hello World
+
+@ "body" {
+  "##": Body
+
+  "content" = ```markdown
+  Hello from Eure!
+  ```
+}
+````
+
+  }
+
+}
+
+@ "content-types" {
+  "##": Content Types
+
+  "body" = ```markdown
+Within a section, you can place any number of named content entries. The key name is arbitrary (e.g. `"body"`, `"body-2"`, `"example"`). Each entry is resolved as one of the following content types.
+```
+
+  @ "markdown-body" {
+    "###": Markdown Body
+
+    "body" = ```markdown
+The most common content type is a fenced markdown block. It is rendered to HTML via the `markdown` crate:
+```
+
+    "eure-snippet" = ````eure
+"body" = ```markdown
+This is **bold** and this is `code`.
+
+- Item one
+- Item two
+```
+````
+
+    "body-2" = ```markdown
+Multiple markdown entries within a section are allowed; name them `"body"`, `"body-2"`, `"body-3"`, etc. They are rendered in declaration order.
+```
+
+  }
+
+  @ "code-snippets" {
+    "###": Code Snippets
+
+    "body" = ```markdown
+Any fenced code block with a recognised language tag is syntax-highlighted:
+```
+
+    "eure-snippet" = ````eure
+"rust-example" = ```rust
+fn main() {
+    println!("Hello, world!");
+}
+```
+
+"eure-snippet" = ```eure
+key = "value"
+count = 42
+```
+
+"json-example" = ```json
+{ "name": "Alice", "active": true }
+```
+````
+
+    "body-2" = ```markdown
+Supported language tags include: `rust`, `python`, `javascript`, `typescript`, `go`, `java`, `c`, `cpp`, `sql`, `yaml`, `toml`, `json`, `html`, `css`, `bash`, `dockerfile`, `markdown`, `eure`, and more.
+
+The `eure` language tag gains full semantic highlighting when the `eure-highlight` feature is enabled (see [eure-highlight feature](#eure-highlight-feature)).
+
+Code blocks with an unrecognised language tag are rendered as plain `<pre><code>` blocks.
+```
+
+  }
+
+  @ "alerts" {
+    "###": Alerts
+
+    "body" = ```markdown
+A section entry can carry an alert style via the `$mark` extension. This wraps the rendered content in a styled alert box:
+```
+
+    "eure-snippet" = ````eure
+"note".$mark.alert = "NOTE"
+"note" = ```markdown
+This is a note. Use it for general information.
+```
+
+"tip".$mark.alert = "TIP"
+"tip" = ```markdown
+This is a tip. Use it for helpful suggestions.
+```
+
+"warning".$mark.alert = "WARNING"
+"warning" = ```markdown
+This is a warning. Use it for potential pitfalls.
+```
+````
+
+    "body-2" = ```markdown
+Available alert kinds: `NOTE`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`.
+
+The rendered HTML uses classes `emark-alert` and `emark-alert-{kind}` (lowercase), allowing custom CSS theming. The default CSS is included in `PageRenderer::css()`.
+```
+
+  }
+
+  @ "toc" {
+    "###": Table of Contents
+
+    "body" = ```markdown
+To insert a table of contents at a specific position, place a TOC marker entry:
+```
+
+    "eure-snippet" = ```eure
+"toc".$toc = true
+```
+
+    "body-2" = ```markdown
+The TOC is generated from heading levels `##` (h2) and `###` (h3). Headings at levels `####` and deeper are **excluded** from the TOC. The TOC is rendered as a `<details>` element that is open by default.
+
+The TOC marker can appear anywhere among the top-level entries. It is replaced in-place with the generated TOC HTML.
+```
+
+  }
+
+  @ "trusted-html" {
+    "###": Trusted HTML
+
+    "body" = ```markdown
+In rare cases where raw HTML must be injected, use `dangerously-inner-html`:
+```
+
+    "eure-snippet" = ````eure
+"embed".$mark."dangerously-inner-html" = true
+"embed" = ```html
+<iframe src="https://example.com" width="600" height="400"></iframe>
+```
+````
+
+    "body-2" = ```markdown
+**Constraints:**
+
+- The fenced block language **must** be `html`. Using any other language tag with `dangerously-inner-html` is a hard error (`ArticleError::TrustedHtmlMustUseHtmlLanguage`).
+- The HTML is injected verbatim without sanitisation. Only use this for content you fully control.
+```
+
+  }
+
+  @ "list-sections" {
+    "###": List Sections
+
+    "body" = ```markdown
+A section entry can also be a list of content items. Use the `[]` array-append syntax for each element:
+```
+
+    "eure-snippet" = ````eure
+@ "examples" {
+  "##": Examples
+
+  "snippets"[] = ```rust
+  fn first() {}
+  ```
+  "snippets"[] = ```rust
+  fn second() {}
+  ```
+}
+````
+
+    "body-2" = ```markdown
+Each array element follows the same content-type rules as a single entry.
+```
+
+  }
+
+}
+
+@ "nesting" {
+  "##": Section Nesting
+
+  "body" = ```markdown
+Sections support up to **six heading levels** (`##` through `######`). Each level corresponds to an HTML heading tag `<h2>` through `<h6>`.
+
+A nested section is formed by using the next-level heading key inside a `@ "key" { ... }` block:
+```
+
+  "eure-snippet" = ```eure
+@ "level-2" {
+  "##": Level 2
+
+  @ "level-3" {
+    "###": Level 3
+
+    @ "level-4" {
+      "####": Level 4
+
+      @ "level-5" {
+        "#####": Level 5
+
+        @ "level-6" {
+          "######": Level 6
+        }
+      }
+    }
+  }
+}
+```
+
+  "toc-note".$mark.alert = "NOTE"
+  "toc-note" = ```markdown
+Only `##` (h2) and `###` (h3) headings are included in the automatically generated table of contents. Levels `####` through `######` appear in the HTML but are excluded from the TOC.
+```
+
+}
+
+@ "rendering-api" {
+  "##": Rendering API
+
+  "body" = ```markdown
+`eure-mark` exposes three public functions for quick use and a `PageRenderer` struct for repeated rendering with shared state.
+```
+
+  @ "convenience-functions" {
+    "###": Convenience Functions
+
+    "body" = ```markdown
+For one-shot rendering, three standalone functions are available:
+```
+
+    "rust-example" = ```rust
+use eure_mark::{parse_article, parse_article_file, render_article};
+use std::path::Path;
+
+// Parse from a string
+let article = parse_article(source_str)?;
+
+// Parse from a file path
+let article = parse_article_file(Path::new("docs/index.eure"))?;
+
+// Render a parsed Article to HTML
+let page = render_article(&article)?;
+```
+
+    "body-2" = ```markdown
+Each call to `render_article` initialises a new `PageRenderer` internally, including loading syntax highlighting data. For bulk rendering, use `PageRenderer` directly.
+```
+
+  }
+
+  @ "page-renderer" {
+    "###": PageRenderer
+
+    "body" = ```markdown
+`PageRenderer` holds the syntax highlighter and pre-generated CSS. Initialise once and reuse across many articles:
+```
+
+    "rust-example" = ```rust
+use eure_mark::{PageRenderer, parse_article_file};
+use std::path::Path;
+
+let renderer = PageRenderer::new()?;
+
+// The shared CSS string (include once in your page template)
+let css: &str = renderer.css();
+
+// Render multiple articles
+for path in article_paths {
+    let article = parse_article_file(&path)?;
+    let page = renderer.render_article(&article)?;
+
+    // page.html        — the rendered HTML body
+    // page.title       — article title string
+    // page.description — article description string
+    // page.headings    — Vec<PageHeading> for building a TOC UI
+    // page.metadata    — date, tags, draft flag
+    println!("{}", page.html);
+}
+```
+
+  }
+
+  @ "rendered-page" {
+    "###": RenderedPage
+
+    "body" = ```markdown
+`render_article` returns a `RenderedPage` with the following fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `html` | `String` | Full rendered HTML body (not a complete `<html>` document) |
+| `css` | `String` | Same as `renderer.css()` — the syntax highlight CSS |
+| `title` | `String` | Article title from `$frontmatter.title` |
+| `description` | `String` | Article description from `$frontmatter.description` |
+| `headings` | `Vec<PageHeading>` | Flat list of h2/h3 headings with `id`, `title`, `level` |
+| `metadata` | `PageMetadata` | `date`, `tags`, `draft` from frontmatter |
+
+`PageHeading` is useful for building a navigation sidebar separate from the in-page TOC.
+```
+
+  }
+
+  @ "text-fragments" {
+    "###": Rendering Text Fragments
+
+    "body" = ```markdown
+`PageRenderer` also exposes methods for rendering individual text values outside of a full article:
+```
+
+    "rust-example" = ```rust
+use eure_mark::{PageRenderer, MarkOptions};
+
+let renderer = PageRenderer::new()?;
+
+// Render a Text value to an HTML fragment
+let html = renderer.render_text_fragment(&text)?;
+
+// Render with mark options (alert, trusted HTML)
+let html = renderer.render_text_with_mark_fragment(&text, &mark_options)?;
+```
+
+    "body-2" = ```markdown
+These methods are used internally by `render_article`; they are also useful when you need to render a subset of an article's content (e.g. a description field).
+```
+
+  }
+
+  @ "error-handling" {
+    "###": Error Handling
+
+    "body" = ```markdown
+All fallible functions return `Result<_, ArticleError>`. The error variants are:
+
+| Variant | Cause |
+|---|---|
+| `ReadFile` | File could not be read |
+| `ParseEure` | Eure syntax error in the source |
+| `BuildDocument` | CST-to-document conversion failed |
+| `DecodeDocument` | Document does not conform to the article schema |
+| `MarkdownRender` | Markdown-to-HTML rendering failed |
+| `HighlighterInit` | `giallo` syntax highlighter failed to initialise |
+| `SyntaxCss` | CSS generation failed |
+| `TrustedHtmlMustUseHtmlLanguage` | `dangerously-inner-html` used with a non-HTML language tag |
+| `DuplicateSectionId` | Two sections resolve to the same HTML `id` |
+
+`ArticleError` implements `std::error::Error` via `thiserror`. Wrap it with your own error type using `#[from]` or `map_err`.
+```
+
+  }
+
+}
+
+@ "eure-highlight-feature" {
+  "##": eure-highlight Feature
+
+  "body" = ```markdown
+By default, `eure` code blocks are highlighted with generic token rules. Enabling the `eure-highlight` feature activates full semantic highlighting using the Eure language server's token engine.
+```
+
+  "cargo-snippet" = ```toml
+[dependencies]
+eure-mark = { version = "*", features = ["eure-highlight"] }
+```
+
+  "body-2" = ```markdown
+With this feature enabled, `eure` fenced code blocks produce HTML with semantic CSS classes:
+
+| Class prefix | Meaning |
+|---|---|
+| `emark-eure-keyword` | Language keywords |
+| `emark-eure-string` | String literals |
+| `emark-eure-number` | Numeric literals |
+| `emark-eure-comment` | Comments |
+| `emark-eure-property` | Map keys and field names |
+| `emark-eure-extension-marker` | The `$` sigil |
+| `emark-eure-extension-ident` | Extension names |
+| `emark-eure-section-marker` | The `@` sigil |
+| `emark-eure-section-header` | Section header declarations |
+
+The default CSS included in `renderer.css()` covers all these classes with Catppuccin Mocha colours.
+```
+
+}
+
+@ "schema" {
+  "##": Schema
+
+  "body" = ```markdown
+The article schema is embedded in the crate as a compile-time constant and also shipped as a file for use with `eure check`.
+```
+
+  @ "constant" {
+    "###": ARTICLE_SCHEMA Constant
+
+    "rust-example" = ```rust
+use eure_mark::ARTICLE_SCHEMA;
+
+// The full schema source as a &'static str
+println!("{}", ARTICLE_SCHEMA);
+```
+
+    "body" = ```markdown
+The constant is embedded via `include_str!` pointing to `assets/schemas/article.schema.eure` in the workspace root. It is always in sync with the schema file at build time.
+```
+
+  }
+
+  @ "schema-file" {
+    "###": Schema File
+
+    "body" = ```markdown
+The schema file lives at `assets/schemas/article.schema.eure`. Reference it in your `.eure` article to enable validation in the CLI and language server:
+```
+
+    "eure-snippet" = ```eure
+$schema = "../../assets/schemas/article.schema.eure"
+```
+
+    "body-2" = ```markdown
+Adjust the relative path to match your file's location relative to the workspace root. With this declaration, running `eure check myfile.eure` validates both syntax and schema conformance.
+```
+
+  }
+
+}
+
+@ "integration" {
+  "##": Integration
+
+  "body" = ```markdown
+The canonical integration example is `eure-doc-builder`, which renders all guide pages in the `docs/` directory into a static documentation site.
+```
+
+  @ "typical-pattern" {
+    "###": Typical Integration Pattern
+
+    "rust-example" = ```rust
+use eure_mark::{PageRenderer, parse_article_file, ArticleError};
+use std::path::Path;
+
+pub fn render_docs(docs_dir: &Path) -> Result<Vec<RenderedPage>, ArticleError> {
+    // Initialise once — loads highlighter data
+    let renderer = PageRenderer::new()?;
+
+    // The CSS is shared across all pages
+    let css = renderer.css().to_string();
+
+    let mut pages = Vec::new();
+    for entry in std::fs::read_dir(docs_dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().map_or(false, |e| e == "eure") {
+            let article = parse_article_file(&path)?;
+            let mut page = renderer.render_article(&article)?;
+            page.css = css.clone();
+            pages.push(page);
+        }
+    }
+    Ok(pages)
+}
+```
+
+  }
+
+  @ "css-integration" {
+    "###": CSS Integration
+
+    "body" = ```markdown
+`renderer.css()` returns a CSS string that must be included in the page. It defines:
+
+- Catppuccin Mocha colour variables (`--emark-bg`, `--emark-text`, `--emark-blue`, …)
+- Typography and spacing for rendered Markdown
+- Code block styling with line-level layout
+- Alert box styles for NOTE, TIP, IMPORTANT, WARNING, CAUTION
+- Eure semantic token classes (when `eure-highlight` is active)
+
+The recommended approach is to call `renderer.css()` once, write it to a shared `.css` file or `<style>` block, and reference it from every rendered page.
+```
+
+  }
+
+}

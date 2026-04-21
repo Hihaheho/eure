@@ -15,6 +15,7 @@ groups[] {
 groups[] {
   title = "Tooling"
   description: Editor, completion, and document-model details for implementers.
+  pages[] { path = "/docs/eure-mark" label = "eure-mark" }
   pages[] { path = "/docs/euredocument-vs-value" label = "EureDocument vs Value" }
   pages[] { path = "/docs/cst-and-visitor" label = "CST and Visitor" }
   pages[] { path = "/docs/completion_architecture" label = "Completion Architecture" }
