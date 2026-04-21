@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "build-image")]
 use std::io::{self, Write};
 
-use eure_mark::{DocsPageKind, DocsSite, build_docs_site};
+use eure_doc_builder::{DocsPageKind, DocsSite, build_docs_site};
 
 fn main() {
     let manifest_dir =

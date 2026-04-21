@@ -2,12 +2,16 @@
 name = "eure-mark"
 version.workspace = true
 edition.workspace = true
-description = "Eure Markdown document format"
+description = "Generic article and page renderer for Eure-authored content"
 readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
-license.workspace = true
-keywords = ["eure", "markdown", "document"]
+license = "MPL-2.0"
+keywords = ["eure", "html", "blog", "ssg"]
+
+[features]
+default = []
+eure-highlight = []
 
 [dependencies]
 eure = { workspace = true }

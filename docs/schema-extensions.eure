@@ -1,4 +1,4 @@
-$docs {
+$frontmatter {
   title: Schema Extensions
   description: Eure Schema uses extensions to define types and constraints within Eure documents. The schema system is self-hosted, meaning the schema language is defined using itself.
 }

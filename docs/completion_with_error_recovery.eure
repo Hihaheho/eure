@@ -1,4 +1,4 @@
-$docs {
+$frontmatter {
   title: Completion with Error Recovery Approach
   description: Design proposal for error-recovery-based completion. The described types (ErrorBasedCompletion, PathExtractorVisitor) are not yet implemented.
 }

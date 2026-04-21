@@ -1,4 +1,4 @@
-$docs {
+$frontmatter {
   title: Extensions
   description: Extensions provide metadata and additional information about data without being part of the data itself. The $ syntax indicates an extension namespace in the Eure language.
 }

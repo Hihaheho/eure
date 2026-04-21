@@ -1,4 +1,4 @@
-$docs {
+$frontmatter {
   title: CST and Visitor
   description: The eure-tree crate provides a Concrete Syntax Tree (CST) representation for Eure documents, along with a powerful Visitor pattern API for traversing and analyzing the tree. This s
 }

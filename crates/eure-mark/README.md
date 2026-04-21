@@ -1,7 +1,21 @@
 # eure-mark
 
-Type generation from Eure schema file.
+`eure-mark` is a generic renderer for articles and pages authored in Eure.
 
-**This crate is still under development and published for name reservation purpose.**
+It provides:
 
-Part of the [Eure](https://eure.dev) project - a minimalist, schema-friendly format with an algebraic data model that's compatible with JSON.
+- a standard `article.schema.eure`
+- parsing for `$frontmatter` + nested heading article documents
+- HTML rendering for markdown, code blocks, TOC, alerts, and trusted HTML blocks
+- generic syntax highlighting for common languages
+- optional Eure-specific semantic highlighting via the `eure-highlight` feature
+
+This crate is intended as a building block for blogs, documentation sites, and static site generators that want Eure-authored content without inheriting product-specific site policy.
+
+## License
+
+Unlike the rest of the main Eure workspace, `eure-mark` is licensed under **MPL-2.0**.
+
+This crate is intentionally licensed separately because it depends on `giallo`, which is copyleft-licensed.
+
+Part of the [Eure](https://eure.dev) project.

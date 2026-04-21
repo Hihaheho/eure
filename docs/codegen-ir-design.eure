@@ -1,4 +1,4 @@
-$docs {
+$frontmatter {
   title: eure-codegen-ir Design Draft (v2)
   description: eure-codegen-ir is the canonical intermediate representation (IR) for bidirectional conversion between:
 }

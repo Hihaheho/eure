@@ -1,4 +1,4 @@
-$docs {
+$frontmatter {
   title: Eure Language Specification
   description: Version: 0.1.0-alpha Status: Draft
 }

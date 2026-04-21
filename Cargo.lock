@@ -2053,9 +2053,9 @@ dependencies = [
  "dioxus-sdk-storage",
  "eure",
  "eure-codegen",
+ "eure-doc-builder",
  "eure-fmt",
  "eure-json",
- "eure-mark",
  "eure-parol",
  "eure-schema",
  "getrandom 0.3.4",
@@ -2069,6 +2069,17 @@ dependencies = [
  "tracing",
  "url",
  "web-time",
+]
+
+[[package]]
+name = "eure-doc-builder"
+version = "0.1.8"
+dependencies = [
+ "eure",
+ "eure-mark",
+ "maud",
+ "regex",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

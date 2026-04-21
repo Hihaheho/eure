@@ -1,4 +1,4 @@
-$docs {
+$frontmatter {
   title: Types
   description: Eure recommends 2-space indentation for nested structures.
 }

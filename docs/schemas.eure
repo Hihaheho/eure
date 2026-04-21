@@ -1,4 +1,4 @@
-$docs {
+$frontmatter {
   title: Schemas
   description: - https://eure.dev/schemas/eure-schema/v1 - https://eure.dev/schemas/eure-template/v1 - https://eure.dev/schemas/eure-lint-config/v1 - https://eure.dev/schemas/eure-ls-config/v1 -
 }

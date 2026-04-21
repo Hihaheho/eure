@@ -1,4 +1,4 @@
-$docs {
+$frontmatter {
   title: Eure: Configuration Language Comparisons
   description: Eure is a minimalist, schema-friendly configuration language and data format designed for human readability and programmatic editing. It combines JSON compatibility with TOML-like minimalism, featuring algebraic data models, rich editor support, and templating capabilities.
 }

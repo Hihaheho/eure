@@ -1,4 +1,4 @@
-$docs {
+$frontmatter {
   title: Eure Completion System Architecture
   description: Design proposal for the Eure LSP completion system using CST traversal instead of string-based parsing. The described types are not yet implemented.
 }

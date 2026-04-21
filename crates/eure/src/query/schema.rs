@@ -1,6 +1,6 @@
 //! Schema conversion and validation queries.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use eure_document::value::ObjectKey;
@@ -346,6 +346,15 @@ pub fn resolve_schema(db: &impl Db, file: TextFile) -> Result<Option<ResolvedSch
 
 /// Get the built-in meta-schema file.
 fn meta_schema_file() -> TextFile {
+    const LOCAL_META_SCHEMA: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../assets/schemas/eure-schema.schema.eure"
+    );
+
+    if Path::new(LOCAL_META_SCHEMA).exists() {
+        return TextFile::from_path(PathBuf::from(LOCAL_META_SCHEMA));
+    }
+
     // The meta-schema is bundled with the application
     TextFile::parse(concat!(
         "https://eure.dev/v",

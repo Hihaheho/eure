@@ -1,4 +1,4 @@
-$docs {
+$frontmatter {
   title: (Architecture) Decision Memos
   description: - A Eure document should be self-contained as a sane data serialization format. It's always surprising that desirialization requires network access or file system access. - It will
 }

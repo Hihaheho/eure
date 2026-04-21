@@ -1,4 +1,4 @@
-$docs {
+$frontmatter {
   title: Template Extensions
   description: Design specification for template extensions. These features are planned but not yet implemented in the eure-template crate.
 }

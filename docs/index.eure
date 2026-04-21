@@ -1,4 +1,4 @@
-$docs {
+$frontmatter {
   title: Eure Documentation
   description: Overview of the Eure language, schema system, implementation notes, and architecture decision records.
   tags = ["docs", "overview"]
@@ -7,7 +7,7 @@ $docs {
 "#": Eure Documentation
 
 "body" = ```markdown
-This site is generated from the repository's `docs/` directory. Guide pages are authored in Eure, rendered to HTML by `eure-mark` at build time, and embedded into `eure.dev/docs/` by `eure-dev`.
+This site is generated from the repository's `docs/` directory. Guide pages are authored in Eure, rendered to HTML by `eure-mark`, assembled into a docs site by `eure-doc-builder`, and embedded into `eure.dev/docs/` by `eure-dev`.
 
 If you need API-level details, see [docs.rs/eure](https://docs.rs/eure/latest/eure/).
 ```

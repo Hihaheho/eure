@@ -7,7 +7,7 @@ fn main() {
         .unwrap_or_else(|| PathBuf::from("docs"));
 
     let generated =
-        eure_mark::migrate_markdown_guides_in_place(&docs_root).unwrap_or_else(|error| {
+        eure_doc_builder::migrate_markdown_guides_in_place(&docs_root).unwrap_or_else(|error| {
             panic!("failed to migrate docs at {}: {error}", docs_root.display())
         });
 

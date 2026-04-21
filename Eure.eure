@@ -2,13 +2,17 @@
 
 $schema = "assets/schemas/eure-config.schema.eure"
 
-@ targets.adr
+@ targets.docs-adrs
 globs = ["docs/adrs/**/*.eure"]
 schema = "assets/schemas/eure-adr.schema.eure"
 
-@ targets.docs
-globs = ["docs/*.eure", "docs/spec/**/*.eure"]
-schema = "assets/schemas/eure-docs.schema.eure"
+@ targets.docs-pages
+globs = ["docs/[!_]*.eure", "docs/spec/**/*.eure"]
+schema = "assets/schemas/article.schema.eure"
+
+@ targets.docs-nav
+globs = ["docs/_nav.eure"]
+schema = "crates/eure-doc-builder/assets/nav.schema.eure"
 
 @ targets.schemas
 globs = ["assets/schemas/**/*.eure"]
@@ -22,4 +26,4 @@ globs = ["test-suite/cases/**/*.eure"]
 schema = "assets/schemas/test-suite-case.schema.eure"
 
 @ cli
-default-targets = ["docs", "adr", "schemas", "examples", "test-suite-cases"]
+default-targets = ["docs-pages", "docs-nav", "docs-adrs", "schemas", "examples", "test-suite-cases"]

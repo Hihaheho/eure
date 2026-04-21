@@ -1,0 +1,18 @@
+[package]
+name = "eure-doc-builder"
+version.workspace = true
+edition.workspace = true
+description = "Site assembly utilities for Eure-authored docs and blog content"
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords = ["eure", "docs", "site", "builder"]
+
+[dependencies]
+eure = { workspace = true }
+eure-mark = { workspace = true, features = ["eure-highlight"] }
+regex = { workspace = true }
+thiserror = { workspace = true }
+maud = "0.27.0"
+
+[dev-dependencies]

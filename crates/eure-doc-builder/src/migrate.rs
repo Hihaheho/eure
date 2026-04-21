@@ -525,12 +525,12 @@ fn summarize_markdown(markdown: &str) -> String {
 
 fn render_guide_document(title: &str, description: &str, items: &[GuideItem]) -> String {
     let mut output = String::new();
-    output.push_str("$docs {\n");
-    output.push_str("  title: ");
-    output.push_str(title.trim());
+    output.push_str("$frontmatter {\n");
+    output.push_str("  title = ");
+    output.push_str(&quote_string(title.trim()));
     output.push('\n');
-    output.push_str("  description: ");
-    output.push_str(description.trim());
+    output.push_str("  description = ");
+    output.push_str(&quote_string(description.trim()));
     output.push('\n');
     output.push_str("}\n\n");
     output.push_str("\"#\": ");
@@ -622,6 +622,10 @@ fn write_indent(output: &mut String, indent: usize) {
 
 fn quote_key(key: &str) -> String {
     format!("{:?}", key)
+}
+
+fn quote_string(value: &str) -> String {
+    format!("{:?}", value)
 }
 
 fn text_key_base(text: &TextBlock) -> String {
@@ -732,7 +736,7 @@ More details.
         .expect("markdown should migrate");
 
         assert_eq!(migrated.title, "Extensions");
-        assert!(migrated.eure_source.contains("$docs {"));
+        assert!(migrated.eure_source.contains("$frontmatter {"));
         assert!(migrated.eure_source.contains("\"#\": Extensions"));
         assert!(migrated.eure_source.contains("@ \"syntax-vs-storage\" {"));
         assert!(migrated.eure_source.contains("\"##\": Syntax vs Storage"));

@@ -1,4 +1,4 @@
-$docs {
+$frontmatter {
   title: EureDocument and Data Extraction
   description: This guide explains how to work with EureDocument and how to extract typed data using the FromEure trait.
 }
