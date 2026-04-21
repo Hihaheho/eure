@@ -1,9 +1,15 @@
 $docs {
   title: Completion with Error Recovery Approach
-  description: We need to support completion for: - Trailing dots: @ script. (complete after dot) - Empty values: key = (complete value) - Partial keys: @ scr (complete key)
+  description: Design proposal for error-recovery-based completion. The described types (ErrorBasedCompletion, PathExtractorVisitor) are not yet implemented.
 }
 
 "#": Completion with Error Recovery Approach
+
+"body" = ```markdown
+> **Design Proposal — Not Yet Implemented**
+>
+> This document describes a planned approach for completion with error recovery. The types described here (`ErrorBasedCompletion`, `PathExtractorVisitor`, `ErrorContext`, `PathContext`) do not currently exist in the codebase. This document records the intended architecture for future implementation.
+```
 
 "toc".$toc = true
 

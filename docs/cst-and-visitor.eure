@@ -265,7 +265,7 @@ The combination of auto-generated, type-safe node access (`Handle` and `View`) a
   "##": CstInterpreter: Extracting Values from CST
 
   "body" = ```markdown
-While the `CstVisitor` trait provides a generic way to traverse the CST, the `CstInterpreter` struct (in `value_visitor.rs`) provides a specialized implementation for extracting structured data from Eure documents.
+While the `CstVisitor` trait provides a generic way to traverse the CST, the `CstInterpreter` struct (in `crates/eure/src/document/interpreter.rs`) provides a specialized implementation for extracting structured data from Eure documents.
 ```
 
   @ "cstinterpreter-overview" {
@@ -337,7 +337,8 @@ schema_validator.validate(&document); // Can report exact error locations
 
     "rust-snippet" = ```rust
    // Internally, bindings like `user.name = "Alice"` become:
-   document.insert_node(vec![PathSegment::Ident("user"), PathSegment::Ident("name")], Value::String("Alice"))
+   let node_id = document.create_node(NodeValue::Primitive(PrimitiveValue::Text(Text::plain("Alice"))));
+   document.add_child_by_segment(user_id, PathSegment::Ident("name".into()), node_id)?;
 ```
 
     "body-2" = ```markdown

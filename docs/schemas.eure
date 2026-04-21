@@ -33,7 +33,7 @@ You can use another Eure file as a schema for another Eure file. This is conveni
   "##": Extensions
 
   "body" = ```markdown
-`$types[]` is a namespace for store types.
+`$types` is a namespace for storing named type definitions (e.g., `$types.my-type`, `$types.namespace.type`).
 
 Any object can have this extension.
 ```

@@ -666,15 +666,9 @@ $root-type = `$types.user`
     "###": Bundling
 
     "body" = ```markdown
-For distribution, use the schema bundler to inline all imports:
-```
-
-    "bash-snippet" = ```bash
-eure-schema bundle user.schema.eure -o dist/user.schema.eure
-```
-
-    "body-2" = ```markdown
-The bundled schema will be self-contained with all external types inlined and renamed (e.g., `$types.common.username` → `$types.common__username`).
+> **Not Yet Implemented**
+>
+> A schema bundler (`eure-schema bundle`) that inlines all imports into a single self-contained file is planned but not yet available. The CLI currently supports: `check`, `fmt`, `from_json`, `from_toml`, `to_json`, `inspect`, and other commands.
 
 ---
 ```

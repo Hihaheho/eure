@@ -1,9 +1,15 @@
 $docs {
   title: Template Extensions
-  description: Mark the object as a value set for a template.
+  description: Design specification for template extensions. These features are planned but not yet implemented in the eure-template crate.
 }
 
 "#": Template Extensions
+
+"body" = ```markdown
+> **Planned — Not Yet Implemented**
+>
+> The template extension system described in this document is a design specification. The `eure-template` crate is currently a stub. The extensions `$template-input.of`, `$template.include.path`, `$template.if`, and `$template.for_each` are not yet processed by the Eure toolchain.
+```
 
 "toc".$toc = true
 
