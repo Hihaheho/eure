@@ -1963,7 +1963,7 @@ dependencies = [
 
 [[package]]
 name = "eure"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "annotate-snippets",
  "anyhow",
@@ -1987,7 +1987,7 @@ dependencies = [
 
 [[package]]
 name = "eure-cli"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "ahash",
  "anyhow",
@@ -2018,7 +2018,7 @@ dependencies = [
 
 [[package]]
 name = "eure-codegen"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "bon",
  "eure-codegen-ir",
@@ -2031,7 +2031,7 @@ dependencies = [
 
 [[package]]
 name = "eure-codegen-ir"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "bon",
  "indexmap",
@@ -2073,7 +2073,7 @@ dependencies = [
 
 [[package]]
 name = "eure-doc-builder"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "eure",
  "eure-mark",
@@ -2084,7 +2084,7 @@ dependencies = [
 
 [[package]]
 name = "eure-document"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "indexmap",
  "num-bigint",
@@ -2096,7 +2096,7 @@ dependencies = [
 
 [[package]]
 name = "eure-env"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "chrono",
  "directories 6.0.0",
@@ -2118,7 +2118,7 @@ dependencies = [
 
 [[package]]
 name = "eure-fmt"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "eure-document",
  "eure-parol",
@@ -2141,7 +2141,7 @@ dependencies = [
 
 [[package]]
 name = "eure-json"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "ahash",
  "criterion",
@@ -2161,7 +2161,7 @@ dependencies = [
 
 [[package]]
 name = "eure-json-schema"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "eure",
  "eure-document",
@@ -2178,11 +2178,11 @@ dependencies = [
 
 [[package]]
 name = "eure-lint"
-version = "0.1.8"
+version = "0.1.9"
 
 [[package]]
 name = "eure-ls"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",
@@ -2209,7 +2209,7 @@ dependencies = [
 
 [[package]]
 name = "eure-macros"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "automod",
  "convert_case 0.10.0",
@@ -2228,7 +2228,7 @@ dependencies = [
 
 [[package]]
 name = "eure-mark"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "eure",
  "eure-document",
@@ -2244,7 +2244,7 @@ dependencies = [
 
 [[package]]
 name = "eure-parol"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "anyhow",
  "eure-tree",
@@ -2257,7 +2257,7 @@ dependencies = [
 
 [[package]]
 name = "eure-schema"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "ahash",
  "chrono",
@@ -2278,11 +2278,11 @@ dependencies = [
 
 [[package]]
 name = "eure-template"
-version = "0.1.8"
+version = "0.1.9"
 
 [[package]]
 name = "eure-toml"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "eure",
  "eure-document",
@@ -2295,7 +2295,7 @@ dependencies = [
 
 [[package]]
 name = "eure-tree"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "ahash",
  "bon",
@@ -2305,7 +2305,7 @@ dependencies = [
 
 [[package]]
 name = "eure-yaml"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "ahash",
  "eure",
@@ -4995,7 +4995,7 @@ dependencies = [
 
 [[package]]
 name = "serde-eure"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "ahash",
  "eure",
