@@ -391,6 +391,48 @@ impl EureDocument {
         Ok(NodeMut::new(self, node_id))
     }
 
+    pub fn insert_array_element(
+        &mut self,
+        index: usize,
+        parent_node_id: NodeId,
+    ) -> Result<NodeMut<'_>, InsertErrorKind> {
+        let node_id = self.create_node_uninitialized();
+        let node = self.node_mut(parent_node_id);
+        let array = node.require_array()?;
+        array.insert_at(index, node_id)?;
+        Ok(NodeMut::new(self, node_id))
+    }
+
+    pub fn remove_map_child(
+        &mut self,
+        object_key: &ObjectKey,
+        parent_node_id: NodeId,
+    ) -> Result<Option<NodeId>, InsertErrorKind> {
+        let node = self.node_mut(parent_node_id);
+        let map = node.require_map()?;
+        Ok(map.remove_ordered(object_key))
+    }
+
+    pub fn remove_extension(
+        &mut self,
+        identifier: &Identifier,
+        parent_node_id: NodeId,
+    ) -> Option<NodeId> {
+        self.node_mut(parent_node_id)
+            .extensions
+            .remove_ordered(identifier)
+    }
+
+    pub fn remove_array_element(
+        &mut self,
+        index: usize,
+        parent_node_id: NodeId,
+    ) -> Result<Option<NodeId>, InsertErrorKind> {
+        let node = self.node_mut(parent_node_id);
+        let array = node.require_array()?;
+        Ok(array.remove_at(index))
+    }
+
     /// Resolves a path segment to a node ID, creating if necessary.
     ///
     /// This operation is idempotent for most segments, reusing existing nodes.
@@ -538,6 +580,16 @@ impl EureDocument {
                 self.copy_subtree(ext_src_id, dst, ext_dst_id);
             }
         }
+    }
+
+    pub fn overwrite_subtree_from(
+        &mut self,
+        dst_id: NodeId,
+        src_doc: &EureDocument,
+        src_id: NodeId,
+    ) {
+        self.node_mut(dst_id).extensions = Map::new();
+        src_doc.copy_subtree(src_id, self, dst_id);
     }
 }
 

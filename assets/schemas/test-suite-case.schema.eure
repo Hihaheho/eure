@@ -41,6 +41,14 @@ $types {
     $variant = "union"
     variants = { WithModifiers => (`text`, `text`, [`text`]), Plain => (`text`, `text`) }
   }
+  edit-command {
+    $ext-type = { variant => `text` }
+    path = `text`
+    @ value
+    $variant = "union"
+    $optional = true
+    variants = { some => `text`, none => `null` }
+  }
   scenario-error-item {
     scenario = `text`
     output = `text`
@@ -93,6 +101,8 @@ $types {
     json_errors.$optional = true
     semantic_tokens = [`$types.semantic-token-item`]
     semantic_tokens.$optional = true
+    edit_commands = [`$types.edit-command`]
+    edit_commands.$optional = true
     scenario_errors = [`$types.scenario-error-item`]
     scenario_errors.$optional = true
     scenarios_expected = [`text`]
@@ -142,6 +152,10 @@ $types {
     $optional = true
     variants = { some => `text`, none => `null` }
     @ rust
+    $variant = "union"
+    $optional = true
+    variants = { some => `text`, none => `null` }
+    @ edited
     $variant = "union"
     $optional = true
     variants = { some => `text`, none => `null` }

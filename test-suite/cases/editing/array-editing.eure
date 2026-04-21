@@ -1,0 +1,464 @@
+@ cases.append-empty-array
+input_eure = ```eure
+items = []
+```
+
+edited = ```eure
+items = [1]
+```
+
+@ cases.append-empty-array.edit_commands[] {
+  $variant = "Set"
+  path = "items[]"
+  value = eure`1`
+}
+
+@ cases.append-and-edit-tail
+input_eure = ```eure
+// first user
+users[] {
+  name = "Alice"
+}
+```
+
+edited = ```eure
+// first user
+users[] {
+  name = "Alice"
+}
+users[] {
+  name = "Bob"
+  age = 30
+}
+```
+
+@ cases.append-and-edit-tail.edit_commands[] {
+  $variant = "Set"
+  path = "users[].name"
+  value = eure`"Bob"`
+}
+
+@ cases.append-and-edit-tail.edit_commands[] {
+  $variant = "Set"
+  path = "users[^].age"
+  value = eure`30`
+}
+
+@ cases.edit-existing-index
+input_eure = ```eure
+users[] {
+  name = "Alice"
+}
+users[] {
+  name = "Bob"
+}
+```
+
+edited = ```eure
+users[] {
+  name = "Alice"
+}
+users[] {
+  name = "Bobby"
+}
+```
+
+@ cases.edit-existing-index.edit_commands[] {
+  $variant = "Set"
+  path = "users[1].name"
+  value = eure`"Bobby"`
+}
+
+@ cases.edit-existing-element
+input_eure = ```eure
+items = [1, 2, 3]
+```
+
+edited = ```eure
+items = [1, 20, 3]
+```
+
+@ cases.edit-existing-element.edit_commands[] {
+  $variant = "Set"
+  path = "items[1]"
+  value = eure`20`
+}
+
+@ cases.edit-tail-element
+input_eure = ```eure
+items = [1, 2, 3]
+```
+
+edited = ```eure
+items = [1, 2, 30]
+```
+
+@ cases.edit-tail-element.edit_commands[] {
+  $variant = "Set"
+  path = "items[^]"
+  value = eure`30`
+}
+
+@ cases.insert-front
+input_eure = ```eure
+// original first
+users[] {
+  name = "Alice"
+}
+users[] {
+  name = "Bob"
+}
+```
+
+edited = ```eure
+users[] {
+  name = "Zoe"
+}
+// original first
+users[] {
+  name = "Alice"
+}
+users[] {
+  name = "Bob"
+}
+```
+
+@ cases.insert-front.edit_commands[] {
+  $variant = "Insert"
+  path = "users[0].name"
+  value = eure`"Zoe"`
+}
+
+@ cases.insert-middle
+input_eure = ```eure
+users[] {
+  name = "Alice"
+}
+users[] {
+  name = "Bob"
+}
+users[] {
+  name = "Carol"
+}
+```
+
+edited = ```eure
+users[] {
+  name = "Alice"
+}
+users[] {
+  name = "Beatrice"
+}
+users[] {
+  name = "Bob"
+}
+users[] {
+  name = "Carol"
+}
+```
+
+@ cases.insert-middle.edit_commands[] {
+  $variant = "Insert"
+  path = "users[1].name"
+  value = eure`"Beatrice"`
+}
+
+@ cases.insert-primitive-middle
+input_eure = ```eure
+items = [1, 3]
+```
+
+edited = ```eure
+items = [1, 2, 3]
+```
+
+@ cases.insert-primitive-middle.edit_commands[] {
+  $variant = "Insert"
+  path = "items[1]"
+  value = eure`2`
+}
+
+@ cases.insert-then-edit-inserted-element
+input_eure = ```eure
+users[] {
+  name = "Alice"
+}
+users[] {
+  name = "Carol"
+}
+```
+
+edited = ```eure
+users[] {
+  name = "Alice"
+}
+users[] {
+  name = "Bob"
+  age = 22
+}
+users[] {
+  name = "Carol"
+}
+```
+
+@ cases.insert-then-edit-inserted-element.edit_commands[] {
+  $variant = "Insert"
+  path = "users[1].name"
+  value = eure`"Bob"`
+}
+
+@ cases.insert-then-edit-inserted-element.edit_commands[] {
+  $variant = "Set"
+  path = "users[1].age"
+  value = eure`22`
+}
+
+@ cases.delete-front-reattach-comment
+input_eure = ```eure
+// original first
+users[] {
+  name = "Alice"
+}
+users[] {
+  name = "Bob"
+}
+```
+
+edited = ```eure
+// original first
+users[] {
+  name = "Bob"
+}
+```
+
+@ cases.delete-front-reattach-comment.edit_commands[] {
+  $variant = "Delete"
+  path = "users[0]"
+}
+
+@ cases.delete-tail
+input_eure = ```eure
+users[] {
+  name = "Alice"
+}
+users[] {
+  name = "Bob"
+}
+```
+
+edited = ```eure
+users[] {
+  name = "Alice"
+}
+```
+
+@ cases.delete-tail.edit_commands[] {
+  $variant = "Delete"
+  path = "users[^]"
+}
+
+@ cases.delete-descendant-field
+input_eure = ```eure
+users[] {
+  name = "Alice"
+  age = 30
+}
+users[] {
+  name = "Bob"
+  age = 40
+}
+```
+
+edited = ```eure
+users[] {
+  name = "Alice"
+  age = 30
+}
+users[] {
+  name = "Bob"
+}
+```
+
+@ cases.delete-descendant-field.edit_commands[] {
+  $variant = "Delete"
+  path = "users[1].age"
+}
+
+@ cases.nested-array-append
+input_eure = ```eure
+orgs[] {
+  name = "Acme"
+  teams[] {
+    name = "Core"
+  }
+}
+```
+
+edited = ```eure
+orgs[] {
+  name = "Acme"
+  teams[] {
+    name = "Core"
+  }
+  teams[] {
+    name = "Platform"
+    members = ["Ada"]
+  }
+}
+```
+
+@ cases.nested-array-append.edit_commands[] {
+  $variant = "Set"
+  path = "orgs[^].teams[].name"
+  value = eure`"Platform"`
+}
+
+@ cases.nested-array-append.edit_commands[] {
+  $variant = "Set"
+  path = "orgs[^].teams[^].members[]"
+  value = eure`"Ada"`
+}
+
+@ cases.nested-array-insert-preserves-shifted-comment
+input_eure = ```eure
+orgs[] {
+  name = "Acme"
+  teams[] {
+    name = "Core"
+  }
+  // existing second team
+  teams[] {
+    name = "Infra"
+  }
+}
+```
+
+edited = ```eure
+orgs[] {
+  name = "Acme"
+  teams[] {
+    name = "Core"
+  }
+  teams[] {
+    name = "Platform"
+    lead = "Ada"
+  }
+  // existing second team
+  teams[] {
+    name = "Infra"
+  }
+}
+```
+
+@ cases.nested-array-insert-preserves-shifted-comment.edit_commands[] {
+  $variant = "Insert"
+  path = "orgs[^].teams[1].name"
+  value = eure`"Platform"`
+}
+
+@ cases.nested-array-insert-preserves-shifted-comment.edit_commands[] {
+  $variant = "Set"
+  path = "orgs[^].teams[1].lead"
+  value = eure`"Ada"`
+}
+
+@ cases.error-edit-out-of-bounds
+input_eure = ```eure
+items = [1, 2]
+```
+
+@ cases.error-edit-out-of-bounds.edit_commands[] {
+  $variant = "Set"
+  path = "items[99]"
+  value = eure`3`
+}
+
+@ cases.error-edit-out-of-bounds.scenario_errors[]
+scenario = "editing"
+output = ```
+array index 99 is out of bounds for length 2 at items[99]
+```
+
+@ cases.error-tail-on-empty-array
+input_eure = ```eure
+items = []
+```
+
+@ cases.error-tail-on-empty-array.edit_commands[] {
+  $variant = "Set"
+  path = "items[^]"
+  value = eure`3`
+}
+
+@ cases.error-tail-on-empty-array.scenario_errors[]
+scenario = "editing"
+output = ```
+array tail selector [^] is invalid on empty array at items[^]
+```
+
+@ cases.error-insert-append-selector
+input_eure = ```eure
+items = [1, 2]
+```
+
+@ cases.error-insert-append-selector.edit_commands[] {
+  $variant = "Insert"
+  path = "items[]"
+  value = eure`3`
+}
+
+@ cases.error-insert-append-selector.scenario_errors[]
+scenario = "editing"
+output = ```
+insert path items[] cannot use [] or [^]
+```
+
+@ cases.error-insert-tail-selector
+input_eure = ```eure
+items = [1, 2]
+```
+
+@ cases.error-insert-tail-selector.edit_commands[] {
+  $variant = "Insert"
+  path = "items[^]"
+  value = eure`3`
+}
+
+@ cases.error-insert-tail-selector.scenario_errors[]
+scenario = "editing"
+output = ```
+insert path items[^] cannot use [] or [^]
+```
+
+@ cases.error-insert-at-len-use-append
+input_eure = ```eure
+items = [1, 2]
+```
+
+@ cases.error-insert-at-len-use-append.edit_commands[] {
+  $variant = "Insert"
+  path = "items[2]"
+  value = eure`3`
+}
+
+@ cases.error-insert-at-len-use-append.scenario_errors[]
+scenario = "editing"
+output = ```
+insert path items[2] with index 2 equals array length 2; use [] instead
+```
+
+@ cases.error-delete-append-selector
+input_eure = ```eure
+items = [1, 2]
+```
+
+@ cases.error-delete-append-selector.edit_commands[] {
+  $variant = "Delete"
+  path = "items[]"
+}
+
+@ cases.error-delete-append-selector.scenario_errors[]
+scenario = "editing"
+output = ```
+delete path items[] cannot use []
+```

@@ -12,6 +12,7 @@ use query_flow::{Db, DurabilityLevel, QueryRuntime};
 use crate::parser::CaseData;
 use crate::scenarios::completions::CompletionsScenario;
 use crate::scenarios::diagnostics::DiagnosticsScenario;
+use crate::scenarios::editing::EditingScenario;
 use crate::scenarios::eumd_error_validation::EumdErrorValidationScenario;
 use crate::scenarios::eure_schema_to_json_schema::EureSchemaToJsonSchemaScenario;
 use crate::scenarios::eure_schema_to_json_schema_error::EureSchemaToJsonSchemaErrorScenario;
@@ -113,6 +114,7 @@ const SERIALIZED_PATH: &str = "serialized.eure";
 const OUTPUT_JSON_SCHEMA_PATH: &str = "output.json-schema.json";
 const OUTPUT_RUST_PATH: &str = "output.rs";
 const EDITOR_PATH: &str = "editor.eure";
+const EDITED_PATH: &str = "edited.eure";
 const WORKSPACE_PATH: &str = "/test-workspace";
 const META_SCHEMA_PATH: &str = "$eure/meta-schema.eure";
 
@@ -131,6 +133,7 @@ pub enum Scenario {
     Normalization(NormalizationScenario),
     Formatting(FormattingScenario),
     Serialization(SerializationScenario),
+    Editing(EditingScenario),
     EureToJson(EureToJsonScenario),
     EureToJsonError(EureToJsonErrorScenario),
     JsonToEure(JsonToEureScenario),
@@ -156,6 +159,7 @@ impl Scenario {
             Scenario::Normalization(_) => "normalization".to_string(),
             Scenario::Formatting(_) => "formatting".to_string(),
             Scenario::Serialization(_) => "serialization".to_string(),
+            Scenario::Editing(_) => "editing".to_string(),
             Scenario::EureToJson(s) => format!("eure_to_json({})", s.source_name),
             Scenario::EureToJsonError(_) => "eure_to_json_error".to_string(),
             Scenario::JsonToEure(s) => format!("json_to_eure({})", s.source_name),
@@ -183,6 +187,7 @@ impl Scenario {
             Scenario::Normalization(s) => s.run(db),
             Scenario::Formatting(s) => s.run(db),
             Scenario::Serialization(s) => s.run(db),
+            Scenario::Editing(s) => s.run(db),
             Scenario::EureToJson(s) => s.run(db),
             Scenario::EureToJsonError(s) => s.run(db),
             Scenario::JsonToEure(s) => s.run(db),
@@ -332,6 +337,11 @@ impl Case {
         // serialized → "serialized.eure"
         if let Some(serialized) = &self.data.serialized {
             Self::resolve_asset(runtime, SERIALIZED_PATH, serialized)?;
+        }
+
+        // edited → "edited.eure"
+        if let Some(edited) = &self.data.edited {
+            Self::resolve_asset(runtime, EDITED_PATH, edited)?;
         }
 
         // output_json_schema → "output.json-schema.json"
@@ -623,6 +633,20 @@ impl Case {
                 input: Self::resolve_path(input_eure, INPUT_EURE_PATH),
                 schema: Self::resolve_path(schema, SCHEMA_PATH),
                 expected: Self::resolve_path(serialized, SERIALIZED_PATH),
+            }));
+        }
+
+        if let Some(input_eure) = &self.data.input_eure
+            && !self.data.edit_commands.is_empty()
+        {
+            scenarios.push(Scenario::Editing(EditingScenario {
+                input: Self::resolve_path(input_eure, INPUT_EURE_PATH),
+                expected: self
+                    .data
+                    .edited
+                    .as_ref()
+                    .map(|edited| Self::resolve_path(edited, EDITED_PATH)),
+                commands: self.data.edit_commands.clone(),
             }));
         }
 

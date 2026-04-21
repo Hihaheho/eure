@@ -1,8 +1,9 @@
 use eure_document::value::Tuple;
 use eure_document::{
-    document::{EureDocument, constructor::DocumentConstructor},
+    document::{EureDocument, source_constructor::SourceConstructor},
     identifier::Identifier,
     path::{ArrayIndexKind, PathSegment},
+    source::Comment,
     text::{Language, SyntaxHint, Text, TextParseError},
     value::{ObjectKey, PartialObjectKey, PrimitiveValue},
 };
@@ -206,7 +207,7 @@ impl CodeStart {
 pub struct CstInterpreter<'a> {
     input: &'a str,
     // Main document being built
-    document: DocumentConstructor,
+    document: SourceConstructor,
     code_start: Option<CodeStart>,
     // Stack for collecting PartialObjectKeys when processing KeyTuple
     collecting_partial_keys: Vec<Vec<PartialObjectKey>>,
@@ -214,17 +215,20 @@ pub struct CstInterpreter<'a> {
     origins: OriginMap,
     // Pending code origin - set by parent visitor, used by start visitor
     pending_code_origin: Option<CodeOrigin>,
+    // Count of consecutive newline terminals since the last non-trivia token/comment.
+    pending_newlines: usize,
 }
 
 impl<'a> CstInterpreter<'a> {
     pub fn new(input: &'a str) -> Self {
         Self {
             input,
-            document: DocumentConstructor::new(),
+            document: SourceConstructor::new(),
             code_start: None,
             collecting_partial_keys: vec![],
             origins: OriginMap::new(),
             pending_code_origin: None,
+            pending_newlines: 0,
         }
     }
 
@@ -313,11 +317,15 @@ impl<'a> CstInterpreter<'a> {
     }
 
     pub fn into_document(self) -> EureDocument {
-        self.document.finish()
+        self.document.finish().document
     }
 
     pub fn into_document_and_origin_map(self) -> (EureDocument, OriginMap) {
-        (self.document.finish(), self.origins)
+        (self.document.finish().document, self.origins)
+    }
+
+    pub fn into_source_document(self) -> eure_document::source::SourceDocument {
+        self.document.finish()
     }
 
     /// Record a definition span for a node (typically the key).
@@ -353,6 +361,13 @@ impl<'a> CstInterpreter<'a> {
             Ok(str) => Ok(str),
             Err(id) => Err(DocumentConstructionError::DynamicTokenNotFound(id)),
         }
+    }
+
+    fn flush_blank_lines(&mut self) {
+        for _ in 1..self.pending_newlines {
+            self.document.blank_line();
+        }
+        self.pending_newlines = 0;
     }
 
     /// Parse a Str terminal (with surrounding quotes) into a String
@@ -553,58 +568,71 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         let container_id = self.document.current_node_id();
         self.record_value(container_id, handle.node_id());
 
-        // Check if there's a value binding (new syntax: { = value, ... })
-        let has_value_binding = if let Some(object_opt_view) = view.object_opt.get_view(tree)? {
-            // Visit the value binding - this binds the main value
-            self.visit_value_binding_handle(object_opt_view.value_binding, tree)?;
-            true
-        } else {
-            false
-        };
+        self.document.suspend_path_tracking();
+        let result = (|| {
+            // Check if there's a value binding (new syntax: { = value, ... })
+            let has_value_binding = if let Some(object_opt_view) = view.object_opt.get_view(tree)? {
+                // Visit the value binding - this binds the main value
+                self.visit_value_binding_handle(object_opt_view.value_binding, tree)?;
+                true
+            } else {
+                false
+            };
 
-        // Process each entry in the ObjectList
-        // Each entry has: keys => value
-        // The keys can be nested (e.g., a.b => 1 becomes { a => { b => 1 } })
-        if let Some(object_list_view) = view.object_list.get_view(tree)? {
-            for item in object_list_view.get_all(tree)? {
-                let scope = self.document.begin_scope();
+            // Process each entry in the ObjectList
+            // Each entry has: keys => value
+            // The keys can be nested (e.g., a.b => 1 becomes { a => { b => 1 } })
+            if let Some(object_list_view) = view.object_list.get_view(tree)? {
+                for item in object_list_view.get_all(tree)? {
+                    let scope = self.document.begin_scope();
 
-                // Navigate through the keys
-                self.visit_keys_handle(item.keys, tree)?;
+                    // Navigate through the keys
+                    self.visit_keys_handle(item.keys, tree)?;
 
-                // Validate binding target is a Hole
-                let node_id = self.document.current_node_id();
-                self.document.require_hole().map_err(|e| {
+                    // Validate binding target is a Hole
+                    let node_id = self.document.current_node_id();
+                    self.document.require_hole().map_err(|e| {
+                        DocumentConstructionError::DocumentInsert {
+                            error: e,
+                            node_id: handle.node_id(),
+                            parent_node_id: None,
+                        }
+                    })?;
+
+                    // Record value span for this object entry
+                    self.record_value(node_id, item.keys.node_id());
+
+                    // Visit the value
+                    self.visit_value_handle(item.value, tree)?;
+
+                    // Restore to the Object level
+                    self.document.end_scope(scope).map_err(|e| {
+                        DocumentConstructionError::DocumentInsert {
+                            error: e,
+                            node_id: handle.node_id(),
+                            parent_node_id: None,
+                        }
+                    })?;
+                }
+            }
+
+            if self.document.current_node().content.is_hole() && !has_value_binding {
+                // Empty object (no value binding, no entries)
+                self.document.bind_empty_map().map_err(|e| {
                     DocumentConstructionError::DocumentInsert {
                         error: e,
                         node_id: handle.node_id(),
                         parent_node_id: None,
                     }
                 })?;
-
-                // Record value span for this object entry
-                self.record_value(node_id, item.keys.node_id());
-
-                // Visit the value
-                self.visit_value_handle(item.value, tree)?;
-
-                // Restore to the Object level
-                self.document.end_scope(scope)?;
             }
-        }
 
-        if self.document.current_node().content.is_hole() && !has_value_binding {
-            // Empty object (no value binding, no entries)
-            self.document.bind_empty_map().map_err(|e| {
-                DocumentConstructionError::DocumentInsert {
-                    error: e,
-                    node_id: handle.node_id(),
-                    parent_node_id: None,
-                }
-            })?;
-        }
+            self.document.set_last_bound_node(container_id);
 
-        Ok(())
+            Ok(())
+        })();
+        self.document.resume_path_tracking();
+        result
     }
 
     fn visit_array(
@@ -617,56 +645,70 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         let container_id = self.document.current_node_id();
         self.record_value(container_id, handle.node_id());
 
-        // Process array elements
-        if let Some(elements_handle) = view.array_opt.get_view(tree)? {
-            // Iterate through array elements
-            let mut current = Some(elements_handle);
-            let mut index = 0usize;
+        self.document.suspend_path_tracking();
+        let result = (|| {
+            // Process array elements
+            if let Some(elements_handle) = view.array_opt.get_view(tree)? {
+                // Iterate through array elements
+                let mut current = Some(elements_handle);
+                let mut index = 0usize;
 
-            while let Some(elem_handle) = current {
-                let elem_view = elem_handle.get_view(tree)?;
+                while let Some(elem_handle) = current {
+                    let elem_view = elem_handle.get_view(tree)?;
 
-                // Begin scope and navigate to array index
-                let scope = self.document.begin_scope();
-                let node_id = self
-                    .document
-                    .navigate(PathSegment::ArrayIndex(ArrayIndexKind::Specific(index)))
-                    .map_err(|e| DocumentConstructionError::DocumentInsert {
+                    // Begin scope and navigate to array index
+                    let scope = self.document.begin_scope();
+                    let node_id = self
+                        .document
+                        .navigate(PathSegment::ArrayIndex(ArrayIndexKind::Specific(index)))
+                        .map_err(|e| DocumentConstructionError::DocumentInsert {
+                            error: e,
+                            node_id: handle.node_id(),
+                            parent_node_id: None,
+                        })?;
+
+                    // Record value span for this array element
+                    self.record_value(node_id, handle.node_id());
+
+                    // Visit the value at this index
+                    self.visit_value_handle(elem_view.value, tree)?;
+
+                    // End scope to return to array level
+                    self.document.end_scope(scope).map_err(|e| {
+                        DocumentConstructionError::DocumentInsert {
+                            error: e,
+                            node_id: handle.node_id(),
+                            parent_node_id: None,
+                        }
+                    })?;
+
+                    // Move to next element if any
+                    current =
+                        if let Some(tail_handle) = elem_view.array_elements_opt.get_view(tree)? {
+                            let tail_view = tail_handle.get_view(tree)?;
+                            tail_view.array_elements_tail_opt.get_view(tree)?
+                        } else {
+                            None
+                        };
+
+                    index += 1;
+                }
+            } else {
+                self.document.bind_empty_array().map_err(|e| {
+                    DocumentConstructionError::DocumentInsert {
                         error: e,
                         node_id: handle.node_id(),
                         parent_node_id: None,
-                    })?;
-
-                // Record value span for this array element
-                self.record_value(node_id, handle.node_id());
-
-                // Visit the value at this index
-                self.visit_value_handle(elem_view.value, tree)?;
-
-                // End scope to return to array level
-                self.document.end_scope(scope)?;
-
-                // Move to next element if any
-                current = if let Some(tail_handle) = elem_view.array_elements_opt.get_view(tree)? {
-                    let tail_view = tail_handle.get_view(tree)?;
-                    tail_view.array_elements_tail_opt.get_view(tree)?
-                } else {
-                    None
-                };
-
-                index += 1;
+                    }
+                })?;
             }
-        } else {
-            self.document.bind_empty_array().map_err(|e| {
-                DocumentConstructionError::DocumentInsert {
-                    error: e,
-                    node_id: handle.node_id(),
-                    parent_node_id: None,
-                }
-            })?;
-        }
 
-        Ok(())
+            self.document.set_last_bound_node(container_id);
+
+            Ok(())
+        })();
+        self.document.resume_path_tracking();
+        result
     }
 
     fn visit_tuple(
@@ -679,56 +721,70 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         let container_id = self.document.current_node_id();
         self.record_value(container_id, handle.node_id());
 
-        // Process tuple elements (similar to array but with TupleIndex path segment)
-        if let Some(elements_handle) = view.tuple_opt.get_view(tree)? {
-            // Iterate through tuple elements
-            let mut current = Some(elements_handle);
-            let mut index = 0u8;
+        self.document.suspend_path_tracking();
+        let result = (|| {
+            // Process tuple elements (similar to array but with TupleIndex path segment)
+            if let Some(elements_handle) = view.tuple_opt.get_view(tree)? {
+                // Iterate through tuple elements
+                let mut current = Some(elements_handle);
+                let mut index = 0u8;
 
-            while let Some(elem_handle) = current {
-                let elem_view = elem_handle.get_view(tree)?;
+                while let Some(elem_handle) = current {
+                    let elem_view = elem_handle.get_view(tree)?;
 
-                // Begin scope and navigate to tuple index
-                let scope = self.document.begin_scope();
-                let node_id = self
-                    .document
-                    .navigate(PathSegment::TupleIndex(index))
-                    .map_err(|e| DocumentConstructionError::DocumentInsert {
+                    // Begin scope and navigate to tuple index
+                    let scope = self.document.begin_scope();
+                    let node_id = self
+                        .document
+                        .navigate(PathSegment::TupleIndex(index))
+                        .map_err(|e| DocumentConstructionError::DocumentInsert {
+                            error: e,
+                            node_id: handle.node_id(),
+                            parent_node_id: None,
+                        })?;
+
+                    // Record value span for this tuple element
+                    self.record_value(node_id, handle.node_id());
+
+                    // Visit the value at this index
+                    self.visit_value_handle(elem_view.value, tree)?;
+
+                    // End scope to return to tuple level
+                    self.document.end_scope(scope).map_err(|e| {
+                        DocumentConstructionError::DocumentInsert {
+                            error: e,
+                            node_id: handle.node_id(),
+                            parent_node_id: None,
+                        }
+                    })?;
+
+                    // Move to next element if any
+                    current =
+                        if let Some(tail_handle) = elem_view.tuple_elements_opt.get_view(tree)? {
+                            let tail_view = tail_handle.get_view(tree)?;
+                            tail_view.tuple_elements_tail_opt.get_view(tree)?
+                        } else {
+                            None
+                        };
+
+                    index = index.saturating_add(1);
+                }
+            } else {
+                self.document.bind_empty_tuple().map_err(|e| {
+                    DocumentConstructionError::DocumentInsert {
                         error: e,
                         node_id: handle.node_id(),
                         parent_node_id: None,
-                    })?;
-
-                // Record value span for this tuple element
-                self.record_value(node_id, handle.node_id());
-
-                // Visit the value at this index
-                self.visit_value_handle(elem_view.value, tree)?;
-
-                // End scope to return to tuple level
-                self.document.end_scope(scope)?;
-
-                // Move to next element if any
-                current = if let Some(tail_handle) = elem_view.tuple_elements_opt.get_view(tree)? {
-                    let tail_view = tail_handle.get_view(tree)?;
-                    tail_view.tuple_elements_tail_opt.get_view(tree)?
-                } else {
-                    None
-                };
-
-                index = index.saturating_add(1);
+                    }
+                })?;
             }
-        } else {
-            self.document.bind_empty_tuple().map_err(|e| {
-                DocumentConstructionError::DocumentInsert {
-                    error: e,
-                    node_id: handle.node_id(),
-                    parent_node_id: None,
-                }
-            })?;
-        }
 
-        Ok(())
+            self.document.set_last_bound_node(container_id);
+
+            Ok(())
+        })();
+        self.document.resume_path_tracking();
+        result
     }
 
     fn visit_key(&mut self, handle: KeyHandle, view: KeyView, tree: &F) -> Result<(), Self::Error> {
@@ -1003,7 +1059,13 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             })?;
         }
 
-        self.document.end_scope(scope)?;
+        self.document
+            .end_scope(scope)
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+                parent_node_id: None,
+            })?;
 
         if is_block {
             self.document.end_binding_block().map_err(|e| {
@@ -1077,7 +1139,13 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             })?;
         }
 
-        self.document.end_scope(scope)?;
+        self.document
+            .end_scope(scope)
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+                parent_node_id: None,
+            })?;
 
         if is_block {
             self.document.end_section_block().map_err(|e| {
@@ -1871,13 +1939,67 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         Ok(())
     }
 
+    fn visit_new_line_terminal(
+        &mut self,
+        terminal: NewLine,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.pending_newlines += 1;
+        self.visit_new_line_terminal_super(terminal, data, tree)
+    }
+
+    fn visit_line_comment_terminal(
+        &mut self,
+        terminal: LineComment,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.flush_blank_lines();
+        let text = self.get_terminal_str(tree, terminal)?;
+        let text = text.strip_prefix("//").unwrap_or(text);
+        let text = text
+            .strip_prefix(' ')
+            .unwrap_or(text)
+            .trim_end_matches(['\r', '\n'])
+            .to_string();
+        self.document.comment(Comment::Line(text));
+        self.visit_line_comment_terminal_super(terminal, data, tree)
+    }
+
+    fn visit_block_comment_terminal(
+        &mut self,
+        terminal: BlockComment,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.flush_blank_lines();
+        let text = self.get_terminal_str(tree, terminal)?;
+        let text = text
+            .strip_prefix("/*")
+            .and_then(|s| s.strip_suffix("*/"))
+            .unwrap_or(text)
+            .to_string();
+        self.document.comment(Comment::Block(text));
+        self.visit_block_comment_terminal_super(terminal, data, tree)
+    }
+
     fn visit_terminal(
         &mut self,
         _id: CstNodeId,
-        _kind: TerminalKind,
+        kind: TerminalKind,
         data: TerminalData,
         _tree: &F,
     ) -> Result<(), Self::Error> {
+        if !matches!(
+            kind,
+            TerminalKind::NewLine
+                | TerminalKind::Whitespace
+                | TerminalKind::LineComment
+                | TerminalKind::BlockComment
+        ) {
+            self.flush_blank_lines();
+        }
         // If we're inside a code block or inline code, collect the terminals
         if let Some(code_start) = &mut self.code_start {
             code_start.terminals.push_terminal(data);

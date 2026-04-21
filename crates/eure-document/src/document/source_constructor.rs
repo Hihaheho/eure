@@ -17,7 +17,7 @@
 //! | 5 | `@ section { eure }` | `begin_section` → navigate → `begin_eure_block` → ... → `end_eure_block` → `end_section_block` |
 //! | 6 | `@ section { = value eure }` | `begin_section` → navigate → `begin_eure_block` → `bind_*` → `set_block_value` → ... → `end_eure_block` → `end_section_block` |
 
-use crate::document::constructor::{DocumentConstructor, Scope};
+use crate::document::constructor::{DocumentConstructor, Scope as InnerScope};
 use crate::document::interpreter_sink::InterpreterSink;
 use crate::document::{ConstructorError, InsertError, NodeId};
 use crate::path::PathSegment;
@@ -109,6 +109,25 @@ pub struct SourceConstructor {
 
     /// SourceId of the last completed EureSource block (for end_binding_block/end_section_block)
     last_block_id: Option<SourceId>,
+
+    /// The next scope opened after `begin_binding`/`begin_section` should keep
+    /// the accumulated source path instead of restoring a snapshot on exit.
+    skip_path_restore_for_next_scope: bool,
+
+    /// Inline container traversal should not mutate the pending binding path.
+    suspended_path_tracking: usize,
+}
+
+/// Scope handle for [`SourceConstructor`].
+///
+/// In addition to the semantic constructor scope, this snapshots the source
+/// path so nested value traversal does not leak into the enclosing binding or
+/// section path.
+#[derive(Debug, Clone)]
+pub struct Scope {
+    inner: InnerScope,
+    pending_path: SourcePath,
+    restore_pending_path: bool,
 }
 
 impl Default for SourceConstructor {
@@ -136,6 +155,8 @@ impl SourceConstructor {
             pending_trivia: Vec::new(),
             last_bound_node: None,
             last_block_id: None,
+            skip_path_restore_for_next_scope: false,
+            suspended_path_tracking: 0,
         }
     }
 
@@ -245,6 +266,41 @@ impl SourceConstructor {
     /// Get the current path from root.
     pub fn current_path(&self) -> &[PathSegment] {
         InterpreterSink::current_path(self)
+    }
+
+    /// Get the current node.
+    pub fn current_node(&self) -> &crate::document::node::Node {
+        self.inner.current_node()
+    }
+
+    /// Get the current node mutably.
+    pub fn current_node_mut(&mut self) -> &mut crate::document::node::Node {
+        self.inner.current_node_mut()
+    }
+
+    /// Mark a node as the last bound value for the current binding/section.
+    pub fn set_last_bound_node(&mut self, node_id: NodeId) {
+        self.last_bound_node = Some(node_id);
+    }
+
+    /// Clone the pending source path for the current binding/section.
+    pub fn clone_pending_path(&self) -> SourcePath {
+        self.pending_path.clone()
+    }
+
+    /// Restore the pending source path for the current binding/section.
+    pub fn set_pending_path(&mut self, path: SourcePath) {
+        self.pending_path = path;
+    }
+
+    /// Temporarily suspend source-path tracking for inline container traversal.
+    pub fn suspend_path_tracking(&mut self) {
+        self.suspended_path_tracking += 1;
+    }
+
+    /// Resume source-path tracking after inline container traversal.
+    pub fn resume_path_tracking(&mut self) {
+        self.suspended_path_tracking = self.suspended_path_tracking.saturating_sub(1);
     }
 
     /// Get a reference to the document being built.
@@ -443,24 +499,41 @@ impl InterpreterSink for SourceConstructor {
     type Scope = Scope;
 
     fn begin_scope(&mut self) -> Self::Scope {
-        self.inner.begin_scope()
+        let restore_pending_path = !self.skip_path_restore_for_next_scope;
+        self.skip_path_restore_for_next_scope = false;
+        Scope {
+            inner: self.inner.begin_scope(),
+            pending_path: self.pending_path.clone(),
+            restore_pending_path,
+        }
     }
 
     fn end_scope(&mut self, scope: Self::Scope) -> Result<(), Self::Error> {
-        InterpreterSink::end_scope(&mut self.inner, scope)
+        if scope.restore_pending_path {
+            self.pending_path = scope.pending_path;
+        }
+        InterpreterSink::end_scope(&mut self.inner, scope.inner)
     }
 
     fn navigate(&mut self, segment: PathSegment) -> Result<NodeId, Self::Error> {
-        // Handle array markers: merge with previous segment
-        if let PathSegment::ArrayIndex(idx) = &segment {
-            let last = self.pending_path.last_mut().ok_or_else(|| InsertError {
-                kind: ConstructorError::StandaloneArrayIndex.into(),
-                path: EurePath::from_iter(self.inner.current_path().iter().cloned()),
-            })?;
-            last.array = Some(*idx);
-        } else {
-            let source_segment = Self::path_segment_to_source(&segment);
-            self.pending_path.push(source_segment);
+        if self.suspended_path_tracking == 0 {
+            // Handle array markers: merge with previous segment
+            if let PathSegment::ArrayIndex(idx) = &segment {
+                if let Some(last) = self.pending_path.last_mut() {
+                    last.array = Some(*idx);
+                } else if !matches!(
+                    self.builder_stack.last(),
+                    Some(BuilderContext::SectionItems { .. })
+                ) {
+                    return Err(InsertError {
+                        kind: ConstructorError::StandaloneArrayIndex.into(),
+                        path: EurePath::from_iter(self.inner.current_path().iter().cloned()),
+                    });
+                }
+            } else {
+                let source_segment = Self::path_segment_to_source(&segment);
+                self.pending_path.push(source_segment);
+            }
         }
 
         InterpreterSink::navigate(&mut self.inner, segment)
@@ -579,6 +652,7 @@ impl InterpreterSink for SourceConstructor {
 
     fn begin_binding(&mut self) {
         self.pending_path.clear();
+        self.skip_path_restore_for_next_scope = true;
     }
 
     fn end_binding_value(&mut self) -> Result<(), Self::Error> {
@@ -609,6 +683,7 @@ impl InterpreterSink for SourceConstructor {
 
     fn begin_section(&mut self) {
         self.pending_path.clear();
+        self.skip_path_restore_for_next_scope = true;
     }
 
     fn begin_section_items(&mut self) {

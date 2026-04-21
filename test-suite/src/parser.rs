@@ -208,6 +208,16 @@ impl Default for JsonSchemaData {
     }
 }
 
+#[derive(Debug, Clone, FromEure, BuildSchema)]
+#[eure(type_name = "edit-command")]
+pub struct EditCommandFixture {
+    #[eure(ext, rename = "variant")]
+    pub variant: String,
+    pub path: String,
+    #[eure(default)]
+    pub value: Option<Text>,
+}
+
 /// A single test case's data fields
 #[derive(Debug, Clone, Default, FromEure, BuildSchema)]
 #[eure(type_name = "case-data")]
@@ -263,6 +273,10 @@ pub struct CaseData {
     // Rust codegen testing field
     #[eure(default)]
     pub rust: Option<Text>,
+    #[eure(default)]
+    pub edit_commands: Vec<EditCommandFixture>,
+    #[eure(default)]
+    pub edited: Option<Text>,
     // Scenario error testing fields
     /// Assert that specific scenarios fail with expected error output
     #[eure(default)]
@@ -293,6 +307,8 @@ impl CaseData {
             && self.json_errors.is_empty()
             && self.semantic_tokens.is_empty()
             && self.rust.is_none()
+            && self.edit_commands.is_empty()
+            && self.edited.is_none()
             && self.scenario_errors.is_empty()
             && self.scenarios_expected.is_empty()
     }
@@ -500,5 +516,74 @@ output_json_schema = "output schema"
                 "expected parse failure for:\n{input}"
             );
         }
+    }
+
+    #[test]
+    fn test_parse_named_case_with_edit_commands_and_scenario_errors() {
+        let parsed = parse_case_file(
+            r#"
+@ cases.editing-error
+input_eure = ```eure
+items = [1, 2]
+```
+
+@ cases.editing-error.edit_commands[] {
+  $variant = "Delete"
+  path = "items[]"
+}
+
+@ cases.editing-error.scenario_errors[]
+scenario = "editing"
+output = ````
+delete path items[] cannot use []
+````
+"#,
+            PathBuf::from("case.eure"),
+        )
+        .expect("parse case");
+
+        let case = parsed
+            .case_file
+            .cases
+            .get("editing-error")
+            .expect("named case exists");
+        assert_eq!(
+            case.input_eure.as_ref().map(|text| text.as_str()),
+            Some("items = [1, 2]\n")
+        );
+        assert_eq!(case.edit_commands.len(), 1);
+        assert_eq!(case.scenario_errors.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_named_case_with_edit_commands_and_edited() {
+        let parsed = parse_case_file(
+            r#"
+@ cases.editing-success
+input_eure = ```eure
+items = [1, 2]
+```
+
+edited = ```eure
+items = [1, 2, 3]
+```
+
+@ cases.editing-success.edit_commands[] {
+  $variant = "Set"
+  path = "items[]"
+  value = eure`3`
+}
+"#,
+            PathBuf::from("case.eure"),
+        )
+        .expect("parse case");
+
+        let case = parsed
+            .case_file
+            .cases
+            .get("editing-success")
+            .expect("named case exists");
+        assert_eq!(case.edit_commands.len(), 1);
+        assert!(case.edited.is_some());
     }
 }

@@ -6,6 +6,7 @@ use query_flow::{Db, QueryError};
 
 pub mod completions;
 pub mod diagnostics;
+pub mod editing;
 pub mod eumd_error_validation;
 pub mod eure_schema_to_json_schema;
 pub mod eure_schema_to_json_schema_error;
@@ -131,6 +132,20 @@ pub enum ScenarioError {
         input: String,
         expected: String,
         actual: String,
+    },
+    /// Edit scenario output mismatch
+    EditingMismatch {
+        input: String,
+        expected: String,
+        actual: String,
+    },
+    /// Edit scenario execution error
+    EditingError {
+        message: String,
+    },
+    /// Edit path parse error
+    EditPathParseError {
+        message: String,
     },
     /// Runtime serialization error
     SerializationError {
@@ -364,6 +379,23 @@ impl std::fmt::Display for ScenarioError {
             }
             ScenarioError::SerializationError { message } => {
                 write!(f, "Serialization error: {}", message)
+            }
+            ScenarioError::EditingMismatch {
+                input,
+                expected,
+                actual,
+            } => {
+                write!(
+                    f,
+                    "Editing mismatch.\nInput:\n{}\n\nExpected:\n{}\n\nActual:\n{}",
+                    input, expected, actual
+                )
+            }
+            ScenarioError::EditingError { message } => {
+                write!(f, "{message}")
+            }
+            ScenarioError::EditPathParseError { message } => {
+                write!(f, "{message}")
             }
             ScenarioError::LayoutPlan(error) => {
                 write!(f, "Layout plan error: {}", error)

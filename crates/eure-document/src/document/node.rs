@@ -350,6 +350,24 @@ impl NodeArray {
         Ok(())
     }
 
+    pub fn insert_at(&mut self, index: usize, node_id: NodeId) -> Result<(), InsertErrorKind> {
+        if index > self.0.len() {
+            return Err(InsertErrorKind::ArrayIndexInvalid {
+                index,
+                expected_index: self.0.len(),
+            });
+        }
+        self.0.insert(index, node_id);
+        Ok(())
+    }
+
+    pub fn remove_at(&mut self, index: usize) -> Option<NodeId> {
+        if index >= self.0.len() {
+            return None;
+        }
+        Some(self.0.remove(index))
+    }
+
     pub fn to_vec(&self) -> Vec<NodeId> {
         self.0.clone()
     }

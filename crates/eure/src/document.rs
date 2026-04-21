@@ -23,6 +23,7 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 use eure_document::path::PathSegment;
+use eure_document::source::{BindSource, Comment, SectionBody, SourceDocument, SourceId, Trivia};
 use eure_document::value::ObjectKey;
 
 /// Origin tracking for document nodes and map keys.
@@ -277,10 +278,127 @@ pub fn parse_to_document(
     Ok(document)
 }
 
+pub fn parse_to_source_document(
+    input: &str,
+) -> eros::UResult<eure_document::source::SourceDocument, (EureParseError, DocumentConstructionError)>
+{
+    let tree = eure_parol::parse(input).union()?;
+    let source = cst_to_source_document(input, &tree).union()?;
+    Ok(source)
+}
+
 pub fn cst_to_document(input: &str, cst: &Cst) -> Result<EureDocument, DocumentConstructionError> {
     let mut visitor = CstInterpreter::new(input);
     visitor.visit_root_handle(cst.root_handle(), cst)?;
     Ok(visitor.into_document())
+}
+
+pub fn cst_to_source_document(
+    input: &str,
+    cst: &Cst,
+) -> Result<eure_document::source::SourceDocument, DocumentConstructionError> {
+    let mut visitor = CstInterpreter::new(input);
+    cst.visit_from_root(&mut visitor)?;
+    let mut source = visitor.into_source_document();
+    annotate_source_trivia_from_input(&mut source, input);
+    Ok(source)
+}
+
+fn annotate_source_trivia_from_input(source: &mut SourceDocument, input: &str) {
+    let (chunks, trailing) = collect_statement_trivia_chunks(input);
+    let mut chunks = chunks.into_iter();
+    attach_source_trivia(source, source.root, &mut chunks);
+    if source.source(source.root).trailing_trivia.is_empty() && !trailing.is_empty() {
+        source.source_mut(source.root).trailing_trivia = trailing;
+    }
+}
+
+fn collect_statement_trivia_chunks(input: &str) -> (Vec<Vec<Trivia>>, Vec<Trivia>) {
+    let mut chunks = Vec::new();
+    let mut pending = Vec::new();
+
+    for line in input.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            pending.push(Trivia::BlankLine);
+            continue;
+        }
+
+        if let Some(comment) = parse_line_comment(trimmed) {
+            pending.push(Trivia::Comment(Comment::Line(comment)));
+            continue;
+        }
+
+        if let Some(comment) = parse_block_comment(trimmed) {
+            pending.push(Trivia::Comment(Comment::Block(comment)));
+            continue;
+        }
+
+        if trimmed == "}" || trimmed == "]" {
+            continue;
+        }
+
+        chunks.push(std::mem::take(&mut pending));
+    }
+
+    (chunks, pending)
+}
+
+fn parse_line_comment(trimmed: &str) -> Option<String> {
+    let comment = trimmed.strip_prefix("//")?;
+    Some(comment.strip_prefix(' ').unwrap_or(comment).to_string())
+}
+
+fn parse_block_comment(trimmed: &str) -> Option<String> {
+    let content = trimmed.strip_prefix("/*")?.strip_suffix("*/")?;
+    Some(content.trim().to_string())
+}
+
+fn attach_source_trivia(
+    source: &mut SourceDocument,
+    source_id: SourceId,
+    chunks: &mut impl Iterator<Item = Vec<Trivia>>,
+) {
+    let binding_len = source.source(source_id).bindings.len();
+    for index in 0..binding_len {
+        let nested = {
+            let binding = &mut source.source_mut(source_id).bindings[index];
+            if binding.trivia_before.is_empty() {
+                binding.trivia_before = chunks.next().unwrap_or_default();
+            }
+            match binding.bind {
+                BindSource::Block(nested) => Some(nested),
+                _ => None,
+            }
+        };
+        if let Some(nested) = nested {
+            attach_source_trivia(source, nested, chunks);
+        }
+    }
+
+    let section_len = source.source(source_id).sections.len();
+    for index in 0..section_len {
+        let block_nested = {
+            let section = &mut source.source_mut(source_id).sections[index];
+            if section.trivia_before.is_empty() {
+                section.trivia_before = chunks.next().unwrap_or_default();
+            }
+            match &mut section.body {
+                SectionBody::Items { bindings, .. } => {
+                    for binding in bindings {
+                        if binding.trivia_before.is_empty() {
+                            binding.trivia_before = chunks.next().unwrap_or_default();
+                        }
+                    }
+                    None
+                }
+                SectionBody::Block(nested) => Some(*nested),
+            }
+        };
+        if let Some(nested) = block_nested {
+            attach_source_trivia(source, nested, chunks);
+        }
+    }
 }
 
 /// Error type that includes partial OriginMap for precise error reporting.
@@ -572,6 +690,29 @@ mod tests {
         let reparsed = parse_document(&formatted);
 
         assert_eq!(reparsed, doc);
+    }
+
+    #[test]
+    fn test_parse_to_source_document_preserves_leading_comment() {
+        let input = "// hello\nvalue = 1\n";
+        let source = parse_to_source_document(input).expect("source parse");
+
+        assert_eq!(format_source_document(&source), input);
+        assert_eq!(source.root_source().bindings.len(), 1);
+        assert!(matches!(
+            source.root_source().bindings[0].trivia_before.first(),
+            Some(eure_document::source::Trivia::Comment(
+                eure_document::source::Comment::Line(comment)
+            )) if comment == "hello"
+        ));
+    }
+
+    #[test]
+    fn test_parse_to_source_document_preserves_inline_array_binding() {
+        let input = "items = [1, 2, 3]\n";
+        let source = parse_to_source_document(input).expect("source parse");
+
+        assert_eq!(format_source_document(&source), input);
     }
 
     // ==========================================================================

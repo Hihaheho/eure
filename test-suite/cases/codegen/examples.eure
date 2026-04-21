@@ -948,6 +948,13 @@ pub enum CaseDataRust {
     None,
 }
 
+pub enum CaseDataEdited {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
 #[eure(type_name = "case-data")]
 pub struct CaseData {
     pub json: Option<String>,
@@ -964,6 +971,7 @@ pub struct CaseData {
     pub diagnostics: Option<Vec<DiagnosticItem>>,
     pub json_errors: Option<Vec<String>>,
     pub semantic_tokens: Option<Vec<SemanticTokenItem>>,
+    pub edit_commands: Option<Vec<EditCommand>>,
     pub scenario_errors: Option<Vec<ScenarioErrorItem>>,
     pub scenarios_expected: Option<Vec<String>>,
     pub input_eure: Option<CaseDataInputEure>,
@@ -978,6 +986,7 @@ pub struct CaseData {
     pub editor: Option<CaseDataEditor>,
     pub trigger: Option<CaseDataTrigger>,
     pub rust: Option<CaseDataRust>,
+    pub edited: Option<CaseDataEdited>,
 }
 
 pub enum CaseFileInputJson {
@@ -1092,6 +1101,13 @@ pub enum CaseFileRust {
     None,
 }
 
+pub enum CaseFileEdited {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
 #[eure(type_name = "case-file")]
 pub struct CaseFile {
     pub json: Option<String>,
@@ -1108,6 +1124,7 @@ pub struct CaseFile {
     pub diagnostics: Option<Vec<DiagnosticItem>>,
     pub json_errors: Option<Vec<String>>,
     pub semantic_tokens: Option<Vec<SemanticTokenItem>>,
+    pub edit_commands: Option<Vec<EditCommand>>,
     pub scenario_errors: Option<Vec<ScenarioErrorItem>>,
     pub scenarios_expected: Option<Vec<String>>,
     pub input_eure: Option<CaseFileInputEure>,
@@ -1122,6 +1139,7 @@ pub struct CaseFile {
     pub editor: Option<CaseFileEditor>,
     pub trigger: Option<CaseFileTrigger>,
     pub rust: Option<CaseFileRust>,
+    pub edited: Option<CaseFileEdited>,
     pub cases: Option<::std::collections::BTreeMap<String, CaseData>>,
 }
 
@@ -1188,6 +1206,19 @@ pub struct DiagnosticItem {
     pub code: Option<DiagnosticItemCode>,
     pub span: Option<DiagnosticItemSpan>,
     pub span_index: Option<DiagnosticItemSpanIndex>,
+}
+
+pub enum EditCommandValue {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
+#[eure(type_name = "edit-command")]
+pub struct EditCommand {
+    pub path: String,
+    pub value: Option<EditCommandValue>,
 }
 
 pub enum JsonDataSeparateInputJson {
