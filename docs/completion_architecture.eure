@@ -1,32 +1,57 @@
-# Eure Completion System Architecture
+$docs {
+  title: Eure Completion System Architecture
+  description: This document describes a complete redesign of the Eure LSP completion system to use proper CST (Concrete Syntax Tree) traversal instead of string-based parsing.
+}
 
-## Overview
+"#": Eure Completion System Architecture
 
+"toc".$toc = true
+
+@ "overview" {
+  "##": Overview
+
+  "body" = ```markdown
 This document describes a complete redesign of the Eure LSP completion system to use proper CST (Concrete Syntax Tree) traversal instead of string-based parsing.
+```
 
-## Current Problems
+}
 
+@ "current-problems" {
+  "##": Current Problems
+
+  "body" = ```markdown
 1. **String-based parsing** - Re-parsing already parsed content
 2. **Two-phase extraction** - First extracting values, then context
 3. **Incomplete context** - Missing array indices, variant contexts
 4. **Fragile logic** - Many edge cases with line-by-line parsing
 5. **Poor error recovery** - Doesn't handle incomplete syntax well
+```
 
-## Design Goals
+}
 
+@ "design-goals" {
+  "##": Design Goals
+
+  "body" = ```markdown
 1. **Single-pass CST traversal** - One visitor extracts all context
 2. **Position-aware** - Accurately map LSP position to CST nodes
 3. **Error-tolerant** - Handle incomplete/invalid syntax gracefully
 4. **Type-aware** - Track expected types for value completions
 5. **Efficient** - Minimal allocations and traversals
+```
 
-## Architecture
+}
 
-### Core Components
+@ "architecture" {
+  "##": Architecture
 
-#### 1. Position Mapping
+  @ "core-components" {
+    "###": Core Components
 
-```rust
+    @ "1-position-mapping" {
+      "####": 1. Position Mapping
+
+      "rust-snippet" = ```rust
 /// Converts LSP Position (line/column) to byte offset in text
 struct PositionMapper {
     line_starts: Vec<usize>, // Byte offset of each line start
@@ -51,9 +76,12 @@ impl PositionMapper {
 }
 ```
 
-#### 2. Completion Context
+    }
 
-```rust
+    @ "2-completion-context" {
+      "####": 2. Completion Context
+
+      "rust-snippet" = ```rust
 #[derive(Debug)]
 struct CompletionContext {
     /// Path to current location (e.g., ["script", "dependencies"])
@@ -103,9 +131,12 @@ enum CompletionPosition {
 }
 ```
 
-#### 3. Completion Visitor
+    }
 
-```rust
+    @ "3-completion-visitor" {
+      "####": 3. Completion Visitor
+
+      "rust-snippet" = ```rust
 // CompletionVisitor is specialized for finding completion contexts
 // For full value extraction, use the new CstInterpreter API:
 //   let mut visitor = CstInterpreter::new(input);
@@ -194,32 +225,47 @@ impl<'a> CstVisitor for CompletionVisitor<'a> {
 }
 ```
 
-### Key Algorithms
+    }
 
-#### 1. Finding Cursor Position
+  }
 
+  @ "key-algorithms" {
+    "###": Key Algorithms
+
+    @ "1-finding-cursor-position" {
+      "####": 1. Finding Cursor Position
+
+      "body" = ```markdown
 The visitor needs to efficiently determine if the cursor is within a node:
+```
 
-```rust
+      "rust-snippet" = ```rust
 fn cursor_in_span(&self, span: Span) -> bool {
     self.cursor_offset >= span.start && self.cursor_offset <= span.end
 }
 ```
 
+      "body-2" = ```markdown
 For incomplete syntax (e.g., "@ script."), we need to be more flexible:
+```
 
-```rust
+      "rust-snippet-2" = ```rust
 fn cursor_at_span_end(&self, span: Span) -> bool {
     // Allow cursor to be just after span for incomplete syntax
     self.cursor_offset >= span.end && self.cursor_offset <= span.end + 1
 }
 ```
 
-#### 2. Analyzing Section Keys
+    }
 
+    @ "2-analyzing-section-keys" {
+      "####": 2. Analyzing Section Keys
+
+      "body" = ```markdown
 When cursor is in section keys like "@ script.dep|":
+```
 
-```rust
+      "rust-snippet" = ```rust
 fn analyze_section_keys(&mut self, keys: KeysHandle, tree: &Cst) {
     // Extract the key segments before cursor
     let keys_text = self.extract_text_before_cursor(keys, tree);
@@ -248,11 +294,16 @@ fn analyze_section_keys(&mut self, keys: KeysHandle, tree: &Cst) {
 }
 ```
 
-#### 3. Analyzing Bindings
+    }
 
+    @ "3-analyzing-bindings" {
+      "####": 3. Analyzing Bindings
+
+      "body" = ```markdown
 When cursor is in a binding like "host = |":
+```
 
-```rust
+      "rust-snippet" = ```rust
 fn analyze_binding(&mut self, view: BindingView, tree: &Cst) {
     // Check if cursor is in keys
     if let Some(keys_span) = self.get_span(view.keys, tree) {
@@ -288,47 +339,77 @@ fn analyze_binding(&mut self, view: BindingView, tree: &Cst) {
 }
 ```
 
-### Challenges and Solutions
+    }
 
-#### 1. Incomplete Syntax
+  }
 
+  @ "challenges-and-solutions" {
+    "###": Challenges and Solutions
+
+    @ "1-incomplete-syntax" {
+      "####": 1. Incomplete Syntax
+
+      "body" = ```markdown
 **Challenge**: CST might have error nodes when syntax is incomplete.
 
 **Solution**:
 - Handle error nodes gracefully
 - Use span boundaries flexibly
 - Extract text from raw input when needed
+```
 
-#### 2. Whitespace Positions
+    }
 
+    @ "2-whitespace-positions" {
+      "####": 2. Whitespace Positions
+
+      "body" = ```markdown
 **Challenge**: Cursor might be in whitespace between nodes.
 
 **Solution**:
 - Check if cursor is just after a node that typically has completions
 - Use "fuzzy" span matching for ends of nodes
+```
 
-#### 3. UTF-16 vs UTF-8
+    }
 
+    @ "3-utf-16-vs-utf-8" {
+      "####": 3. UTF-16 vs UTF-8
+
+      "body" = ```markdown
 **Challenge**: LSP uses UTF-16 offsets but Rust strings are UTF-8.
 
 **Solution**:
 - Proper position mapping that handles UTF-16
 - Test with unicode characters
+```
 
-#### 4. Performance
+    }
 
+    @ "4-performance" {
+      "####": 4. Performance
+
+      "body" = ```markdown
 **Challenge**: Need fast response times for IDE experience.
 
 **Solution**:
 - Stop traversal once context is found
 - Reuse CST from parsing phase
 - Minimal allocations
+```
 
-### Completion Generation
+    }
 
+  }
+
+  @ "completion-generation" {
+    "###": Completion Generation
+
+    "body" = ```markdown
 Once we have context, generating completions is straightforward:
+```
 
-```rust
+    "rust-snippet" = ```rust
 fn generate_completions(ctx: &CompletionContext, schema: &DocumentSchema) -> Vec<CompletionItem> {
     match &ctx.position {
         CompletionPosition::SectionStart => {
@@ -364,8 +445,12 @@ fn generate_completions(ctx: &CompletionContext, schema: &DocumentSchema) -> Vec
 }
 ```
 
-### Testing Strategy
+  }
 
+  @ "testing-strategy" {
+    "###": Testing Strategy
+
+    "body" = ```markdown
 1. **Unit tests for position mapping**
    - UTF-8/UTF-16 edge cases
    - Multi-line documents
@@ -381,16 +466,28 @@ fn generate_completions(ctx: &CompletionContext, schema: &DocumentSchema) -> Vec
    - Real-world schemas
    - Complex completions
    - Performance benchmarks
+```
 
-### Migration Plan
+  }
 
+  @ "migration-plan" {
+    "###": Migration Plan
+
+    "body" = ```markdown
 1. **Phase 1**: Implement new visitor alongside old code
 2. **Phase 2**: Add feature flag to switch implementations
 3. **Phase 3**: Migrate tests to new implementation
 4. **Phase 4**: Remove old string-based code
+```
 
-## Conclusion
+  }
 
+}
+
+@ "conclusion" {
+  "##": Conclusion
+
+  "body" = ```markdown
 This architecture provides a solid foundation for accurate, efficient completions:
 
 - **Single-pass** traversal minimizes overhead
@@ -399,3 +496,6 @@ This architecture provides a solid foundation for accurate, efficient completion
 - **Extensible** for future completion types
 
 The key insight is that the CST already contains all structural information - we just need to traverse it properly instead of re-parsing text.
+```
+
+}

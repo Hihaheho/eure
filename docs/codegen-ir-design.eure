@@ -1,7 +1,16 @@
-# eure-codegen-ir Design Draft (v2)
+$docs {
+  title: eure-codegen-ir Design Draft (v2)
+  description: eure-codegen-ir is the canonical intermediate representation (IR) for bidirectional conversion between:
+}
 
-## 1. Purpose
+"#": eure-codegen-ir Design Draft (v2)
 
+"toc".$toc = true
+
+@ "1-purpose" {
+  "##": 1. Purpose
+
+  "body" = ```markdown
 `eure-codegen-ir` is the canonical intermediate representation (IR) for bidirectional conversion between:
 
 1. Rust data types and derive attributes
@@ -10,8 +19,9 @@
 4. Rust literal expressions generated from `(EureSchema, IR, EureDoc)`
 
 Target flows:
+```
 
-```text
+  "text-snippet" = ```text
 Rust Data Type
   -> (eure-macros) IR
   -> emit FromEure / IntoEure / BuildSchema
@@ -25,8 +35,12 @@ Eure Schema (+ optional codegen metadata)
   -> emit Rust literal expression
 ```
 
-## 2. Request Fulfillment Checklist
+}
 
+@ "2-request-fulfillment-checklist" {
+  "##": 2. Request Fulfillment Checklist
+
+  "body" = ```markdown
 This draft explicitly includes:
 
 1. Complete requirement list (Section 5)
@@ -34,11 +48,17 @@ This draft explicitly includes:
 3. Rough design ideas with met/not-met lists (Section 7)
 4. Test items linked to requirements (Section 10)
 5. Recommended design and migration plan (Sections 8 and 11)
+```
 
-## 3. Scope and Non-Goals
+}
 
-### In Scope
+@ "3-scope-and-non-goals" {
+  "##": 3. Scope and Non-Goals
 
+  @ "in-scope" {
+    "###": In Scope
+
+    "body" = ```markdown
 1. A dependency-light IR crate consumable by both proc-macro and runtime codegen paths.
 2. Lossless semantic representation for:
    - derive attributes used by current macros,
@@ -47,16 +67,28 @@ This draft explicitly includes:
    - optional codegen metadata from schema.
 3. Deterministic structural equality and structural diff.
 4. Typed, explicit invariants to reject contradictory states.
+```
 
-### Non-Goals
+  }
 
+  @ "non-goals" {
+    "###": Non-Goals
+
+    "body" = ```markdown
 1. Preserving original token text, comments, or Rust spans.
 2. Preserving textual schema formatting/order where semantics are unchanged.
 3. Embedding `syn`, `proc_macro2`, `darling`, `eure-document`, or `eure-schema` types directly in IR public APIs.
 4. Guaranteeing textual identity after roundtrip (structural equivalence only).
+```
 
-## 4. Ground Truth Constraints from Current Workspace
+  }
 
+}
+
+@ "4-ground-truth-constraints-from-current-workspace" {
+  "##": 4. Ground Truth Constraints from Current Workspace
+
+  "body" = ```markdown
 This design must encode existing behavior already present in this repository:
 
 1. Derive container attrs include:
@@ -72,13 +104,21 @@ This design must encode existing behavior already present in this repository:
 5. Codegen metadata exists at root/type/field levels:
    root-codegen, codegen-defaults, union-codegen, record-codegen, field-codegen.
 6. Eure value semantics include non-string map keys and large integer values; IR must avoid lossy narrowing.
+```
 
-## 5. Complete Requirement List
+}
 
+@ "5-complete-requirement-list" {
+  "##": 5. Complete Requirement List
+
+  "body" = ```markdown
 Normative keywords (`MUST`, `SHOULD`, `MAY`) are used below.
+```
 
-### 5.1 Core Requirements
+  @ "5-1-core-requirements" {
+    "###": 5.1 Core Requirements
 
+    "body" = ```markdown
 1. `CR1` IR `MUST` be constructable from derive input.
 2. `CR2` IR `MUST` be constructable from schema input.
 3. `CR3` IR `MUST` retain enough information to emit behaviorally equivalent
@@ -89,9 +129,14 @@ Normative keywords (`MUST`, `SHOULD`, `MAY`) are used below.
 7. `CR7` IR `MUST` support deterministic structural equality and structural diff.
 8. `CR8` IR `MUST` use typed invariants to reject invalid/contradictory states.
 9. `CR9` IR `SHOULD` remain dependency-light (`indexmap` acceptable; avoid heavy parser/runtime coupling).
+```
 
-### 5.2 Derive Fidelity Requirements
+  }
 
+  @ "5-2-derive-fidelity-requirements" {
+    "###": 5.2 Derive Fidelity Requirements
+
+    "body" = ```markdown
 1. `DR1` `MUST` capture all container attrs listed in Section 4.
 2. `DR2` `MUST` capture all field attrs listed in Section 4.
 3. `DR3` `MUST` capture all variant attrs listed in Section 4.
@@ -106,9 +151,14 @@ Normative keywords (`MUST`, `SHOULD`, `MAY`) are used below.
    schema optionality for `BuildSchema`-equivalent record fields.
 9. `DR9` `MUST` encode `type_name` used for `BuildSchema` registration.
 10. `DR10` `MUST` preserve enough information for compile-time validation errors to remain deterministic.
+```
 
-### 5.3 Schema Fidelity Requirements
+  }
 
+  @ "5-3-schema-fidelity-requirements" {
+    "###": 5.3 Schema Fidelity Requirements
+
+    "body" = ```markdown
 1. `SR1` `MUST` represent all schema node kinds used by `eure-schema`.
 2. `SR2` `MUST` preserve all constraints for:
    - text (`language`, `min_length`, `max_length`, `pattern`, unknown text fields),
@@ -127,9 +177,14 @@ Normative keywords (`MUST`, `SHOULD`, `MAY`) are used below.
 8. `SR8` `MUST` preserve literal/default/example values without integer or key-type loss.
 9. `SR9` until `ValueIr` is extended, adapters `MUST` reject extension-bearing value nodes in
    literal/default/example payloads with typed errors (no silent drop).
+```
 
-### 5.4 Codegen Metadata Requirements
+  }
 
+  @ "5-4-codegen-metadata-requirements" {
+    "###": 5.4 Codegen Metadata Requirements
+
+    "body" = ```markdown
 1. `CG1` `MUST` represent root-level codegen metadata (`$codegen`).
 2. `CG2` `MUST` represent module defaults (`$codegen-defaults`).
 3. `CG3` `MUST` represent union type-level codegen metadata.
@@ -139,29 +194,51 @@ Normative keywords (`MUST`, `SHOULD`, `MAY`) are used below.
 7. `CG7` `MUST` support filtering/gating derives by effective emission policy.
 8. `CG8` root-level and root-type `$codegen` data `MUST` be merged through a single root
    extension payload with coherent shared keys (`type`).
+```
 
-### 5.5 Interop / Emission Requirements
+  }
 
+  @ "5-5-interop-emission-requirements" {
+    "###": 5.5 Interop / Emission Requirements
+
+    "body" = ```markdown
 1. `IO1` `MUST` preserve optional union interop policy (`variant_repr`).
 2. `IO2` emitters `MUST` consume interop policy only when effective serde emit is enabled.
 3. `IO3` for serde-disabled targets, emitters `MUST` ignore interop policy in emitted serde attrs.
 4. `IO4` native Eure semantics `MUST NOT` depend on interop metadata.
+```
 
-### 5.6 Literal Generation Requirements
+  }
 
+  @ "5-6-literal-generation-requirements" {
+    "###": 5.6 Literal Generation Requirements
+
+    "body" = ```markdown
 1. `LR1` IR `SHOULD` support literal expression generation from `(Schema, IR, EureDoc)`.
 2. `LR2` literal generation `MUST` preserve schema-valid value structure and types.
 3. `LR3` literal generation `MUST` fail with typed errors on unsupported/ambiguous constructs.
+```
 
-### 5.7 Error and Stability Requirements
+  }
 
+  @ "5-7-error-and-stability-requirements" {
+    "###": 5.7 Error and Stability Requirements
+
+    "body" = ```markdown
 1. `ER1` all IR validation/conversion errors `MUST` be typed enums (`thiserror` style), not raw strings.
 2. `ER2` converters `MUST NOT` silently fall back on invalid states.
 3. `ER3` structural equality and structural diff `MUST` be deterministic.
 4. `ER4` IR versions `SHOULD` evolve compatibly (additive-first policy).
+```
 
-## 6. Design Considerations
+  }
 
+}
+
+@ "6-design-considerations" {
+  "##": 6. Design Considerations
+
+  "body" = ```markdown
 1. **Single Source of Semantics**:
    Derive and schema paths currently encode overlapping semantics in different places.
    IR should be the shared semantic center.
@@ -177,11 +254,17 @@ Normative keywords (`MUST`, `SHOULD`, `MAY`) are used below.
    IR invariants must represent already enforced compile-time rules to avoid behavior drift.
 7. **Future Extensibility**:
    Support adding schema constraints or codegen metadata fields without redesigning core IR.
+```
 
-## 7. Rough Design Ideas
+}
 
-### 7.1 Candidate A: Unified Semantic Graph + Rust Binding Overlay (Recommended)
+@ "7-rough-design-ideas" {
+  "##": 7. Rough Design Ideas
 
+  @ "7-1-candidate-a-unified-semantic-graph-rust-binding-overlay-recommended" {
+    "###": 7.1 Candidate A: Unified Semantic Graph + Rust Binding Overlay (Recommended)
+
+    "body" = ```markdown
 **Idea**
 
 1. Model schema semantics as a complete graph (`SchemaNodeIr`-like).
@@ -199,9 +282,14 @@ Normative keywords (`MUST`, `SHOULD`, `MAY`) are used below.
 
 1. Higher upfront implementation complexity.
 2. Requires careful invariant layering to avoid duplication between semantic and binding layers.
+```
 
-### 7.2 Candidate B: Rust-First Type IR with Reduced Schema Projection
+  }
 
+  @ "7-2-candidate-b-rust-first-type-ir-with-reduced-schema-projection" {
+    "###": 7.2 Candidate B: Rust-First Type IR with Reduced Schema Projection
+
+    "body" = ```markdown
 **Idea**
 
 1. Center IR on Rust shape (struct/enum/fields/generics).
@@ -217,9 +305,14 @@ Normative keywords (`MUST`, `SHOULD`, `MAY`) are used below.
 1. Fails complete schema fidelity (`SR2`, `SR6`, `SR7`, `SR8`).
 2. Risks lossy schema roundtrip (`CR5`).
 3. Harder literal generation correctness (`LR2`).
+```
 
-### 7.3 Candidate C: Separate Derive IR and Schema IR with Bridge Transform
+  }
 
+  @ "7-3-candidate-c-separate-derive-ir-and-schema-ir-with-bridge-transform" {
+    "###": 7.3 Candidate C: Separate Derive IR and Schema IR with Bridge Transform
+
+    "body" = ```markdown
 **Idea**
 
 1. Keep two specialized IRs and define conversion bridge(s).
@@ -234,9 +327,14 @@ Normative keywords (`MUST`, `SHOULD`, `MAY`) are used below.
 1. Duplicate invariants and semantics in two IRs.
 2. Bridge becomes new single point of semantic drift.
 3. More test burden to prove equivalence.
+```
 
-### 7.4 Candidate Comparison
+  }
 
+  @ "7-4-candidate-comparison" {
+    "###": 7.4 Candidate Comparison
+
+    "body" = ```markdown
 | Requirement Group | Candidate A | Candidate B | Candidate C |
 |---|---|---|---|
 | Core (`CR*`) | High | Medium | Medium |
@@ -248,19 +346,31 @@ Normative keywords (`MUST`, `SHOULD`, `MAY`) are used below.
 | Long-term maintainability | Medium | Medium | Low |
 
 Conclusion: Candidate A is preferred.
+```
 
-## 8. Recommended Design (Candidate A)
+  }
 
-### 8.1 Architectural Boundary
+}
 
+@ "8-recommended-design-candidate-a" {
+  "##": 8. Recommended Design (Candidate A)
+
+  @ "8-1-architectural-boundary" {
+    "###": 8.1 Architectural Boundary
+
+    "body" = ```markdown
 1. `eure-codegen-ir` contains only IR model + invariants + structural equality/diff utilities.
 2. `eure-macros` owns derive-ast -> IR adapter.
 3. `eure-codegen` owns schema -> IR adapter.
 4. Emitters consume IR and live in consumer crates (`eure-macros`, `eure-codegen`, or dedicated emit crate).
+```
 
-### 8.2 Data Model Sketch
+  }
 
-```rust
+  @ "8-2-data-model-sketch" {
+    "###": 8.2 Data Model Sketch
+
+    "rust-snippet" = ```rust
 use indexmap::{IndexMap, IndexSet};
 
 pub struct IrModule {
@@ -286,7 +396,7 @@ pub struct TypeDefIr {
 }
 ```
 
-```rust
+    "rust-snippet-2" = ```rust
 pub struct SchemaNodeIr {
     pub content: SchemaNodeContentIr,
     pub metadata: SchemaMetadataIr,
@@ -372,7 +482,7 @@ pub struct UnionSchemaIr {
 }
 ```
 
-```rust
+    "rust-snippet-3" = ```rust
 pub struct RustBindingIr {
     pub kind: RustTypeKindIr,           // record/newtype/tuple/unit/enum
     pub container: ContainerAttrsIr,
@@ -413,7 +523,7 @@ pub struct RustVariantIr {
 }
 ```
 
-```rust
+    "rust-snippet-4" = ```rust
 pub enum ValueIr {
     Null,
     Bool(bool),
@@ -432,9 +542,12 @@ pub enum ObjectKeyIr {
 }
 ```
 
-### 8.3 Codegen Metadata IR
+  }
 
-```rust
+  @ "8-3-codegen-metadata-ir" {
+    "###": 8.3 Codegen Metadata IR
+
+    "rust-snippet" = ```rust
 pub struct RootCodegenIr {
     pub type_name: Option<String>,
 }
@@ -469,43 +582,75 @@ pub struct FieldCodegenIr {
 }
 ```
 
-### 8.4 Conversion Rules
+  }
 
-#### Derive Input -> IR
+  @ "8-4-conversion-rules" {
+    "###": 8.4 Conversion Rules
 
+    @ "derive-input-ir" {
+      "####": Derive Input -> IR
+
+      "body" = ```markdown
 1. Parse all container/field/variant attrs into `RustBindingIr`.
 2. Resolve wire names using rename rules; keep both raw policy and resolved names.
 3. Build semantic nodes from Rust type analysis for `BuildSchema`-equivalent semantics,
    including record property optionality derived from `Option<T>` and defaulted fields.
 4. Apply derive invariants at IR construction time (Section 8.7).
+```
 
-#### Schema -> IR
+    }
 
+    @ "schema-ir" {
+      "####": Schema -> IR
+
+      "body" = ```markdown
 1. Convert each schema node and preserve full constraints in `SchemaNodeContentIr`.
 2. Preserve metadata/default/examples as structured `ValueIr`.
 3. Preserve ext_types, binding styles, unknown field policies, union interop data.
 4. Parse and attach root/type/field codegen metadata.
+```
 
-#### IR -> Trait Impl Emission
+    }
 
+    @ "ir-trait-impl-emission" {
+      "####": IR -> Trait Impl Emission
+
+      "body" = ```markdown
 1. `FromEure`: consume `RustBindingIr` modes/default/via/error policies.
 2. `IntoEure`: same semantic modes in reverse.
 3. `BuildSchema`: consume semantic graph + type registration data (`type_name`).
+```
 
-#### IR -> Rust Type Emission
+    }
 
+    @ "ir-rust-type-emission" {
+      "####": IR -> Rust Type Emission
+
+      "body" = ```markdown
 1. Use semantic graph + codegen metadata + emission defaults.
 2. Compute effective emission per type.
 3. Apply serde interop attrs only when effective serde policy allows.
+```
 
-#### `(Schema, IR, Doc) -> Rust Literal`
+    }
 
+    @ "schema-ir-doc-rust-literal" {
+      "####": `(Schema, IR, Doc) -> Rust Literal`
+
+      "body" = ```markdown
 1. Validate doc against schema path target.
 2. Use type binding and semantic node shapes to emit typed literal expression.
 3. Emit typed errors when value cannot be represented safely.
+```
 
-### 8.5 Structural Equality and Diff
+    }
 
+  }
+
+  @ "8-5-structural-equality-and-diff" {
+    "###": 8.5 Structural Equality and Diff
+
+    "body" = ```markdown
 1. IR equality is strict structural equality (`==`) only.
 2. Comparison utilities `MUST NOT` apply defaults, normalization, or semantic collapsing.
 3. Distinct representational states remain distinct:
@@ -513,18 +658,28 @@ pub struct FieldCodegenIr {
    - `examples = None` vs `examples = Some([])` are different,
    - `variant_repr = None` vs `variant_repr = Some(External)` are different.
 4. Any desired normalization must happen during IR construction/validation, not in comparison APIs.
+```
 
-### 8.6 Typed Error Model
+  }
 
+  @ "8-6-typed-error-model" {
+    "###": 8.6 Typed Error Model
+
+    "body" = ```markdown
 1. IR construction/validation/conversion errors are explicit enums.
 2. Errors carry:
    - stable error kind,
    - location path (`type`, `field`, `variant`, `schema node`),
    - short machine-readable code.
 3. No silent fallback on invariant violations.
+```
 
-### 8.7 Invariants (Hard Rules)
+  }
 
+  @ "8-7-invariants-hard-rules" {
+    "###": 8.7 Invariants (Hard Rules)
+
+    "body" = ```markdown
 1. `I1` `proxy` and `opaque` are mutually exclusive.
 2. `I2` `allow_unknown_fields` on variants is valid only for named struct variants.
 3. `I3` `flatten` and `flatten_ext` cannot coexist on the same field.
@@ -541,9 +696,16 @@ pub struct FieldCodegenIr {
     (until IR adds extension-bearing value support).
 14. `I14` if root-level and root-type codegen both provide `type`, values must match;
     mismatches are typed errors.
+```
 
-## 9. Requirement Coverage for Recommended Design
+  }
 
+}
+
+@ "9-requirement-coverage-for-recommended-design" {
+  "##": 9. Requirement Coverage for Recommended Design
+
+  "body" = ```markdown
 | Requirement Group | Status in Candidate A | Notes |
 |---|---|---|
 | `CR*` | Met | Single canonical model for both producers |
@@ -553,39 +715,65 @@ pub struct FieldCodegenIr {
 | `IO*` | Met | Interop stored separately and gated at emission |
 | `LR*` | Met (design), Pending (implementation) | Literal emitter still to implement |
 | `ER*` | Met (design), Pending (implementation) | Requires concrete error enums + structural diff util |
+```
 
-## 10. Test Plan (Requirement-Linked)
+}
 
-### T01 Derive Attribute Capture Matrix
+@ "10-test-plan-requirement-linked" {
+  "##": 10. Test Plan (Requirement-Linked)
 
+  @ "t01-derive-attribute-capture-matrix" {
+    "###": T01 Derive Attribute Capture Matrix
+
+    "body" = ```markdown
 1. Covers: `DR1`, `DR2`, `DR3`, `DR5`, `DR6`, `DR7`, `DR8`, `DR9`.
 2. Cases:
    - each container attr alone and in valid combinations,
    - each field mode with rename/default/via permutations,
    - variant rename and `allow_unknown_fields`.
 3. Checks: IR snapshot + behavior parity with existing macro output.
+```
 
-### T02 Derive Invariant Rejection (Compile-Fail + IR Validation)
+  }
 
+  @ "t02-derive-invariant-rejection-compile-fail-ir-validation" {
+    "###": T02 Derive Invariant Rejection (Compile-Fail + IR Validation)
+
+    "body" = ```markdown
 1. Covers: `CR8`, `DR10`, `ER1`, `ER2`, `I1`-`I8`.
 2. Cases:
    - invalid attr combinations and context misuse.
 3. Checks: deterministic typed errors and stable messages.
+```
 
-### T03 Generics / Where-Clause Fidelity
+  }
 
+  @ "t03-generics-where-clause-fidelity" {
+    "###": T03 Generics / Where-Clause Fidelity
+
+    "body" = ```markdown
 1. Covers: `DR4`.
 2. Cases: type/lifetime/const generics, complex where predicates.
 3. Checks: emitted impls do not require re-reading `syn::DeriveInput`.
+```
 
-### T04 Schema Node Coverage by Kind
+  }
 
+  @ "t04-schema-node-coverage-by-kind" {
+    "###": T04 Schema Node Coverage by Kind
+
+    "body" = ```markdown
 1. Covers: `SR1`.
 2. Cases: all schema node variants (`Any`..`Reference`).
 3. Checks: schema -> IR -> schema structural equality.
+```
 
-### T05 Schema Constraint Fidelity
+  }
 
+  @ "t05-schema-constraint-fidelity" {
+    "###": T05 Schema Constraint Fidelity
+
+    "body" = ```markdown
 1. Covers: `SR2`, `SR6`, `SR7`.
 2. Cases:
    - text constraints + unknown text fields,
@@ -594,59 +782,101 @@ pub struct FieldCodegenIr {
    - record flatten + unknown field policy,
    - union unambiguous + deny_untagged.
 3. Checks: no field-level loss after roundtrip.
+```
 
-### T06 Metadata and ext_types Fidelity
+  }
 
+  @ "t06-metadata-and-ext-types-fidelity" {
+    "###": T06 Metadata and ext_types Fidelity
+
+    "body" = ```markdown
 1. Covers: `SR4`, `SR5`, `SR8`.
 2. Cases: description variants, deprecated, default, examples, ext type optionality/binding-style.
 3. Checks: structural equality including nested literal/default/example values.
 4. Additional case: extension-bearing default/example/literal values must fail with typed error.
+```
 
-### T07 Codegen Metadata Fidelity
+  }
 
+  @ "t07-codegen-metadata-fidelity" {
+    "###": T07 Codegen Metadata Fidelity
+
+    "body" = ```markdown
 1. Covers: `CG1`-`CG5`.
 2. Cases: root-codegen, codegen-defaults, union/record type codegen, field codegen rename.
    - root record/union with combined root+type `$codegen` payload.
    - conflicting root/type `type` names rejected with typed error.
 3. Checks: schema -> IR -> codegen metadata -> schema parity.
+```
 
-### T08 Emission Policy and Interop Gating
+  }
 
+  @ "t08-emission-policy-and-interop-gating" {
+    "###": T08 Emission Policy and Interop Gating
+
+    "body" = ```markdown
 1. Covers: `CG6`, `CG7`, `IO1`, `IO2`, `IO3`, `IO4`.
 2. Cases:
    - module defaults + per-type overrides,
    - mixed serde-on and serde-off types in one module,
    - each `variant_repr` value.
 3. Checks: emitted attrs and derives obey effective policy.
+```
 
-### T09 End-to-End Trait Parity
+  }
 
+  @ "t09-end-to-end-trait-parity" {
+    "###": T09 End-to-End Trait Parity
+
+    "body" = ```markdown
 1. Covers: `CR3`.
 2. Cases: representative record/enum/newtype/tuple/unit types, proxy/opaque, parse_ext scenarios.
 3. Checks: old and IR-based emitters produce behaviorally equivalent parsing/writing/schema.
+```
 
-### T10 Roundtrip Structural Equality
+  }
 
+  @ "t10-roundtrip-structural-equality" {
+    "###": T10 Roundtrip Structural Equality
+
+    "body" = ```markdown
 1. Covers: `CR5`, `CR7`, `ER3`.
 2. Flows:
    - Rust -> IR -> BuildSchema -> Schema -> IR -> Rust
    - Schema -> IR -> Rust -> IR -> Schema
 3. Checks: structural equality utility only.
+```
 
-### T11 Literal Generation
+  }
 
+  @ "t11-literal-generation" {
+    "###": T11 Literal Generation
+
+    "body" = ```markdown
 1. Covers: `LR1`, `LR2`, `LR3`.
 2. Cases: primitive, record, union, map with non-string keys, tuple, nested defaults/examples.
 3. Checks: expression compiles, runtime value equality, typed error on unsupported cases.
+```
 
-### T12 Error Typing and No-Fallback
+  }
 
+  @ "t12-error-typing-and-no-fallback" {
+    "###": T12 Error Typing and No-Fallback
+
+    "body" = ```markdown
 1. Covers: `ER1`, `ER2`.
 2. Cases: invalid references, unresolved names, impossible mode combinations.
 3. Checks: no panic/silent fallback; all errors are typed enums.
+```
 
-## 11. Migration / Implementation Plan
+  }
 
+}
+
+@ "11-migration-implementation-plan" {
+  "##": 11. Migration / Implementation Plan
+
+  "body" = ```markdown
 1. Create `eure-codegen-ir` crate with model types, validators, structural-diff util.
 2. Implement derive adapter (`eure-macros`: `syn` -> IR).
 3. Implement schema adapter (`eure-codegen` + `eure-schema`: schema -> IR).
@@ -655,25 +885,41 @@ pub struct FieldCodegenIr {
 6. Implement literal expression emitter.
 7. Add tests T01-T12 and parity gates.
 8. Remove legacy duplicated analysis paths only after parity and roundtrip gates pass.
+```
 
-## 12. Open Questions
+}
 
+@ "12-open-questions" {
+  "##": 12. Open Questions
+
+  "body" = ```markdown
 1. Should IR constructors normalize representational variants up front, or preserve source shape exactly?
 2. Should `TextSchema.unknown_fields` be represented as raw values only, or as full node fragments with extension retention?
 3. For literal generation, which subset (if any) should be explicitly unsupported in v1?
+```
 
-## 13. Acceptance Criteria for This Draft
+}
 
+@ "13-acceptance-criteria-for-this-draft" {
+  "##": 13. Acceptance Criteria for This Draft
+
+  "body" = ```markdown
 This design draft is considered ready for implementation if:
 
 1. all requirement groups in Section 5 are represented in IR structures or explicit invariants,
 2. candidate comparison and rationale are accepted,
 3. test plan T01-T12 is accepted as release-gating for IR migration.
+```
 
-## 14. Implementation Findings (Test-Proven)
+}
 
-### F01 Value Extensions Not Representable in `ValueIr` (v1)
+@ "14-implementation-findings-test-proven" {
+  "##": 14. Implementation Findings (Test-Proven)
 
+  @ "f01-value-extensions-not-representable-in-valueir-v1" {
+    "###": F01 Value Extensions Not Representable in `ValueIr` (v1)
+
+    "body" = ```markdown
 1. Failing/regression test reference:
    - `crates/eure-codegen/src/ir_adapter.rs` test:
      `rejects_value_extensions_that_ir_cannot_represent`
@@ -683,9 +929,14 @@ This design draft is considered ready for implementation if:
    - Added `SR9` in Section 5.3.
    - Added `I13` in Section 8.7.
    - Added explicit typed-error case under T06.
+```
 
-### F02 Root and Root-Type `$codegen` Share One Wire Location
+  }
 
+  @ "f02-root-and-root-type-codegen-share-one-wire-location" {
+    "###": F02 Root and Root-Type `$codegen` Share One Wire Location
+
+    "body" = ```markdown
 1. Failing/regression test reference:
    - `crates/eure-schema/src/write.rs` test:
      `roundtrips_root_type_and_field_codegen_metadata`
@@ -699,9 +950,14 @@ This design draft is considered ready for implementation if:
    - Added `CG8` in Section 5.4.
    - Added `I14` in Section 8.7.
    - Expanded T07 cases with merged root/type `$codegen` roundtrip and mismatch rejection.
+```
 
-### F03 Comparison Utilities Must Stay Structural
+  }
 
+  @ "f03-comparison-utilities-must-stay-structural" {
+    "###": F03 Comparison Utilities Must Stay Structural
+
+    "body" = ```markdown
 1. Failing/regression test reference:
    - `crates/eure-codegen-ir/tests/structural_eq.rs` test:
      `none_and_external_variant_repr_are_not_structurally_equal`
@@ -714,3 +970,8 @@ This design draft is considered ready for implementation if:
 3. Spec delta applied:
    - Replaced Section 8.5 with strict structural equality rules.
    - Updated T10 from semantic equality to structural equality.
+```
+
+  }
+
+}

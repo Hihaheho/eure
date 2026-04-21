@@ -20,7 +20,7 @@ pub fn Layout() -> Element {
             // Header
             header { class: "p-4 shrink-0",
                 div { class: "max-w-6xl mx-auto w-full flex justify-between items-center",
-                    // Left side: Logo | Blog
+                    // Left side: Logo | Docs | Blog
                     div { class: "flex items-end gap-4",
                         Link { to: "/",
                             img {
@@ -36,6 +36,13 @@ pub fn Layout() -> Element {
 
                         // Divider
                         span { class: "w-px h-8 bg-current opacity-30 translate-y-0.75" }
+
+                        Link {
+                            to: "/docs",
+                            class: "leading-none hover:opacity-80 transition-opacity",
+                            style: "font-size: 1.7rem",
+                            "Docs"
+                        }
 
                         // Blog link
                         a {

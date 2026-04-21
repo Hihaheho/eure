@@ -8,6 +8,7 @@ mod theme;
 mod tracer;
 
 use dioxus::prelude::*;
+use pages::docs::{Docs, DocsIndex};
 use pages::home::Home;
 
 use crate::components::layout::Layout;
@@ -16,6 +17,10 @@ use crate::components::layout::Layout;
 #[rustfmt::skip]
 pub enum Route {
     #[layout(Layout)]
+    #[route("/docs")]
+    DocsIndex {},
+    #[route("/docs/:..segments")]
+    Docs { segments: Vec<String> },
     #[route("/?:example&:tab")]
     Home { example: Option<String>, tab: Option<String> },
 }

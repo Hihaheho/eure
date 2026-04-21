@@ -3,15 +3,19 @@
 //! This crate provides parsing and validation for `.eumd` files.
 
 mod check;
+mod docs;
 mod document;
 mod error;
+mod migrate;
 mod query;
 mod reference;
 mod report;
 
 pub use check::{CheckResult, check_references, check_references_with_spans};
+pub use docs::*;
 pub use document::*;
 pub use error::*;
+pub use migrate::*;
 pub use query::{CheckEumdReferences, CheckEumdReferencesFormatted, ParseEumdDocument, ParsedEumd};
 pub use reference::*;
 pub use report::{

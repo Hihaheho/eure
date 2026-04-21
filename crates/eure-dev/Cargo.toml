@@ -38,3 +38,4 @@ build-image = ["dep:resvg", "dep:image"]
 [build-dependencies]
 resvg = { version = "0.45", optional = true }
 image = { version = "0.25", optional = true }
+eure-mark = { workspace = true }

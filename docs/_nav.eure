@@ -1,0 +1,30 @@
+title = "Documentation"
+
+groups[] {
+  title = "Start Here"
+  description: Public documentation for the Eure language and tooling.
+  pages[] { path = "/docs/" label = "Overview" }
+  pages[] { path = "/docs/spec/alpha" label = "Language Specification" }
+  pages[] { path = "/docs/data-types" label = "Types" }
+  pages[] { path = "/docs/extensions" label = "Extensions" }
+  pages[] { path = "/docs/schema-extensions" label = "Schema Extensions" }
+  pages[] { path = "/docs/template-extensions" label = "Template Extensions" }
+  pages[] { path = "/docs/schemas" label = "Schemas" }
+}
+
+groups[] {
+  title = "Tooling"
+  description: Editor, completion, and document-model details for implementers.
+  pages[] { path = "/docs/euredocument-vs-value" label = "EureDocument vs Value" }
+  pages[] { path = "/docs/cst-and-visitor" label = "CST and Visitor" }
+  pages[] { path = "/docs/completion_architecture" label = "Completion Architecture" }
+  pages[] { path = "/docs/completion_with_error_recovery" label = "Completion with Error Recovery" }
+  pages[] { path = "/docs/codegen-ir-design" label = "Codegen IR Design Draft" }
+}
+
+groups[] {
+  title = "Project Context"
+  description: Comparative material and project decision process references.
+  pages[] { path = "/docs/eure-comparisons" label = "Eure Comparisons" }
+  pages[] { path = "/docs/decision-records" label = "Decision Records" }
+}

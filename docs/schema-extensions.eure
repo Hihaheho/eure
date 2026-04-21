@@ -1,25 +1,48 @@
-# Schema Extensions
+$docs {
+  title: Schema Extensions
+  description: Eure Schema uses extensions to define types and constraints within Eure documents. The schema system is self-hosted, meaning the schema language is defined using itself.
+}
 
+"#": Schema Extensions
+
+"body" = ```markdown
 Eure Schema uses extensions to define types and constraints within Eure documents. The schema system is self-hosted, meaning the schema language is defined using itself.
+```
 
-## Overview
+"toc".$toc = true
 
+@ "overview" {
+  "##": Overview
+
+  "body" = ```markdown
 Eure Schema is embedded within Eure documents using extension namespaces (prefixed with `$`). The meta-schema can be found in `assets/eure-schema.schema.eure`.
+```
 
-### Extension Levels
+  @ "extension-levels" {
+    "###": Extension Levels
 
+    "body" = ```markdown
 - `$foo` - Regular extensions used in documents
 - `$ext-type.foo` - Extension type definitions in meta-schemas (defines the type of `$foo`)
 
 ---
+```
 
-## Core Concepts
+  }
 
-### $root-type
+}
 
+@ "core-concepts" {
+  "##": Core Concepts
+
+  @ "root-type" {
+    "###": $root-type
+
+    "body" = ```markdown
 Specifies the root type of target documents validated by this schema.
+```
 
-```eure
+    "eure-snippet" = ```eure
 $schema = "my-config.schema.eure"
 
 // This schema's root type is a record with specific fields
@@ -29,27 +52,41 @@ $root-type = {
 }
 ```
 
-### $ext-type
+  }
 
+  @ "ext-type" {
+    "###": $ext-type
+
+    "body" = ```markdown
 Defines extension types for specific paths in schemas. When users write documents, the `$ext-type` prefix is omitted.
 
 **Schema side:**
-```eure
+```
+
+    "eure-snippet" = ```eure
 field.$ext-type.optional = `boolean`
 field.$ext-type.binding-style = `$types.binding-style`
 ```
 
+    "body-2" = ```markdown
 **User side:**
-```eure
+```
+
+    "eure-snippet-2" = ```eure
 field.$optional = true
 field.$binding-style = "section"
 ```
 
-### $types
+  }
 
+  @ "types" {
+    "###": $types
+
+    "body" = ```markdown
 Custom type definitions at document root. Types are referenced using `.$types.type-name`.
+```
 
-```eure
+    "eure-snippet" = ```eure
 // Define a custom type
 @ $types.username
 $variant: text
@@ -62,15 +99,25 @@ pattern = "^[a-z0-9_]+$"
 name = `$types.username`
 ```
 
+    "body-2" = ```markdown
 ---
+```
 
-## Type Definitions
+  }
 
+}
+
+@ "type-definitions" {
+  "##": Type Definitions
+
+  "body" = ```markdown
 All types in Eure Schema are variants of a union type (`$types.type`).
+```
 
-### Primitive Types
+  @ "primitive-types" {
+    "###": Primitive Types
 
-```eure
+    "eure-snippet" = ```eure
 // String type
 name = `text`
 name.$description: User's display name
@@ -92,13 +139,18 @@ deleted = `null`
 metadata = `any`
 ```
 
+    "body" = ```markdown
 **Shorthands:** `text`, `integer`, `float`, `boolean`, `null`, `any`
 
 Shorthands are for simple types without constraints. For constraints, use the full form.
+```
 
-### Text Type with Constraints
+  }
 
-```eure
+  @ "text-type-with-constraints" {
+    "###": Text Type with Constraints
+
+    "eure-snippet" = ```eure
 // Full form (required for constraints)
 @ username {
   $variant: text
@@ -108,9 +160,12 @@ Shorthands are for simple types without constraints. For constraints, use the fu
 }
 ```
 
-### Integer Type with Constraints
+  }
 
-```eure
+  @ "integer-type-with-constraints" {
+    "###": Integer Type with Constraints
+
+    "eure-snippet" = ```eure
 @ age {
   $variant: integer
   range = "[0, 150]"
@@ -127,9 +182,12 @@ age = `integer`
 age.$range = "0..=150"  // 0 <= x <= 150
 ```
 
-### Float Type with Constraints
+  }
 
-```eure
+  @ "float-type-with-constraints" {
+    "###": Float Type with Constraints
+
+    "eure-snippet" = ```eure
 @ probability {
   $variant: float
   range = "[0.0, 1.0)"  // 0 <= x < 1
@@ -140,8 +198,12 @@ temperature = `float`
 temperature.$range = "-273.15.."  // x >= -273.15
 ```
 
-### Range Syntax
+  }
 
+  @ "range-syntax" {
+    "###": Range Syntax
+
+    "body" = ```markdown
 Two formats are supported:
 
 **Rust-style** (left side always inclusive):
@@ -158,12 +220,18 @@ Two formats are supported:
 - `"(0, 100)"` → 0 < x < 100 (both exclusive)
 - `"[0, )"` → x ≥ 0
 - `"(, 100]"` → x ≤ 100
+```
 
-### Text Type with Language
+  }
 
+  @ "text-type-with-language" {
+    "###": Text Type with Language
+
+    "body" = ```markdown
 Text type supports optional language specifier for code blocks or semantic text.
+```
 
-```eure
+    "eure-snippet" = ```eure
 // Plain text
 content = `text`
 
@@ -174,17 +242,27 @@ email = `text.email`
 url = `text.url`
 ```
 
+    "body-2" = ```markdown
 **Shorthand:** `text`, `text.rust`, `text.email`, etc.
 
 ---
+```
 
-## Container Types
+  }
 
-### Record Type
+}
 
+@ "container-types" {
+  "##": Container Types
+
+  @ "record-type" {
+    "###": Record Type
+
+    "body" = ```markdown
 Fixed named fields where each field has a specific name and type.
+```
 
-```eure
+    "eure-snippet" = ```eure
 // Shorthand (implicit record)
 @ user
 name = `text`
@@ -207,11 +285,16 @@ email = `text.email`
 }
 ```
 
-### Array Type
+  }
 
+  @ "array-type" {
+    "###": Array Type
+
+    "body" = ```markdown
 Ordered list of elements with the same type.
+```
 
-```eure
+    "eure-snippet" = ```eure
 // Shorthand
 tags = [`text`]
 
@@ -229,11 +312,16 @@ tags = [`text`]
 matrix = [[`integer`]]
 ```
 
-### Map Type
+  }
 
+  @ "map-type" {
+    "###": Map Type
+
+    "body" = ```markdown
 Dynamic key-value pairs where all keys have the same type and all values have the same type.
+```
 
-```eure
+    "eure-snippet" = ```eure
 // Full form
 @ headers {
   $variant: map
@@ -244,11 +332,16 @@ Dynamic key-value pairs where all keys have the same type and all values have th
 }
 ```
 
-### Tuple Type
+  }
 
+  @ "tuple-type" {
+    "###": Tuple Type
+
+    "body" = ```markdown
 Fixed-length, ordered elements where each position has a specific type.
+```
 
-```eure
+    "eure-snippet" = ```eure
 // Shorthand
 point = (`float`, `float`)
 rgb = (`integer`, `integer`, `integer`)
@@ -260,11 +353,16 @@ rgb = (`integer`, `integer`, `integer`)
 }
 ```
 
-### Union Type
+  }
 
+  @ "variants" {
+    "###": Union Type
+
+    "body" = ```markdown
 Tagged union that accepts one of multiple variant types.
+```
 
-```eure
+    "eure-snippet" = ```eure
 // Full form with named variants
 @ $types.response {
   $variant: union
@@ -276,19 +374,31 @@ Tagged union that accepts one of multiple variant types.
 result = `$types.response`
 ```
 
+    "body-2" = ```markdown
 **Note:** Union types always have a discriminator. Use `$interop.variant-repr` to customize representation.
 
 ---
+```
 
-## Variant Representation
+  }
 
+}
+
+@ "variant-representation" {
+  "##": Variant Representation
+
+  "body" = ```markdown
 Union types can be represented in different ways in the data model.
+```
 
-### External (Default)
+  @ "external-default" {
+    "###": External (Default)
 
+    "body" = ```markdown
 The variant name wraps the content.
+```
 
-```eure
+    "eure-snippet" = ```eure
 @ $types.shape {
   $variant: union
   // Default: external representation
@@ -300,11 +410,16 @@ The variant name wraps the content.
 // circle = { radius = 5.0 }
 ```
 
-### Internal
+  }
 
+  @ "internal" {
+    "###": Internal
+
+    "body" = ```markdown
 Custom tag field name inside the content.
+```
 
-```eure
+    "eure-snippet" = ```eure
 @ $types.message {
   $variant: union
   $interop.variant-repr = { tag = "type" }
@@ -316,11 +431,16 @@ Custom tag field name inside the content.
 // { type = "text", content = "Hello" }
 ```
 
-### Adjacent
+  }
 
+  @ "adjacent" {
+    "###": Adjacent
+
+    "body" = ```markdown
 Separate tag and content fields.
+```
 
-```eure
+    "eure-snippet" = ```eure
 @ $types.event {
   $variant: union
   $interop.variant-repr = { tag = "kind", content = "data" }
@@ -332,11 +452,16 @@ Separate tag and content fields.
 // { kind = "login", data = { username = "alice" } }
 ```
 
-### Untagged
+  }
 
+  @ "untagged" {
+    "###": Untagged
+
+    "body" = ```markdown
 No discriminator field (type is inferred from content).
+```
 
-```eure
+    "eure-snippet" = ```eure
 @ $types.value {
   $variant: union
   $interop.variant-repr = "untagged"
@@ -348,11 +473,16 @@ No discriminator field (type is inferred from content).
 // "hello" or 42
 ```
 
-### Priority (Ambiguity Resolution)
+  }
 
+  @ "priority-ambiguity-resolution" {
+    "###": Priority (Ambiguity Resolution)
+
+    "body" = ```markdown
 For untagged unions where multiple variants may match, use `priority` to specify resolution order.
+```
 
-```eure
+    "eure-snippet" = ```eure
 @ $types.response {
   $variant: union
   $interop.variant-repr = "untagged"
@@ -365,13 +495,22 @@ For untagged unions where multiple variants may match, use `priority` to specify
 // If a value matches both error and success, error is selected
 ```
 
+    "body-2" = ```markdown
 ---
+```
 
-## Literal Type
+  }
 
+}
+
+@ "literal-type" {
+  "##": Literal Type
+
+  "body" = ```markdown
 Literal type accepts only a specific constant value.
+```
 
-```eure
+  "eure-snippet" = ```eure
 // String literal
 @ status {
   = "active"
@@ -388,13 +527,20 @@ Literal type accepts only a specific constant value.
 }
 ```
 
+  "body-2" = ```markdown
 ---
+```
 
-## Type References
+}
 
+@ "type-references" {
+  "##": Type References
+
+  "body" = ```markdown
 Reference other type definitions using path syntax.
+```
 
-```eure
+  "eure-snippet" = ```eure
 // Define types
 $types.email = `text.email`
 $types.user = {
@@ -406,17 +552,27 @@ $types.user = {
 contact = `$types.user`
 ```
 
+  "body-2" = ```markdown
 ---
+```
 
-## Cross-Schema Type References
+}
 
+@ "cross-schema-type-references" {
+  "##": Cross-Schema Type References
+
+  "body" = ```markdown
 Schemas can import and reference types from other schemas for modularity and reuse.
+```
 
-### $import
+  @ "import" {
+    "###": $import
 
+    "body" = ```markdown
 Declare schema imports with namespace aliases:
+```
 
-```eure
+    "eure-snippet" = ```eure
 // my-app.schema.eure
 $import = {
   common => "common.schema.eure"
@@ -431,17 +587,24 @@ token = `$types.auth.jwt-token`      // from auth/types.schema.eure
 local-field = `$types.my-local-type` // local type (no namespace)
 ```
 
+    "body-2" = ```markdown
 **Resolution rules:**
 - Path length 2 (`$types.T`): Local type reference
 - Path length 3 (`$types.N.T`): External type reference (N must be in `$import`)
 
 **Important:** Imports are resolved at schema bundling/validation time, not at runtime. Distributed schemas should be self-contained with all imports inlined. This follows Eure's design principle that documents should be self-contained.
+```
 
-### $export
+  }
 
+  @ "export" {
+    "###": $export
+
+    "body" = ```markdown
 Optionally declare which types are exported (public):
+```
 
-```eure
+    "eure-snippet" = ```eure
 // common.schema.eure
 
 // Export all types (default if $export is omitted)
@@ -456,10 +619,16 @@ $export = ["username", "email", "timestamp"]
 @ $types.internal-helper { ... }  // Not exported, cannot be imported
 ```
 
-### Example: Modular Schema Design
+  }
 
+  @ "example-modular-schema-design" {
+    "###": Example: Modular Schema Design
+
+    "body" = ```markdown
 **common.schema.eure:**
-```eure
+```
+
+    "eure-snippet" = ```eure
 $export = ["username", "email"]
 
 @ $types.username {
@@ -472,8 +641,11 @@ $export = ["username", "email"]
 @ $types.email = `text.email`
 ```
 
+    "body-2" = ```markdown
 **user.schema.eure:**
-```eure
+```
+
+    "eure-snippet-2" = ```eure
 $import = {
   common => "common.schema.eure"
 }
@@ -488,36 +660,56 @@ $import = {
 $root-type = `$types.user`
 ```
 
-### Bundling
+  }
 
+  @ "bundling" {
+    "###": Bundling
+
+    "body" = ```markdown
 For distribution, use the schema bundler to inline all imports:
+```
 
-```bash
+    "bash-snippet" = ```bash
 eure-schema bundle user.schema.eure -o dist/user.schema.eure
 ```
 
+    "body-2" = ```markdown
 The bundled schema will be self-contained with all external types inlined and renamed (e.g., `$types.common.username` → `$types.common__username`).
 
 ---
+```
 
-## Metadata Extensions
+  }
 
-### $optional
+}
 
+@ "metadata-extensions" {
+  "##": Metadata Extensions
+
+  @ "optional" {
+    "###": $optional
+
+    "body" = ```markdown
 Marks a field as optional. Fields are required by default.
+```
 
-```eure
+    "eure-snippet" = ```eure
 @ user
 name = `text`           // Required
 bio = `text`
 bio.$optional = true     // Optional
 ```
 
-### $description
+  }
 
+  @ "description" {
+    "###": $description
+
+    "body" = ```markdown
 Field description (supports plain text or rich markdown).
+```
 
-```eure
+    "eure-snippet" = ```eure
 @ user
 email = `text.email`
 email.$description: User's primary email address for authentication.
@@ -526,46 +718,71 @@ email.$description: User's primary email address for authentication.
 email.$description = markdown`User's **primary** email address.`
 ```
 
-### $deprecated
+  }
 
+  @ "deprecated" {
+    "###": $deprecated
+
+    "body" = ```markdown
 Marks a field as deprecated.
+```
 
-```eure
+    "eure-snippet" = ```eure
 old_field = `text`
 old_field.$deprecated = true
 ```
 
-### $default
+  }
 
+  @ "default" {
+    "###": $default
+
+    "body" = ```markdown
 Default value for optional fields.
+```
 
-```eure
+    "eure-snippet" = ```eure
 timeout = `integer`
 timeout.$optional = true
 timeout.$default = 30
 ```
 
-### $examples
+  }
 
+  @ "examples" {
+    "###": $examples
+
+    "body" = ```markdown
 Example values in Eure code format.
+```
 
-```eure
+    "eure-snippet" = ```eure
 email = `text.email`
 email.$examples = [eure`"user@example.com"`, eure`"admin@company.org"`]
 ```
 
+    "body-2" = ```markdown
 ---
+```
 
-## Binding Style
+  }
 
+}
+
+@ "binding-style" {
+  "##": Binding Style
+
+  "body" = ```markdown
 Controls how document paths are represented.
+```
 
-```eure
+  "eure-snippet" = ```eure
 @ field {
   $binding-style = "section"  // or "nested", "binding", "section-binding", etc.
 }
 ```
 
+  "body-2" = ```markdown
 Options:
 - `auto` - Automatically determine the best representation
 - `passthrough` - Defer to subsequent keys
@@ -576,12 +793,18 @@ Options:
 - `section-root-binding` - Section with root binding (`@ a.b.c = value`)
 
 ---
+```
 
-## Unknown Fields Policy
+}
 
+@ "unknown-fields-policy" {
+  "##": Unknown Fields Policy
+
+  "body" = ```markdown
 Controls handling of fields not defined in the schema.
+```
 
-```eure
+  "eure-snippet" = ```eure
 @ config {
   host = `text`
   port = `integer`
@@ -597,11 +820,16 @@ Controls handling of fields not defined in the schema.
 }
 ```
 
+  "body-2" = ```markdown
 ---
+```
 
-## Complete Example
+}
 
-```eure
+@ "complete-example" {
+  "##": Complete Example
+
+  "eure-snippet" = ```eure
 $schema = "eure-schema.schema.eure"
 
 // Custom types
@@ -645,23 +873,41 @@ $schema = "eure-schema.schema.eure"
 $root-type = `$types.user`
 ```
 
+  "body" = ```markdown
 ---
+```
 
-## Design Decisions
+}
 
-### No Logical Operators
+@ "design-decisions" {
+  "##": Design Decisions
 
+  @ "no-logical-operators" {
+    "###": No Logical Operators
+
+    "body" = ```markdown
 Eure Schema does not adopt `allOf`/`anyOf`/`oneOf`/`not` from JSON Schema. Use union for alternatives and record for composition.
+```
 
-### No Format Attribute
+  }
 
+  @ "no-format-attribute" {
+    "###": No Format Attribute
+
+    "body" = ```markdown
 Instead of format strings, use typed text: `.text.email`, `.text.url`, `.text.uuid`, etc.
+```
 
-### Nullable Types
+  }
 
+  @ "nullable-types" {
+    "###": Nullable Types
+
+    "body" = ```markdown
 Express nullable types using union with null:
+```
 
-```eure
+    "eure-snippet" = ```eure
 @ nullable-string {
   $variant: union
   variants.value = `text`
@@ -669,8 +915,12 @@ Express nullable types using union with null:
 }
 ```
 
-### Discriminators
+  }
 
+  @ "discriminators" {
+    "###": Discriminators
+
+    "body" = ```markdown
 Union types always have a discriminator. Customize with `$interop.variant-repr`:
 - `"external"` - Default, variant name wraps content
 - `"untagged"` - No discriminator
@@ -678,19 +928,31 @@ Union types always have a discriminator. Customize with `$interop.variant-repr`:
 - `{ tag = "...", content = "..." }` - Adjacent tagging
 
 ---
-
-## Type Checking Algorithm
-
-Eure Schema uses a structural type checking algorithm that is both **sound** (accepted values always conform to the schema) and **complete** (all conforming values are accepted).
-
-### Core Algorithm
-
-Type checking traverses the value structure recursively, matching each node against its corresponding schema:
-
 ```
+
+  }
+
+}
+
+@ "type-checking-algorithm" {
+  "##": Type Checking Algorithm
+
+  "body" = ```markdown
+Eure Schema uses a structural type checking algorithm that is both **sound** (accepted values always conform to the schema) and **complete** (all conforming values are accepted).
+```
+
+  @ "core-algorithm" {
+    "###": Core Algorithm
+
+    "body" = ```markdown
+Type checking traverses the value structure recursively, matching each node against its corresponding schema:
+```
+
+    "snippet" = ```
 check(value, schema) -> Result<(), TypeError>
 ```
 
+    "body-2" = ```markdown
 | Value Type | Schema Type | Validation |
 |------------|-------------|------------|
 | Null | Null | Type match only |
@@ -704,12 +966,18 @@ check(value, schema) -> Result<(), TypeError>
 | Map | Map | key/value types, min/max_pairs |
 | Tuple | Tuple | element types at each position |
 | Map | Record | field types + unknown_fields_policy |
-
-### Union Type Checking (oneOf Semantics)
-
-Union types use **oneOf** semantics—exactly one variant must match:
-
 ```
+
+  }
+
+  @ "union-type-checking-oneof-semantics" {
+    "###": Union Type Checking (oneOf Semantics)
+
+    "body" = ```markdown
+Union types use **oneOf** semantics—exactly one variant must match:
+```
+
+    "snippet" = ```
 check_union(value, union_schema):
   matching = []
   failures = []
@@ -733,18 +1001,25 @@ resolve_ambiguity(matching, priority):
   return AmbiguityError(matching)
 ```
 
+    "body-2" = ```markdown
 **Error Selection**: When no variant matches, the "closest" error is returned based on error depth (how deep into the structure the check progressed before failing).
+```
 
-### Hole Values
+  }
 
+  @ "hole-values" {
+    "###": Hole Values
+
+    "body" = ```markdown
 The hole value (`!`) represents an unfilled placeholder, similar to a "never" type:
 
 - **Type checking**: Holes match any schema (always pass)
 - **Completeness**: Documents containing holes are valid but not complete
 
 Validation returns two flags:
+```
 
-```rust
+    "rust-snippet" = ```rust
 struct ValidationResult {
     is_valid: bool,    // No type errors (holes allowed)
     is_complete: bool, // No type errors AND no holes
@@ -753,8 +1028,12 @@ struct ValidationResult {
 }
 ```
 
-### Extension Validation
+  }
 
+  @ "extension-validation" {
+    "###": Extension Validation
+
+    "body" = ```markdown
 Extensions attached to nodes are validated against three sources:
 
 1. **Schema-defined** (`$ext-type`): Extensions defined in the schema
@@ -762,8 +1041,9 @@ Extensions attached to nodes are validated against three sources:
 3. **Unknown**: Extensions not in either list
 
 Unknown extensions pass validation but emit a **warning**.
-
 ```
+
+    "snippet" = ```
 check_extensions(node, schema):
   for (name, value) in node.extensions:
     if name in schema.ext_types:
@@ -774,8 +1054,19 @@ check_extensions(node, schema):
       emit_warning(UnknownExtension(name))
 ```
 
+    "body-2" = ```markdown
 ---
+```
 
-## Meta-Schema
+  }
 
+}
+
+@ "meta-schema" {
+  "##": Meta-Schema
+
+  "body" = ```markdown
 The Eure Schema system is self-hosted. The complete meta-schema defining all schema constructs can be found in `assets/eure-schema.schema.eure`.
+```
+
+}

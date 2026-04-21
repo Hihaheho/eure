@@ -1,11 +1,23 @@
-# EureDocument vs Value: When to Use Each
+$docs {
+  title: EureDocument vs Value: When to Use Each
+  description: This guide helps you understand when to use EureDocument versus Value in the Eure ecosystem, their design philosophy, and practical use cases.
+}
 
+"#": EureDocument vs Value: When to Use Each
+
+"body" = ```markdown
 This guide helps you understand when to use `EureDocument` versus `Value` in the Eure ecosystem, their design philosophy, and practical use cases.
+```
 
-## Overview
+"toc".$toc = true
 
-### EureDocument
+@ "overview" {
+  "##": Overview
 
+  @ "euredocument" {
+    "###": EureDocument
+
+    "body" = ```markdown
 `EureDocument` is a tree-based representation that preserves the full structure and metadata of Eure documents, including:
 - Concrete Syntax Tree (CST) handles for precise source location tracking
 - Extension namespaces (`$` and `$$` prefixed fields)
@@ -14,9 +26,14 @@ This guide helps you understand when to use `EureDocument` versus `Value` in the
 - Type-safe node content with handles
 
 **Design Philosophy**: EureDocument is designed for scenarios where you need to maintain a connection to the source text, perform incremental updates, or provide detailed error reporting with exact source locations.
+```
 
-### Value
+  }
 
+  @ "value" {
+    "###": Value
+
+    "body" = ```markdown
 `Value` is a simplified, semantic representation of Eure data that focuses on the logical content:
 - Standard data types (null, bool, numbers, strings, arrays, maps, etc.)
 - Special types (Code, CodeBlock, Path, Variant, Unit, Hole)
@@ -25,9 +42,16 @@ This guide helps you understand when to use `EureDocument` versus `Value` in the
 - Similar to JSON/YAML value representations
 
 **Design Philosophy**: Value is designed for scenarios where you need to work with the data itself, perform transformations, or integrate with external systems that don't need source information.
+```
 
-## Detailed Comparison Table
+  }
 
+}
+
+@ "detailed-comparison-table" {
+  "##": Detailed Comparison Table
+
+  "body" = ```markdown
 | Feature                      | EureDocument                        | Value                      |
 | ---------------------------- | ----------------------------------- | -------------------------- |
 | **Source Location Tracking** | ✅ Full CST handles with spans       | ❌ No source information    |
@@ -40,91 +64,134 @@ This guide helps you understand when to use `EureDocument` versus `Value` in the
 | **Pattern Matching**         | ❌ Requires node access              | ✅ Direct enum matching     |
 | **Schema Validation**        | ✅ With span information             | ✅ Without spans            |
 | **Editor Support**           | ✅ Completions, diagnostics          | ❌ Limited support          |
+```
 
-## Use Case Examples
+}
 
-### Use EureDocument When:
+@ "use-case-examples" {
+  "##": Use Case Examples
 
+  @ "use-euredocument-when" {
+    "###": Use EureDocument When:
+
+    "body" = ```markdown
 1. **Building Language Server Protocol (LSP) Features**
-   ```rust
+```
+
+    "rust-snippet" = ```rust
    // Providing completions with exact cursor position
    let node = document.get_node_at_position(cursor_pos)?;
    let completions = generate_completions_for_node(node);
-   ```
+```
 
+    "body-2" = ```markdown
 2. **Schema Validation with Error Reporting**
-   ```rust
+```
+
+    "rust-snippet-2" = ```rust
    // Validation errors include exact source locations
    let validator = SchemaValidator::new(input, schema, &tree);
    let errors = validator.validate(); // Errors have InputSpan
-   ```
+```
 
+    "body-3" = ```markdown
 3. **Incremental Document Updates**
-   ```rust
+```
+
+    "rust-snippet-3" = ```rust
    // Efficiently update nested values
    document.insert_node(
        vec![PathSegment::Ident("config"), PathSegment::Ident("port")],
        NodeContent::I64 { handle, value: 8080 }
    )?;
-   ```
+```
 
+    "body-4" = ```markdown
 4. **Source-Preserving Transformations**
-   ```rust
+```
+
+    "rust-snippet-4" = ```rust
    // Maintain formatting and comments during updates
    let node = document.get_node_mut(node_id);
    node.content = transform_preserving_handles(node.content);
-   ```
+```
 
-### Use Value When:
+  }
 
+  @ "use-value-when" {
+    "###": Use Value When:
+
+    "body" = ```markdown
 1. **Data Processing and Business Logic**
-   ```rust
+```
+
+    "rust-snippet" = ```rust
    // Simple data extraction
    if let Value::Map(config) = &value {
        if let Some(Value::String(db_url)) = config.get("database_url") {
            connect_to_database(db_url)?;
        }
    }
-   ```
+```
 
+    "body-2" = ```markdown
 2. **Serialization/Deserialization**
-   ```rust
+```
+
+    "rust-snippet-2" = ```rust
    // Convert to/from JSON, YAML, etc.
    let json = serde_json::to_string(&value)?;
    let yaml_value: Value = serde_yaml::from_str(&yaml_content)?;
-   ```
+```
 
+    "body-3" = ```markdown
 3. **Data Transformation Pipelines**
-   ```rust
+```
+
+    "rust-snippet-3" = ```rust
    // Transform values without caring about source
    let processed = value
        .as_map_mut()
        .map(|m| m.retain(|k, _| !k.starts_with("debug_")));
-   ```
+```
 
+    "body-4" = ```markdown
 4. **Testing and Assertions**
-   ```rust
+```
+
+    "rust-snippet-4" = ```rust
    // Easy to construct and compare
    let expected = Value::Map(Map::from([
        ("name".into(), Value::String("test".into())),
        ("count".into(), Value::I64(42)),
    ]));
    assert_eq!(actual, expected);
-   ```
+```
 
-## Conversion Between Types
+  }
 
-### EureDocument to Value
+}
 
+@ "conversion-between-types" {
+  "##": Conversion Between Types
+
+  @ "euredocument-to-value" {
+    "###": EureDocument to Value
+
+    "body" = ```markdown
 The conversion from `EureDocument` to `Value` is lossy - you lose source information and construction metadata:
+```
 
-```rust
+    "rust-snippet" = ```rust
 let document: EureDocument = parse_and_build_document(input)?;
 let value: Value = document.to_value();
 ```
 
+    "body-2" = ```markdown
 **Example**: Extensions are stripped during conversion:
-```eure
+```
+
+    "eure-snippet" = ```eure
 # Input Eure document
 @ config
 debug = true
@@ -132,8 +199,11 @@ debug.$description = "Enable debug mode"
 debug.$since = "v1.0"
 ```
 
+    "body-3" = ```markdown
 Results in:
-```rust
+```
+
+    "rust-snippet-2" = ```rust
 // After document.to_value()
 Value::Map(map!{
     "config" => Value::Map(map!{
@@ -143,17 +213,24 @@ Value::Map(map!{
 })
 ```
 
+    "body-4" = ```markdown
 **Note**: The `to_value()` method:
-- Skips extension namespaces entirely (see [extensions.md](./extensions.md#extensions-are-not-data))
+- Skips extension namespaces entirely (see [extensions.md](/docs/extensions#extensions-are-not-data))
 - Loses all handle information
 - Converts `NodeContent` variants to corresponding `Value` variants
 - Recursively processes arrays and maps
+```
 
-### Value to EureDocument
+  }
 
+  @ "value-to-euredocument" {
+    "###": Value to EureDocument
+
+    "body" = ```markdown
 Converting from `Value` to `EureDocument` requires synthetic handle creation:
+```
 
-```rust
+    "rust-snippet" = ```rust
 // This is typically done during parsing, not direct conversion
 // Values are built into EureDocument during the parsing phase
 let tree = parse(input)?;
@@ -162,12 +239,21 @@ tree.visit_from_root(&mut visitor)?;
 let document = visitor.into_document();
 ```
 
+    "body-2" = ```markdown
 **Note**: Direct `Value` to `EureDocument` conversion is rarely needed and not recommended.
+```
 
-## Performance Considerations
+  }
 
-### EureDocument Performance
+}
 
+@ "performance-considerations" {
+  "##": Performance Considerations
+
+  @ "euredocument-performance" {
+    "###": EureDocument Performance
+
+    "body" = ```markdown
 **Advantages:**
 - O(1) node access by ID
 - Efficient path-based insertion
@@ -178,9 +264,14 @@ let document = visitor.into_document();
 - Higher memory overhead per node
 - Indirection through node IDs
 - More complex traversal logic
+```
 
-### Value Performance
+  }
 
+  @ "value-performance" {
+    "###": Value Performance
+
+    "body" = ```markdown
 **Advantages:**
 - Direct memory layout
 - Efficient pattern matching
@@ -191,12 +282,19 @@ let document = visitor.into_document();
 - Deep cloning for modifications
 - O(n) path-based access
 - Recursive memory allocation
+```
 
-## Code Examples
+  }
 
-### Example 1: Schema Validation with Diagnostics
+}
 
-```rust
+@ "code-examples" {
+  "##": Code Examples
+
+  @ "example-1-schema-validation-with-diagnostics" {
+    "###": Example 1: Schema Validation with Diagnostics
+
+    "rust-snippet" = ```rust
 // Using EureDocument for rich error reporting
 pub fn validate_with_diagnostics(input: &str) -> Vec<Diagnostic> {
     let tree = parse(input)?;
@@ -229,9 +327,12 @@ pub fn validate_simple(value: &Value) -> Result<(), String> {
 }
 ```
 
-### Example 2: Configuration Processing
+  }
 
-```rust
+  @ "example-2-configuration-processing" {
+    "###": Example 2: Configuration Processing
+
+    "rust-snippet" = ```rust
 // Using EureDocument for config with source tracking
 pub struct ConfigManager {
     document: EureDocument,
@@ -273,9 +374,12 @@ pub fn load_config(content: &str) -> Result<Config, Error> {
 }
 ```
 
-### Example 3: Editor Features
+  }
 
-```rust
+  @ "example-3-editor-features" {
+    "###": Example 3: Editor Features
+
+    "rust-snippet" = ```rust
 // Using EureDocument for completions
 pub fn get_completions(document: &EureDocument, cursor: Position) -> Vec<Completion> {
     let node = document.get_node_at_position(cursor);
@@ -292,27 +396,47 @@ pub fn get_completions(document: &EureDocument, cursor: Position) -> Vec<Complet
 // ❌ Not possible with Value alone
 ```
 
-## Best Practices and Recommendations
+  }
 
-### Choose EureDocument when:
+}
+
+@ "best-practices-and-recommendations" {
+  "##": Best Practices and Recommendations
+
+  @ "choose-euredocument-when" {
+    "###": Choose EureDocument when:
+
+    "body" = ```markdown
 1. Building development tools (LSP, linters, formatters)
 2. Providing detailed error messages with source locations
 3. Implementing incremental updates or transformations
 4. Preserving source formatting and structure
 5. Working with extension namespaces extensively
+```
 
-### Choose Value when:
+  }
+
+  @ "choose-value-when" {
+    "###": Choose Value when:
+
+    "body" = ```markdown
 1. Processing configuration or data files
 2. Implementing business logic
 3. Serializing/deserializing to other formats
 4. Writing unit tests
 5. Building APIs that consume Eure data
+```
 
-### Hybrid Approach
+  }
 
+  @ "hybrid-approach" {
+    "###": Hybrid Approach
+
+    "body" = ```markdown
 In many applications, you'll use both:
+```
 
-```rust
+    "rust-snippet" = ```rust
 pub struct EureProcessor {
     // Keep document for error reporting
     document: EureDocument,
@@ -340,8 +464,14 @@ impl EureProcessor {
 }
 ```
 
-## Summary
+  }
 
+}
+
+@ "summary" {
+  "##": Summary
+
+  "body" = ```markdown
 - **EureDocument**: Use for tooling, error reporting, and source-aware operations
 - **Value**: Use for data processing, serialization, and business logic
 - **Conversion**: Prefer one-way (EureDocument → Value) when needed
@@ -349,3 +479,6 @@ impl EureProcessor {
 - **Best Practice**: Choose based on whether you need source information
 
 The key decision factor is whether you need to maintain a connection to the source text. If yes, use EureDocument. If you only care about the data itself, use Value.
+```
+
+}

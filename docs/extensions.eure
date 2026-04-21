@@ -1,19 +1,36 @@
-# Extensions
+$docs {
+  title: Extensions
+  description: Extensions provide metadata and additional information about data without being part of the data itself. The $ syntax indicates an extension namespace in the Eure language.
+}
 
+"#": Extensions
+
+"body" = ```markdown
 Extensions provide metadata and additional information about data without being part of the data itself. The `$` syntax indicates an extension namespace in the Eure language.
+```
 
-## Understanding Extensions
+"toc".$toc = true
 
-### Syntax vs Storage
+@ "understanding-extensions" {
+  "##": Understanding Extensions
 
+  @ "syntax-vs-storage" {
+    "###": Syntax vs Storage
+
+    "body" = ```markdown
 Extensions use `$` as a syntactic element in the Eure grammar, not as a string prefix:
 
 - `$variant` is recognized by the parser as an extension syntax
 - The `$` is a grammar token, similar to `{` or `=`
 - Extensions are stored separately from data in the document structure
+```
 
-### Internal Representation
+  }
 
+  @ "internal-representation" {
+    "###": Internal Representation
+
+    "body" = ```markdown
 When Eure documents are parsed:
 
 1. **At CST Level**: `$variant` becomes `PathSegment::Extension(Identifier("variant"))`
@@ -21,12 +38,20 @@ When Eure documents are parsed:
 3. **Not in Values**: Extensions are metadata and don't appear in the value representation
 
 This separation ensures extensions don't interfere with data serialization or deserialization.
+```
 
-## Extension Namespaces
+  }
 
+}
+
+@ "extension-namespaces" {
+  "##": Extension Namespaces
+
+  "body" = ```markdown
 For third-party extensions, use proper namespacing to avoid conflicts:
+```
 
-```eure
+  "eure-snippet" = ```eure
 // Good: Properly namespaced extensions
 key1.$my-extension.is-awesome = true
 key2.$my-extension.is-awesome = false
@@ -35,24 +60,36 @@ key2.$my-extension.is-awesome = false
 key1.$is-awesome = true  // Could conflict with other extensions
 ```
 
-## Nested Extensions
+}
 
+@ "nested-extensions" {
+  "##": Nested Extensions
+
+  "body" = ```markdown
 Extensions can contain structured metadata:
+```
 
-```eure
+  "eure-snippet" = ```eure
 $my-extension {
   schema = "https://example.com/my-extension/v1"
   version = "1.0"
 }
 ```
 
+  "body-2" = ```markdown
 Note: Extensions within extensions don't use the `$` syntax again.
+```
 
-## Extension Type Definitions
+}
 
+@ "extension-type-definitions" {
+  "##": Extension Type Definitions
+
+  "body" = ```markdown
 Extension types can be defined using the `$ext-type` namespace to provide type information and validation for extensions:
+```
 
-```eure
+  "eure-snippet" = ```eure
 // Define that $optional extension must be a boolean
 $ext-type.optional = `boolean`
 
@@ -73,25 +110,38 @@ field {
 }
 ```
 
+  "body-2" = ```markdown
 The `$ext-type` namespace is used in schema files to define the expected types for extensions.
+```
 
-## Standard Extensions
+}
 
-### $eure
+@ "standard-extensions" {
+  "##": Standard Extensions
 
+  @ "eure" {
+    "###": $eure
+
+    "body" = ```markdown
 The `$eure` extension provides document-level metadata:
+```
 
-```eure
+    "eure-snippet" = ```eure
 @ $eure
 version: https://eure.dev/v1
 schema: https://eure.dev/schemas/my-schema/v1
 ```
 
-### $variant
+  }
 
+  @ "variant" {
+    "###": $variant
+
+    "body" = ```markdown
 Indicates variant selection in sum types:
+```
 
-```eure
+    "eure-snippet" = ```eure
 @ user {
   $variant: premium
   subscription_level = "gold"
@@ -99,27 +149,34 @@ Indicates variant selection in sum types:
 }
 ```
 
+    "body-2" = ```markdown
 The `$variant` extension is metadata that helps identify which variant of a sum type is being used. It doesn't affect the data structure itself.
+```
 
-#### Nested Variants
+    @ "nested-variants" {
+      "####": Nested Variants
 
+      "body" = ```markdown
 For nested variant types (similar to `Result<Result<T, E>, E>` in Rust), use dot notation within the variant path string:
+```
 
-```eure
+      "eure-snippet" = ```eure
 @ response {
   $variant: ok.ok.err
   error_message = "Invalid input"
 }
 ```
 
+      "body-2" = ```markdown
 This corresponds to Rust's `Ok(Ok(Err(value)))` structure, where:
 - `ok` selects the outer `Ok` variant
 - The second `ok` selects the middle `Ok` variant
 - `err` selects the inner `Err` variant
 
 Each segment in the path represents one level of variant nesting:
+```
 
-```eure
+      "eure-snippet-2" = ```eure
 // Simple variant
 $variant: success
 
@@ -133,11 +190,18 @@ $variant: ok.ok.err
 $variant: a.b.c.d.e
 ```
 
-### $local
+    }
 
+  }
+
+  @ "local" {
+    "###": $local
+
+    "body" = ```markdown
 Provides document-local metadata storage:
+```
 
-```eure
+    "eure-snippet" = ```eure
 @ config {
   $local.last-modified = "2024-01-15"
   $local.author = "system"
@@ -148,11 +212,16 @@ Provides document-local metadata storage:
 }
 ```
 
-### $license
+  }
 
+  @ "license" {
+    "###": $license
+
+    "body" = ```markdown
 Specifies license information using SPDX License IDs for root or sub-document objects:
+```
 
-```eure
+    "eure-snippet" = ```eure
 // Root-level license
 @ $license = "MIT"
 
@@ -171,29 +240,49 @@ Specifies license information using SPDX License IDs for root or sub-document ob
 }
 ```
 
+    "body-2" = ```markdown
 The `$license` extension uses SPDX License Identifiers (e.g., "MIT", "Apache-2.0", "GPL-3.0") to specify the license for a document or object.
+```
 
-## Important Concepts
+  }
 
-### Extensions Are Not Data
+}
 
+@ "important-concepts" {
+  "##": Important Concepts
+
+  @ "extensions-are-not-data" {
+    "###": Extensions Are Not Data
+
+    "body" = ```markdown
 Extensions are metadata stored separately from data:
 - They don't appear in serialized output (JSON, YAML, etc.) unless explicitly handled
 - They don't affect data validation
 - They provide additional context without modifying the data structure
+```
 
-### No String Manipulation
+  }
 
+  @ "no-string-manipulation" {
+    "###": No String Manipulation
+
+    "body" = ```markdown
 The `$` symbol is part of the Eure grammar, not a string prefix:
 - Never use string operations like `starts_with("$")` or `strip_prefix("$")`
 - The parser recognizes extension syntax at the grammatical level
 - Extension names are stored as identifiers, not strings with prefixes
+```
 
-### Quoted Dollar Signs
+  }
 
+  @ "quoted-dollar-signs" {
+    "###": Quoted Dollar Signs
+
+    "body" = ```markdown
 To use a literal `$` in a key name (not as an extension), quote it:
+```
 
-```eure
+    "eure-snippet" = ```eure
 // This is an extension (metadata)
 $variant: type-a
 
@@ -201,11 +290,19 @@ $variant: type-a
 "$price" => 99.99
 ```
 
+  }
 
-## Design Rationale
+}
 
+@ "design-rationale" {
+  "##": Design Rationale
+
+  "body" = ```markdown
 The separation of extensions from data ensures:
 1. **Clean data models**: Data remains pure without metadata pollution
 2. **Forward compatibility**: New extensions can be added without breaking existing data
 3. **Tool flexibility**: Different tools can use different extensions without conflicts
 4. **Type safety**: Extensions can have type definitions via the `$ext-type` namespace
+```
+
+}

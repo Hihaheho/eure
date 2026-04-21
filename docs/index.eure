@@ -1,0 +1,50 @@
+$docs {
+  title: Eure Documentation
+  description: Overview of the Eure language, schema system, implementation notes, and architecture decision records.
+  tags = ["docs", "overview"]
+}
+
+"#": Eure Documentation
+
+"body" = ```markdown
+This site is generated from the repository's `docs/` directory. Guide pages are authored in Eure, rendered to HTML by `eure-mark` at build time, and embedded into `eure.dev/docs/` by `eure-dev`.
+
+If you need API-level details, see [docs.rs/eure](https://docs.rs/eure/latest/eure/).
+```
+
+"toc".$toc = true
+
+@ "getting-started" {
+  "##": Getting Started
+
+  "body" = ```markdown
+- [Language Specification](/docs/spec/alpha)
+- [Types](/docs/data-types)
+- [Extensions](/docs/extensions)
+- [Schema Extensions](/docs/schema-extensions)
+- [Template Extensions](/docs/template-extensions)
+- [Schemas](/docs/schemas)
+```
+}
+
+@ "tooling-and-implementation" {
+  "##": Tooling and Implementation
+
+  "body" = ```markdown
+- [EureDocument vs Value](/docs/euredocument-vs-value)
+- [CST and Visitor](/docs/cst-and-visitor)
+- [Completion Architecture](/docs/completion_architecture)
+- [Completion with Error Recovery](/docs/completion_with_error_recovery)
+- [Codegen IR Design Draft](/docs/codegen-ir-design)
+```
+}
+
+@ "project-context" {
+  "##": Project Context
+
+  "body" = ```markdown
+- [Eure Comparisons](/docs/eure-comparisons)
+- [Decision Records](/docs/decision-records)
+- [ADR Index](/docs/adrs)
+```
+}

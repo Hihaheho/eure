@@ -1,19 +1,37 @@
-# Completion with Error Recovery Approach
+$docs {
+  title: Completion with Error Recovery Approach
+  description: We need to support completion for: - Trailing dots: @ script. (complete after dot) - Empty values: key = (complete value) - Partial keys: @ scr (complete key)
+}
 
-## Problem Statement
+"#": Completion with Error Recovery Approach
+
+"toc".$toc = true
+
+@ "problem-statement" {
+  "##": Problem Statement
+
+  "body" = ```markdown
 We need to support completion for:
 - Trailing dots: `@ script.` (complete after dot)
 - Empty values: `key = ` (complete value)
 - Partial keys: `@ scr` (complete key)
 
 While maintaining LL(1) property of the grammar.
+```
 
-## Solution: Error Recovery Based Completion
+}
 
+@ "solution-error-recovery-based-completion" {
+  "##": Solution: Error Recovery Based Completion
+
+  "body" = ```markdown
 Instead of modifying the grammar to accept incomplete constructs (which breaks LL(1)), we use error-tolerant parsing with a two-phase analysis approach.
+```
 
-### Two-Phase Approach
+  @ "two-phase-approach" {
+    "###": Two-Phase Approach
 
+    "body" = ```markdown
 The key insight is that we need BOTH error information AND the partial CST:
 
 1. **Phase 1: Error Analysis** (Syntactic Context)
@@ -25,9 +43,14 @@ The key insight is that we need BOTH error information AND the partial CST:
    - Current path in the document (e.g., `["script", "commands"]`)
    - Whether we're in a section, binding, or value context
    - Actual identifiers and values parsed so far
+```
 
-### Why String-Based Parsing is Wrong
+  }
 
+  @ "why-string-based-parsing-is-wrong" {
+    "###": Why String-Based Parsing is Wrong
+
+    "body" = ```markdown
 **NEVER use string-based parsing**. It is fundamentally flawed because:
 - Cannot handle nested structures correctly
 - Breaks with whitespace and formatting variations
@@ -39,10 +62,14 @@ The key insight is that we need BOTH error information AND the partial CST:
 - Handles all valid syntax variations
 - Provides semantic context
 - Works with partial/invalid syntax
+```
 
-### Detailed Implementation
+  }
 
-```rust
+  @ "detailed-implementation" {
+    "###": Detailed Implementation
+
+    "rust-snippet" = ```rust
 use parol_runtime::{ParolError, SyntaxError, Location};
 use crate::cst::{Cst, CstVisitor};
 
@@ -183,18 +210,27 @@ impl CstVisitor for PathExtractorVisitor {
 }
 ```
 
-### Concrete Examples
+  }
 
-#### Example 1: Trailing Dot
+  @ "concrete-examples" {
+    "###": Concrete Examples
+
+    @ "example-1-trailing-dot" {
+      "####": Example 1: Trailing Dot
+
+      "body" = ```markdown
 Input: `@ script.`
 
 Parser Error:
 ```
+
+      "snippet" = ```
 LA(1): $ (EndOfInput) at test.eure:1:9-1:10
 at non-terminal "Keys"
 Expected tokens: ["Ident", "Str", "Integer", "True", "False", "Null", "Ext"]
 ```
 
+      "body-2" = ```markdown
 CST Analysis:
 - Path extracted: `["script"]`
 - Context: In section keys after dot
@@ -202,18 +238,27 @@ CST Analysis:
 Combined Result:
 - CompletionContext::Key { parent_path: ["script"], is_section_key: true }
 - Suggest: Keys that can follow `script.`
+```
 
-#### Example 2: Empty Value
+    }
+
+    @ "example-2-empty-value" {
+      "####": Example 2: Empty Value
+
+      "body" = ```markdown
 Input: `key = `
 
 Parser Error:
 ```
+
+      "snippet" = ```
 LA(1): $ (EndOfInput) at test.eure:1:6-1:7
 at non-terminal "Value"
 Current production: ValueBinding: Bind Value;
 Expected tokens: ["Integer", "True", "False", "Null", "Hole", "Str", "CodeBlock", "NamedCode", "Code", "Dot", "Begin", "ArrayBegin", "LParen"]
 ```
 
+      "body-2" = ```markdown
 CST Analysis:
 - Binding key: `["key"]`
 - Context: In binding after `=`
@@ -221,17 +266,26 @@ CST Analysis:
 Combined Result:
 - CompletionContext::Value { binding_path: ["key"], allowed_types: [String, Integer, Boolean, ...] }
 - Suggest: Value completions for the binding
+```
 
-#### Example 3: Nested Context
+    }
+
+    @ "example-3-nested-context" {
+      "####": Example 3: Nested Context
+
+      "body" = ```markdown
 Input: `@ a.b.c.`
 
 Parser Error:
 ```
+
+      "snippet" = ```
 LA(1): $ (EndOfInput) at test.eure:1:8-1:9
 at non-terminal "KeysList"
 Expected tokens: ["Ident", ...]
 ```
 
+      "body-2" = ```markdown
 CST Analysis:
 - Path extracted: `["a", "b", "c"]`
 - Context: In nested section keys
@@ -239,26 +293,48 @@ CST Analysis:
 Combined Result:
 - CompletionContext::Key { parent_path: ["a", "b", "c"], is_section_key: true }
 - Suggest: Keys under `a.b.c`
+```
 
-### Key Implementation Points
+    }
 
+  }
+
+  @ "key-implementation-points" {
+    "###": Key Implementation Points
+
+    "body" = ```markdown
 1. **Never parse strings** - Always traverse the CST
 2. **Use error location precisely** - Match byte offsets, not line/column
 3. **Build context incrementally** - Track path as visitor traverses
 4. **Handle partial trees** - CST may be incomplete but still useful
 5. **Combine both phases** - Neither error nor CST alone is sufficient
+```
 
-### Advantages
+  }
 
+  @ "advantages" {
+    "###": Advantages
+
+    "body" = ```markdown
 1. **Grammar remains LL(1)** - No ambiguity introduced
 2. **Robust completion** - Works with syntax errors
 3. **Rich context** - Both syntactic and semantic information
 4. **Type-aware** - Can suggest appropriate value types
 5. **Path-aware** - Knows exact location in document hierarchy
+```
 
-### Next Steps
+  }
 
+  @ "next-steps" {
+    "###": Next Steps
+
+    "body" = ```markdown
 1. Implement PathExtractorVisitor with proper CST traversal
 2. Create error-to-completion-context mapping
 3. Add tests for all error scenarios
 4. Integrate with LSP completion handler
+```
+
+  }
+
+}

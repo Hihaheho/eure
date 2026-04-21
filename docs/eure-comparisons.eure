@@ -1,24 +1,45 @@
-# Eure: Configuration Language Comparisons
+$docs {
+  title: Eure: Configuration Language Comparisons
+  description: Eure is a minimalist, schema-friendly configuration language and data format designed for human readability and programmatic editing. It combines JSON compatibility with TOML-like minimalism, featuring algebraic data models, rich editor support, and templating capabilities.
+}
 
-## Introduction
+"#": Eure: Configuration Language Comparisons
 
+"toc".$toc = true
+
+@ "introduction" {
+  "##": Introduction
+
+  "body" = ```markdown
 Eure is a minimalist, schema-friendly configuration language and data format designed for human readability and programmatic editing. It combines JSON compatibility with TOML-like minimalism, featuring algebraic data models, rich editor support, and templating capabilities.
+```
 
-### Core Design Principles
+  @ "core-design-principles" {
+    "###": Core Design Principles
 
+    "body" = ```markdown
 - **Minimalist syntax** with rich expressiveness
 - **Schema-friendly** with built-in JSON Schema compatibility
 - **Human-readable** and **programmatically editable**
 - **Algebraic data model** compatible with JSON
 - **Rich editor experience** with LSP support
+```
 
-## Eure Language Features
+  }
 
+}
+
+@ "eure-language-features" {
+  "##": Eure Language Features
+
+  "body" = ```markdown
 Based on the official grammar, Eure supports:
+```
 
-### Basic Syntax
+  @ "basic-syntax" {
+    "###": Basic Syntax
 
-```eure
+    "eure-snippet" = ```eure
 # Comments start with #
 title = "Hello World"
 port = 8080
@@ -26,9 +47,12 @@ enabled = true
 debug = null
 ```
 
-### Sections and Arrays
+  }
 
-```eure
+  @ "sections-and-arrays" {
+    "###": Sections and Arrays
+
+    "eure-snippet" = ```eure
 # Section with array indexing
 @ actions[]
 $variant = "sleep"
@@ -39,17 +63,23 @@ $variant = "set-text"
 speaker = "Ryo"
 ```
 
-### Extensions (Metadata)
+  }
 
-```eure
+  @ "extensions-metadata" {
+    "###": Extensions (Metadata)
+
+    "eure-snippet" = ```eure
 # Extensions use $ prefix
 $eure.version = "https://eure.dev/versions/v0.1.0"
 $variant = "use-script"
 ```
 
-### Text Blocks
+  }
 
-```eure
+  @ "text-blocks" {
+    "###": Text Blocks
+
+    "eure-snippet" = ```eure
 # Multi-line text using : (no quotes needed, like PKL)
 description: This is a multi-line
 description that continues here
@@ -59,9 +89,12 @@ title: Hello World
 subtitle: A simple example
 ```
 
-### Nested Structures
+  }
 
-```eure
+  @ "nested-structures" {
+    "###": Nested Structures
+
+    "eure-snippet" = ```eure
 @ actions[] {
   $variant = "set-text"
 
@@ -74,9 +107,12 @@ subtitle: A simple example
 }
 ```
 
-### Code Blocks and Typed Strings
+  }
 
-```eure
+  @ "code-blocks-and-typed-strings" {
+    "###": Code Blocks and Typed Strings
+
+    "eure-snippet" = ````eure
 # Code blocks with language tags
 script = ```bash
 echo "Hello World"
@@ -88,11 +124,14 @@ contact = email"user@example.com"
 
 # Inline code
 command = `ls -la`
-```
+````
 
-### Objects and Arrays
+  }
 
-```eure
+  @ "objects-and-arrays" {
+    "###": Objects and Arrays
+
+    "eure-snippet" = ```eure
 # Objects
 config = { host = "localhost", port = 8080 }
 
@@ -101,12 +140,21 @@ ports = [8000, 8001, 8002]
 mixed = ["string", 42, true, null]
 ```
 
-## Eure vs YAML
+  }
 
-### Syntax Comparison
+}
 
+@ "eure-vs-yaml" {
+  "##": Eure vs YAML
+
+  @ "yaml-syntax-comparison" {
+    "###": Syntax Comparison
+
+    "body" = ```markdown
 **Eure:**
-```eure
+```
+
+    "eure-snippet" = ```eure
 $eure.version = "https://eure.dev/versions/v0.1.0"
 title = "test"
 language = "en"
@@ -131,8 +179,11 @@ seconds = 2.0
 }
 ```
 
+    "body-2" = ```markdown
 **YAML:**
-```yaml
+```
+
+    "yaml-snippet" = ```yaml
 title: test
 language: en
 actions:
@@ -147,8 +198,12 @@ actions:
         text: I'm Ryo.
 ```
 
-### Key Differences
+  }
 
+  @ "yaml-key-differences" {
+    "###": Key Differences
+
+    "body" = ```markdown
 | Feature | Eure | YAML |
 |---------|------|------|
 | **Structure** | Sections with `@`, blocks with `{}` | Indentation-based |
@@ -159,21 +214,36 @@ actions:
 | **Specification** | Minimalist, focused | Complex with many edge cases |
 | **Code blocks** | Native syntax with language tags | Multi-line strings only |
 | **Typed strings** | Built-in (url, email, etc.) | All strings are plain |
+```
 
-### Advantages of Eure over YAML
+  }
 
+  @ "advantages-of-eure-over-yaml" {
+    "###": Advantages of Eure over YAML
+
+    "body" = ```markdown
 1. **Simpler specification** - Fewer edge cases and parsing ambiguities
 2. **Built-in extensions** - Metadata without polluting data structure
 3. **Native variants** - Algebraic data types built into the language
 4. **Schema integration** - Designed for validation from the ground up
 5. **Code-friendly** - Better support for configuration-as-code scenarios
+```
 
-## Eure vs TOML
+  }
 
-### Syntax Comparison
+}
 
+@ "eure-vs-toml" {
+  "##": Eure vs TOML
+
+  @ "toml-syntax-comparison" {
+    "###": Syntax Comparison
+
+    "body" = ```markdown
 **Eure:**
-```eure
+```
+
+    "eure-snippet" = ```eure
 title = "test"
 language = "en"
 
@@ -190,8 +260,11 @@ name = "beta"
 ip = "10.0.0.2"
 ```
 
+    "body-2" = ```markdown
 **TOML:**
-```toml
+```
+
+    "toml-snippet" = ```toml
 title = "test"
 language = "en"
 
@@ -208,21 +281,30 @@ name = "beta"
 ip = "10.0.0.2"
 ```
 
-### Key Differences
+  }
 
+  @ "toml-key-differences" {
+    "###": Key Differences
+
+    "body" = ```markdown
 | Feature | Eure | TOML |
 |---------|------|------|
 | **Section syntax** | `@ section[]` | `[[section]]` |
-| **Section nesting** | ✅ Supports nested sections with `{}` | ❌ No section nesting allowed |
+| **Section nesting** | Supports nested sections with `{}` | No section nesting allowed |
 | **Extensions** | `$` prefix for metadata | No extension system |
 | **Nesting** | Explicit with `{}` blocks | Dot notation only |
 | **Variants** | Native `$variant` | Manual variant fields |
 | **Code blocks** | Triple backticks with language | Multi-line strings |
 | **Typed strings** | Built-in type prefixes | All strings are plain |
 | **Text blocks** | `:` syntax (unquoted, unambiguous) | Limited multi-line support |
+```
 
-### Advantages of Eure over TOML
+  }
 
+  @ "advantages-of-eure-over-toml" {
+    "###": Advantages of Eure over TOML
+
+    "body" = ```markdown
 1. **Section nesting** - Eure allows nested sections, TOML does not
 2. **Unquoted text** - `:` syntax allows natural text without quotes (like PKL)
 3. **Unambiguous syntax** - Text `:` is context-specific, unlike YAML's overloaded `:`
@@ -230,11 +312,19 @@ ip = "10.0.0.2"
 5. **Extension system** - Built-in metadata support
 6. **Code integration** - Native code block support
 7. **Schema support** - Built-in validation capabilities
+```
 
-## Eure vs PKL
+  }
 
-### Philosophy Comparison
+}
 
+@ "eure-vs-pkl" {
+  "##": Eure vs PKL
+
+  @ "pkl-philosophy-comparison" {
+    "###": Philosophy Comparison
+
+    "body" = ```markdown
 **Eure:**
 - Configuration language focused on human readability
 - Schema-driven validation
@@ -246,11 +336,18 @@ ip = "10.0.0.2"
 - Type system-based validation
 - Rich programming constructs
 - Dynamic configuration generation
+```
 
-### Syntax Comparison
+  }
 
+  @ "pkl-syntax-comparison" {
+    "###": Syntax Comparison
+
+    "body" = ```markdown
 **Eure:**
-```eure
+```
+
+    "eure-snippet" = ```eure
 $variant = "database-config"
 host = "localhost"
 port = 5432
@@ -265,8 +362,11 @@ name = "replica"
 url = url"postgresql://replica:5432/app"
 ```
 
+    "body-2" = ```markdown
 **PKL:**
-```pkl
+```
+
+    "pkl-snippet" = ```pkl
 host = "localhost"
 port = 5432
 ssl = true
@@ -283,8 +383,12 @@ connections {
 }
 ```
 
-### Key Differences
+  }
 
+  @ "pkl-key-differences" {
+    "###": Key Differences
+
+    "body" = ```markdown
 | Feature | Eure | PKL |
 |---------|------|-----|
 | **Focus** | Human-readable configuration | Programmable configuration |
@@ -293,9 +397,14 @@ connections {
 | **Complexity** | Minimal, focused syntax | Full programming language |
 | **Output** | JSON, TOML, YAML | Multiple formats via code generation |
 | **Learning curve** | Minimal | Requires programming knowledge |
+```
 
-### Use Case Comparison
+  }
 
+  @ "pkl-use-case-comparison" {
+    "###": Use Case Comparison
+
+    "body" = ```markdown
 **Choose Eure when:**
 - Configuration files need to be human-readable and editable
 - Schema validation is important
@@ -309,19 +418,32 @@ connections {
 - Multiple output formats are necessary
 - Type safety is critical
 - Configuration involves computation
+```
 
-## Migration and Interoperability
+  }
 
-### Converting Between Formats
+}
 
+@ "migration-and-interoperability" {
+  "##": Migration and Interoperability
+
+  @ "converting-between-formats" {
+    "###": Converting Between Formats
+
+    "body" = ```markdown
 Eure provides conversion tools through its ecosystem:
 
 - **eure-json** - Bidirectional JSON conversion
 - **eure-toml** - TOML import/export
 - **eure-yaml** - YAML import/export
+```
 
-### Migration Strategies
+  }
 
+  @ "migration-strategies" {
+    "###": Migration Strategies
+
+    "body" = ```markdown
 **From YAML to Eure:**
 1. Convert basic key-value pairs directly
 2. Transform indentation-based nesting to `@` sections
@@ -339,27 +461,47 @@ Eure provides conversion tools through its ecosystem:
 2. Convert computed values to static equivalents
 3. Use Eure templating for dynamic aspects
 4. Leverage schema validation for type safety
+```
 
-## Tooling and Ecosystem
+  }
 
-### Eure Tooling
+}
 
+@ "tooling-and-ecosystem" {
+  "##": Tooling and Ecosystem
+
+  @ "eure-tooling" {
+    "###": Eure Tooling
+
+    "body" = ```markdown
 - **eure-ls** - Language Server Protocol implementation
 - **eure-fmt** - Code formatter
 - **eure-lint** - Linting and validation
 - **eure-cli** - Command-line tools
 - **eure-schema** - Schema validation system
+```
 
-### Editor Support
+  }
 
+  @ "editor-support" {
+    "###": Editor Support
+
+    "body" = ```markdown
 - Syntax highlighting
 - Real-time validation
 - Auto-completion
 - Format-on-save
 - Error diagnostics
+```
 
-## Conclusion
+  }
 
+}
+
+@ "conclusion" {
+  "##": Conclusion
+
+  "body" = ```markdown
 Eure occupies a unique position in the configuration language landscape:
 
 - **More expressive than TOML** while maintaining simplicity
@@ -368,3 +510,6 @@ Eure occupies a unique position in the configuration language landscape:
 - **Schema-first design** unlike most alternatives
 
 Choose Eure when you need a human-friendly configuration language that scales from simple key-value pairs to complex, validated data structures while maintaining excellent tooling support and editor integration.
+```
+
+}

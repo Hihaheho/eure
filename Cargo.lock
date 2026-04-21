@@ -2055,6 +2055,7 @@ dependencies = [
  "eure-codegen",
  "eure-fmt",
  "eure-json",
+ "eure-mark",
  "eure-parol",
  "eure-schema",
  "getrandom 0.3.4",
@@ -2222,6 +2223,9 @@ dependencies = [
  "eure-document",
  "eure-parol",
  "eure-tree",
+ "giallo",
+ "markdown",
+ "maud",
  "query-flow",
  "regex",
  "thiserror 2.0.18",
@@ -2608,6 +2612,20 @@ dependencies = [
  "rand_core 0.10.1",
  "wasip2",
  "wasip3",
+]
+
+[[package]]
+name = "giallo"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d312f2ab96db12e6ce9aebc495792774e4d2d759ed124f4d845281816db2bcfa"
+dependencies = [
+ "flate2",
+ "onig-regset",
+ "papaya",
+ "rmp-serde",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3439,6 +3457,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "markdown"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5cab8f2cadc416a82d2e783a1946388b31654d391d1c7d92cc1f03e295b1deb"
+dependencies = [
+ "unicode-id",
+]
+
+[[package]]
 name = "matchers"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3734,6 +3761,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
+name = "onig-regset"
+version = "6.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "080c4eeac92e475efa2893e52522ee3de48086cdad5fb5f36631a7fcb5293c81"
+dependencies = [
+ "bitflags 2.11.1",
+ "libc",
+ "once_cell",
+ "onig_sys",
+]
+
+[[package]]
+name = "onig_sys"
+version = "69.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7f86c6eef3d6df15f23bcfb6af487cbd2fed4e5581d58d5bf1f5f8b7f6727dc"
+dependencies = [
+ "cc",
+ "pkg-config",
+]
+
+[[package]]
 name = "oorandom"
 version = "11.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3934,6 +3983,12 @@ name = "pin-utils"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
+
+[[package]]
+name = "pkg-config"
+version = "0.3.33"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "plotters"
@@ -4633,6 +4688,25 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "rmp"
+version = "0.8.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ba8be72d372b2c9b35542551678538b562e7cf86c3315773cae48dfbfe7790c"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
+name = "rmp-serde"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72f81bee8c8ef9b577d1681a70ebbc962c232461e397b22c208c43c04b67a155"
+dependencies = [
+ "rmp",
+ "serde",
 ]
 
 [[package]]
@@ -5866,6 +5940,12 @@ name = "unicode-ccc"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce61d488bcdc9bc8b5d1772c404828b17fc481c0a582b5581e95fb233aef503e"
+
+[[package]]
+name = "unicode-id"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70ba288e709927c043cbe476718d37be306be53fb1fafecd0dbe36d072be2580"
 
 [[package]]
 name = "unicode-ident"

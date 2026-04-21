@@ -1,10 +1,20 @@
-# Types
+$docs {
+  title: Types
+  description: Eure recommends 2-space indentation for nested structures.
+}
 
-## Formatting
+"#": Types
 
+"toc".$toc = true
+
+@ "formatting" {
+  "##": Formatting
+
+  "body" = ```markdown
 Eure recommends **2-space indentation** for nested structures.
+```
 
-```eure
+  "eure-snippet" = ```eure
 @ config {
   server = {
     host = "localhost"
@@ -13,8 +23,12 @@ Eure recommends **2-space indentation** for nested structures.
 }
 ```
 
-## Primitive Types
+}
 
+@ "primitive-types" {
+  "##": Primitive Types
+
+  "body" = ```markdown
 - `string`
 - `typed string`
 - `code`
@@ -29,9 +43,14 @@ Eure recommends **2-space indentation** for nested structures.
 - `tuple`
 - `unit`
 - `null`
+```
 
-## Officially Provided Types
+}
 
+@ "officially-provided-types" {
+  "##": Officially Provided Types
+
+  "body" = ```markdown
 - `uri`
 - `url`
 - `email`
@@ -39,22 +58,38 @@ Eure recommends **2-space indentation** for nested structures.
 - `datetime`
 - `second-wise duration`
 - `calendar-wise duration`
+```
 
-## String
+}
 
+@ "string" {
+  "##": String
+
+  "body" = ```markdown
 Notation as value: `"value"`
 Notation as type: `"string"`
+```
 
-## Typed String
+}
 
+@ "typed-string" {
+  "##": Typed String
+
+  "body" = ```markdown
 Notation as value: `url"https://example.com"`
 Notation as type: `url"string"`
+```
 
-## Code Block
+}
 
+@ "code-block" {
+  "##": Code Block
+
+  "body" = ```markdown
 Notation as value:
+```
 
-````eure
+  "eure-snippet" = ````eure
 key = ```rust
 fn main() {
     println!("Hello, world!");
@@ -62,50 +97,92 @@ fn main() {
 ```
 ````
 
+  "body-2" = ```markdown
 - Newline character is **not inserted at the head** of the code unless you manually insert a blank line.
 - Newline character is **always inserted at the tail** of the last line of the code.
+```
 
-## Inline Code
+}
 
+@ "inline-code" {
+  "##": Inline Code
+
+  "body" = ```markdown
 Notation as type: `rust"code"` or `"code"`
+```
 
-## Integer
+}
 
+@ "integer" {
+  "##": Integer
+
+  "body" = ```markdown
 Notation as value: `1`
 Notation as type: `"integer"`
+```
 
-## Float
+}
 
+@ "float" {
+  "##": Float
+
+  "body" = ```markdown
 Notation as value: `1.1`
 Notation as type: `"float"`
+```
 
-## Decimal
+}
 
+@ "decimal" {
+  "##": Decimal
+
+  "body" = ```markdown
 Notation as value: `1.1`
 Notation as type: `"decimal"`
+```
 
-## Boolean
+}
 
+@ "boolean" {
+  "##": Boolean
+
+  "body" = ```markdown
 Notation as value: `= true`
 Notation as type: `"= boolean"`
+```
 
-## Array
+}
 
+@ "array" {
+  "##": Array
+
+  "body" = ```markdown
 Notation as value: `= [1, 2, 3]`
 Notation as type: `"array"`
+```
 
-## Object
+}
 
+@ "object" {
+  "##": Object
+
+  "body" = ```markdown
 Notation as value: `= { a = 1, b = 2}`
 Notation as type: `"object"`
+```
 
-## Variant
+}
 
+@ "variant" {
+  "##": Variant
+
+  "body" = ```markdown
 Variant types (also known as tagged unions or sum types) allow a value to be one of several possible variants. Each variant is identified by a name and can contain associated data.
 
 Notation as value:
+```
 
-```eure
+  "eure-snippet" = ```eure
 @ result {
   $variant = .ok
   value = 42
@@ -117,29 +194,40 @@ Notation as value:
 }
 ```
 
-Notation as type: Defined using `$variants` in schema (see [schema-extensions.md](./schema-extensions.md#variants))
+  "body-2" = ```markdown
+Notation as type: Defined using `$variants` in schema (see [schema-extensions.md](/docs/schema-extensions#variants))
+```
 
-### Simple Variants
+  @ "simple-variants" {
+    "###": Simple Variants
 
+    "body" = ```markdown
 Use a string or path to specify the variant:
+```
 
-```eure
+    "eure-snippet" = ```eure
 $variant = "success"
 # or equivalently
 $variant = .success
 ```
 
-### Nested Variants
+  }
 
+  @ "nested-variants" {
+    "###": Nested Variants
+
+    "body" = ```markdown
 For nested variant structures (similar to Rust's `Result<Result<T, E>, E>` or `Option<Option<T>>`), use dot notation to specify the full variant path:
+```
 
-```eure
+    "eure-snippet" = ```eure
 @ response {
   $variant = .ok.ok.err
   error_code = 404
 }
 ```
 
+    "body-2" = ```markdown
 This represents a three-level nested structure:
 
 | Eure | Rust Equivalent |
@@ -150,8 +238,9 @@ This represents a three-level nested structure:
 | `$variant = .err` | `Err(value)` |
 
 Each segment in the path represents one level of variant selection:
+```
 
-```eure
+    "eure-snippet-2" = ```eure
 # Two-level nesting
 @ outer {
   $variant = .some.none
@@ -166,10 +255,28 @@ Each segment in the path represents one level of variant selection:
 # Rust: Some(Some(Some("deeply nested")))
 ```
 
+    "body-3" = ```markdown
 The dot notation follows Eure's standard path syntax, making it consistent with other path-based features in the language.
+```
 
-## Unit
+  }
 
-## Null
+}
 
-## Datetime
+@ "unit" {
+  "##": Unit
+
+
+}
+
+@ "null" {
+  "##": Null
+
+
+}
+
+@ "datetime" {
+  "##": Datetime
+
+
+}
