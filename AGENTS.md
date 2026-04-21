@@ -35,7 +35,7 @@ cargo run -p test-suite -- [--filter <filter>]# Run Eure test suite.
 ## Architecture
 
 **Workspace Structure:**
-- 18 crates organized by functionality in a Rust workspace
+- 22 crates organized by functionality in a Rust workspace
 - Core libraries: `eure-document` (data types), `eure-tree` (AST/CST), `eure-parol` (parser)
 - Format support: `eure-json`, `eure-toml`, `eure-yaml`, `serde-eure`
 - Tooling: `eure-cli`, `eure-ls` (LSP), `eure-fmt` (formatter), `eure-lint`
@@ -85,7 +85,7 @@ assert_eq!(doc.node(name_id).as_primitive().unwrap().as_str(), Some("Alice"));
 **FromEure API:**
 - Use `FromEure` trait for type-safe extraction from `EureDocument`. Avoid manual `node.content` matching.
 - Primitives: `doc.parse::<&str>(node_id)`, `doc.parse::<i32>(node_id)`, `doc.parse::<bool>(node_id)`
-- Records: `let rec = doc.parse_record(node_id)?; rec.field::<T>("name")?; rec.field_optional::<T>("opt")?`
-- Extensions: `let ext = doc.parse_extension(node_id); ext.field_optional::<T>("ext-name")?`
+- Records: `let rec = doc.parse_record(node_id)?; rec.parse_field::<T>("name")?; rec.parse_field_optional::<T>("opt")?`
+- Extensions: `let ctx = doc.parse_extension_context(node_id); ctx.parse_ext_optional::<T>("ext-name")?`
 - Collections: `doc.parse::<Vec<T>>(node_id)`, `doc.parse::<Map<K, V>>(node_id)`
 - Implement `FromEure` for custom types; see `crates/eure-schema/src/parse.rs` for examples.
