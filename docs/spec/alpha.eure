@@ -215,7 +215,7 @@ disabled = false
 ```
 
     "snippet" = ```
-/\d[\d_]*/
+/[-+]?\d[\d_]*/
 ```
 
     "body-2" = ```markdown
@@ -225,6 +225,7 @@ Underscores may be used as visual separators but have no semantic meaning:
     "eure-snippet" = ```eure
 count = 42
 large = 1_000_000
+negative = -100
 binary_looking = 1010_1010
 ```
 
@@ -244,10 +245,18 @@ The syntax is:
 ```
 
     "snippet" = ```
-/[-+]?(\d+\.\d*|\d+\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]/
+/[-+]?\d[\d_]*\.\d+([eE][-+]?\d+)?(f32|f64)?|[-+]?\d[\d_]*[eE][-+]?\d+(f32|f64)?/
 ```
 
     "body-2" = ```markdown
+**Note**: At least one digit is required after the decimal point. This avoids ambiguity with dot-separated integer keys (e.g., `a.1.x`).
+
+An optional `f32` or `f64` suffix specifies 32-bit or 64-bit precision. Without a suffix, the precision is implementation-defined (typically 64-bit).
+
+Infinity and Not-a-Number are separate literal tokens:
+- `Inf` or `inf` — positive infinity (prefix `+` or `-` allowed)
+- `NaN` or `nan` — not a number
+
 Examples:
 ```
 
@@ -255,17 +264,14 @@ Examples:
 pi = 3.14159
 negative = -2.5
 scientific = 6.022e23
+single_precision = 3.14f32
+double_precision = 3.14f64
 positive_inf = Inf
 negative_inf = -Inf
 not_a_number = NaN
 ```
 
     "body-3" = ```markdown
-Special values:
-- `Inf` or `inf` - positive infinity
-- `-Inf` or `-inf` - negative infinity
-- `NaN` or `nan` - not a number
-
 ---
 ```
 
@@ -413,6 +419,12 @@ Text bindings:
 - Have leading and trailing whitespace trimmed
 - Produce *plaintext* values
 - Support escape sequences
+
+A *root-level text binding* omits the key entirely and uses `:` as the first token on a line. It binds text to the document root node:
+```
+
+    "eure-snippet-2" = ```eure
+: This is root-level text
 ```
 
   }
@@ -652,6 +664,17 @@ A hole consists of `!` optionally followed by a label (an identifier).
 
 A complete, valid document MUST NOT contain any holes.
 
+Holes may also appear in *key position* inside map literals. A map containing one or more hole keys is a *PartialMap* (see [Section 10.2](#10-2-extensions-beyond-json)):
+```
+
+    "eure-snippet-2" = ```eure
+partial = {
+  ! => "anonymous hole key"
+  !todo => "labeled hole key"
+}
+```
+
+    "body-3" = ```markdown
 ---
 ```
 
@@ -739,6 +762,15 @@ point.#1 = 20
 items[0] = "first"
 items[1] = "second"
 items[] = "appended"  // Appends to array
+```
+
+    "body-8" = ```markdown
+**Array current-index**: Navigate into the last-pushed array element (does not append)
+```
+
+    "eure-snippet-8" = ```eure
+users[].name = "Alice"
+users[^].age = 30  // Adds to the last element, not a new one
 ```
 
   }
@@ -910,6 +942,18 @@ role = "user"
     "body-2" = ```markdown
 This creates an array with two objects.
 
+The *current-index* marker `[^]` navigates into the last-pushed element without appending a new one. This allows augmenting a previously opened array element from a separate binding or section:
+```
+
+    "eure-snippet-2" = ```eure
+@ users[]
+name = "Alice"
+
+@ users[^]
+role = "admin"  // Adds to the last element (Alice), not a new user
+```
+
+    "body-3" = ```markdown
 ---
 ```
 
@@ -1027,6 +1071,7 @@ The `navigate(segment)` action accepts different segment types:
 | Tuple index | `navigate(#0)` | Navigate to a tuple element by position (0-255) |
 | Array append | `navigate([])` | Append a new element to an array |
 | Array index | `navigate([0])` | Navigate to a specific array index |
+| Array current-index | `navigate([^])` | Navigate to the last element of an array (no append) |
 ```
 
   }
@@ -1444,10 +1489,12 @@ Eure's data model is a superset of JSON. The following JSON types map directly:
 | `null` | `null` |
 | `true`/`false` | `true`/`false` |
 | number (integer) | integer |
-| number (float) | float |
+| number (float) | float (`f32` or `f64`) |
 | string | text (plaintext) |
 | array | array |
 | object | map |
+
+Eure distinguishes 32-bit (`f32`) and 64-bit (`f64`) floats. When no suffix is given the precision is implementation-defined (typically 64-bit). Both map to JSON `number`.
 ```
 
   }
@@ -1467,6 +1514,8 @@ Eure extends the JSON data model with:
 4. **Language-tagged text**: Text with associated language metadata
 
 5. **Extension metadata**: Separate metadata channel
+
+6. **PartialMap**: A map that contains at least one hole key. Produced when a map literal uses `!` or `!label` as a key. PartialMaps preserve insertion order and do not deduplicate hole-keyed entries (except labeled holes with the same label). They are used for templates and partial document patterns.
 ```
 
   }
@@ -1517,7 +1566,8 @@ a | b                        // Alternative
     "###": 11.2 Document Structure
 
     "ebnf-snippet" = ```ebnf
-Document = [ ValueBinding ] { Binding } { Section } ;
+Document = [ TopLevelBinding ] { Binding } { Section } ;
+TopLevelBinding = ValueBinding | TextBinding ;
 
 Binding = Keys BindingRhs ;
 BindingRhs = ValueBinding | SectionBinding | TextBinding ;
@@ -1526,7 +1576,8 @@ SectionBinding = "{" Document "}" ;
 TextBinding = ":" Text ;
 
 Section = "@" Keys SectionBody ;
-SectionBody = [ ValueBinding ] { Binding } | "{" Document "}" ;
+SectionBody = [ FlatBody ] | "{" Document "}" ;
+FlatBody = ( ValueBinding | TextBinding ) { Binding } ;
 ```
 
   }
@@ -1535,14 +1586,15 @@ SectionBody = [ ValueBinding ] { Binding } | "{" Document "}" ;
     "###": 11.3 Keys and Paths
 
     "ebnf-snippet" = ```ebnf
-Keys = Key { "." Key } ;
-Key = KeyBase [ ArrayMarker ] ;
-KeyBase = Identifier | ExtensionName | String | Integer | KeyTuple | TupleIndex ;
-ArrayMarker = "[" [ Integer ] "]" ;
+Keys = FirstKey { KeyTail } ;
+FirstKey = Key | ArrayMarker ;
+KeyTail = "." Key | ArrayMarker ;
+Key = Identifier | ExtensionName | String | Integer | Float | KeyTuple | TupleIndex | Hole ;
+ArrayMarker = "[" [ Integer | "^" ] "]" ;
 TupleIndex = "#" Integer ;
 ExtensionName = "$" Identifier ;
 KeyTuple = "(" [ KeyValue { "," KeyValue } [ "," ] ] ")" ;
-KeyValue = Integer | Boolean | String | KeyTuple ;
+KeyValue = Integer | Boolean | String | KeyTuple | Hole ;
 ```
 
   }
@@ -1551,8 +1603,10 @@ KeyValue = Integer | Boolean | String | KeyTuple ;
     "###": 11.4 Values
 
     "ebnf-snippet" = ```ebnf
-Value = Object | Array | Tuple | Float | Integer | Boolean | Null | Strings | Hole | CodeBlock | InlineCode ;
+Value = Object | Array | Tuple | Number | Boolean | Null | Strings | Hole | CodeBlock | InlineCode ;
+Number = Float | Integer | Inf | NaN ;
 
+(* Object produces a Map; if any key contains a Hole it produces a PartialMap instead *)
 Object = "{" [ ValueBinding [ "," ] ] { Keys "=>" Value [ "," ] } "}" ;
 Array = "[" [ Value { "," Value } [ "," ] ] "]" ;
 Tuple = "(" [ Value { "," Value } [ "," ] ] ")" ;
@@ -1571,8 +1625,11 @@ Strings = String { "\\" String } ;
 
     "ebnf-snippet" = ``````ebnf
 Identifier = /[\p{XID_Start}_][\p{XID_Continue}-]*/ ;
-Integer = /\d[\d_]*/ ;
-Float = /[-+]?(\d+\.\d*|\d+\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]/ ;
+Integer = /[-+]?\d[\d_]*/ ;
+(* At least one digit required after decimal to avoid conflict with dot-separated integer keys *)
+Float = /[-+]?\d[\d_]*\.\d+([eE][-+]?\d+)?(f32|f64)?|[-+]?\d[\d_]*[eE][-+]?\d+(f32|f64)?/ ;
+Inf = /[-+]?[Ii]nf/ ;
+NaN = /[Nn]a[Nn]/ ;
 
 (* String types: quoted (escaped) and literal (raw) *)
 String = Str | LiteralStr ;

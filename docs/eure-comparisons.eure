@@ -40,7 +40,7 @@ Based on the official grammar, Eure supports:
     "###": Basic Syntax
 
     "eure-snippet" = ```eure
-# Comments start with #
+// Comments use //
 title = "Hello World"
 port = 8080
 enabled = true
@@ -53,7 +53,7 @@ debug = null
     "###": Sections and Arrays
 
     "eure-snippet" = ```eure
-# Section with array indexing
+// Section with array indexing
 @ actions[]
 $variant = "sleep"
 seconds = 2.0
@@ -69,7 +69,7 @@ speaker = "Ryo"
     "###": Extensions (Metadata)
 
     "eure-snippet" = ```eure
-# Extensions use $ prefix
+// Extensions use $ prefix
 $eure.version = "https://eure.dev/versions/v0.1.0"
 $variant = "use-script"
 ```
@@ -80,13 +80,10 @@ $variant = "use-script"
     "###": Text Blocks
 
     "eure-snippet" = ```eure
-# Multi-line text using : (no quotes needed, like PKL)
-description: This is a multi-line
-description that continues here
-
-# Unambiguous unlike YAML - : only means text in this context
+// Text binding using : (no quotes needed, like PKL)
 title: Hello World
 subtitle: A simple example
+description: This is unquoted single-line text
 ```
 
   }
@@ -113,16 +110,16 @@ subtitle: A simple example
     "###": Code Blocks and Typed Strings
 
     "eure-snippet" = ````eure
-# Code blocks with language tags
+// Code blocks with language tags
 script = ```bash
 echo "Hello World"
 ```
 
-# Typed strings
-homepage = url"https://eure.dev"
-contact = email"user@example.com"
+// Language-tagged inline code
+homepage = url`https://eure.dev`
+contact = email`user@example.com`
 
-# Inline code
+// Plain inline code
 command = `ls -la`
 ````
 
@@ -132,10 +129,10 @@ command = `ls -la`
     "###": Objects and Arrays
 
     "eure-snippet" = ```eure
-# Objects
-config = { host = "localhost", port = 8080 }
+// Map literals use => for key-value pairs
+config = { "host" => "localhost", "port" => 8080 }
 
-# Arrays
+// Arrays
 ports = [8000, 8001, 8002]
 mixed = ["string", 42, true, null]
 ```
@@ -355,11 +352,11 @@ ssl = true
 
 @ connections[]
 name = "primary"
-url = url"postgresql://localhost:5432/app"
+url = url`postgresql://localhost:5432/app`
 
 @ connections[]
 name = "replica"
-url = url"postgresql://replica:5432/app"
+url = url`postgresql://replica:5432/app`
 ```
 
     "body-2" = ```markdown
