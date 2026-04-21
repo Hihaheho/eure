@@ -493,13 +493,6 @@ pub struct Target {
 }
 ```
 
-@ cases.eure-md
-schema = path`assets/schemas/eure-md.schema.eure`
-scenarios_expected = ["rust_codegen"]
-rust = ```rust
-pub struct Root(pub ::eure_document::document::EureDocument);
-```
-
 @ cases.textmate-grammar
 schema = path`assets/schemas/textmate-grammar.schema.eure`
 scenarios_expected = ["rust_codegen"]

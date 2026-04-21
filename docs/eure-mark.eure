@@ -18,7 +18,7 @@ $frontmatter {
   "body" = ```markdown
 `eure-mark` provides:
 
-- A standard `article.schema.eure` schema for structuring documents
+- A standard `eure-mark-article.schema.eure` schema for structuring documents
 - Parsing for `$frontmatter` + nested-heading article documents
 - HTML rendering for markdown bodies, code blocks, table of contents, alerts, and trusted HTML blocks
 - Generic syntax highlighting via `giallo` (Catppuccin Mocha theme)
@@ -57,7 +57,15 @@ It does not handle navigation, routing, or site assembly — those concerns belo
   "##": Article File Format
 
   "body" = ```markdown
-An article file is a `.eure` document that conforms to `assets/schemas/article.schema.eure`. The schema enforces a specific top-level structure: a frontmatter block, a top-level heading, and named sections.
+An article file is a `.eure` document that follows a specific top-level structure: a frontmatter block, a top-level heading, and named sections.
+
+To enable validation and editor support, point your target at the published schema in `Eure.eure`:
+```
+
+  "eure-snippet" = ```eure
+@ targets.my-docs
+globs = ["docs/**/*.eure"]
+schema = "https://eure.dev/v0.1.9/schemas/eure-mark-article.schema.eure"
 ```
 
   @ "frontmatter" {
@@ -149,8 +157,6 @@ Putting it all together, the minimal valid article looks like:
 ```
 
     "eure-snippet" = ````eure
-$schema = "../../assets/schemas/article.schema.eure"
-
 $frontmatter {
   title: Hello World
   description: A minimal eure-mark article.
@@ -539,48 +545,6 @@ With this feature enabled, `eure` fenced code blocks produce HTML with semantic 
 
 The default CSS included in `renderer.css()` covers all these classes with Catppuccin Mocha colours.
 ```
-
-}
-
-@ "schema" {
-  "##": Schema
-
-  "body" = ```markdown
-The article schema is embedded in the crate as a compile-time constant and also shipped as a file for use with `eure check`.
-```
-
-  @ "constant" {
-    "###": ARTICLE_SCHEMA Constant
-
-    "rust-example" = ```rust
-use eure_mark::ARTICLE_SCHEMA;
-
-// The full schema source as a &'static str
-println!("{}", ARTICLE_SCHEMA);
-```
-
-    "body" = ```markdown
-The constant is embedded via `include_str!` pointing to `assets/schemas/article.schema.eure` in the workspace root. It is always in sync with the schema file at build time.
-```
-
-  }
-
-  @ "schema-file" {
-    "###": Schema File
-
-    "body" = ```markdown
-The schema file lives at `assets/schemas/article.schema.eure`. Reference it in your `.eure` article to enable validation in the CLI and language server:
-```
-
-    "eure-snippet" = ```eure
-$schema = "../../assets/schemas/article.schema.eure"
-```
-
-    "body-2" = ```markdown
-Adjust the relative path to match your file's location relative to the workspace root. With this declaration, running `eure check myfile.eure` validates both syntax and schema conformance.
-```
-
-  }
 
 }
 

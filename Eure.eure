@@ -8,7 +8,7 @@ schema = "assets/schemas/eure-adr.schema.eure"
 
 @ targets.docs-pages
 globs = ["docs/[!_]*.eure", "docs/spec/**/*.eure"]
-schema = "assets/schemas/article.schema.eure"
+schema = "assets/schemas/eure-mark-article.schema.eure"
 
 @ targets.docs-nav
 globs = ["docs/_nav.eure"]

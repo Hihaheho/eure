@@ -1,0 +1,20 @@
+$variant: record
+
+title = `text`
+title.$optional = true
+
+groups = [`$types.nav-group`]
+
+$types.nav-entry {
+  $variant: record
+  path = `text`
+  label = `text`
+}
+
+$types.nav-group {
+  $variant: record
+  title = `text`
+  description = `text`
+  description.$optional = true
+  pages = [`$types.nav-entry`]
+}
