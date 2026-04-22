@@ -17,7 +17,7 @@ use maud::{Markup, PreEscaped, html};
 use thiserror::Error;
 
 pub const ARTICLE_SCHEMA: &str =
-    include_str!("../../../assets/schemas/eure-mark-article.schema.eure");
+    include_str!("../assets/eure-mark-article.schema.eure");
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PageHeading {

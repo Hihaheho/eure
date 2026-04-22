@@ -1,0 +1,151 @@
+$ext-type.frontmatter {
+  title = `text`
+  description = `text`
+  tags = [`text`]
+  tags.$optional = true
+  $flatten = [`$types.frontmatter`]
+}
+
+"#" = `text`
+
+$unknown-fields = `$types.level1-content-set`
+
+$types.frontmatter {
+  $variant: union
+  $interop.variant-repr = "untagged"
+  variants.draft {
+    date = `text.date`
+    date.$optional = true
+    draft = { = true, $variant => "literal" }
+  }
+  variants.normal {
+    date = `text.date`
+    date.$optional = true
+  }
+}
+
+$types.alert-kind {
+  $variant: union
+  $interop.variant-repr = "untagged"
+  variants.note = { = "NOTE", $variant => "literal" }
+  variants.tip = { = "TIP", $variant => "literal" }
+  variants.important = { = "IMPORTANT", $variant => "literal" }
+  variants.warning = { = "WARNING", $variant => "literal" }
+  variants.caution = { = "CAUTION", $variant => "literal" }
+}
+
+$types.mark-options {
+  $variant: record
+  alert = `$types.alert-kind`
+  alert.$optional = true
+  "dangerously-inner-html" = `boolean`
+  "dangerously-inner-html".$optional = true
+}
+
+$types.article-text {
+  $variant: text
+  $ext-type.mark = `$types.mark-options`
+  $ext-type.mark.$optional = true
+}
+
+$types.level1-content-set {
+  $variant: union
+  $interop.variant-repr = "untagged"
+  variants.normal = `$types.level1-content`
+  variants.list = [`$types.level1-content`]
+}
+
+$types.level1-content {
+  $variant: union
+  $interop.variant-repr = "untagged"
+  variants.text = `$types.article-text`
+  variants.nested {
+    "##" = `text`
+    $flatten = [`$types.level1-content-map`]
+  }
+  variants.toc {
+    $ext-type.toc = `boolean`
+  }
+}
+
+$types.level1-content-map {
+  $variant: map
+  key {
+    $variant: text
+    pattern = regex`[^#]+.*`
+  }
+  value {
+    $variant: union
+    $interop.variant-repr = "untagged"
+    variants.normal = `$types.level2-content`
+    variants.list = [`$types.level2-content`]
+  }
+}
+
+$types.level2-content {
+  $variant: union
+  $interop.variant-repr = "untagged"
+  variants.text = `$types.article-text`
+  variants.nested {
+    "###" = `text`
+    $unknown-fields = `$types.level3-content-set`
+  }
+}
+
+$types.level3-content-set {
+  $variant: union
+  $interop.variant-repr = "untagged"
+  variants.normal = `$types.level3-content`
+  variants.list = [`$types.level3-content`]
+}
+
+$types.level3-content {
+  $variant: union
+  $interop.variant-repr = "untagged"
+  variants.text = `$types.article-text`
+  variants.nested {
+    "####" = `text`
+    $unknown-fields = `$types.level4-content-set`
+  }
+}
+
+$types.level4-content-set {
+  $variant: union
+  $interop.variant-repr = "untagged"
+  variants.normal = `$types.level4-content`
+  variants.list = [`$types.level4-content`]
+}
+
+$types.level4-content {
+  $variant: union
+  $interop.variant-repr = "untagged"
+  variants.text = `$types.article-text`
+  variants.nested {
+    "#####" = `text`
+    $unknown-fields = `$types.level5-content-set`
+  }
+}
+
+$types.level5-content-set {
+  $variant: union
+  $interop.variant-repr = "untagged"
+  variants.normal = `$types.level5-content`
+  variants.list = [`$types.level5-content`]
+}
+
+$types.level5-content {
+  $variant: union
+  $interop.variant-repr = "untagged"
+  variants.text = `$types.article-text`
+  variants.nested {
+    "######" = `text`
+    $unknown-fields = `$types.level6-content-set`
+  }
+}
+
+$types.level6-content-set {
+  $variant: union
+  $interop.variant-repr = "untagged"
+  variants.normal = `$types.article-text`
+  variants.list = [`$types.article-text`]
+}
