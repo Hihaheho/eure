@@ -800,6 +800,232 @@ fn summarize_text(text: &Text) -> String {
 
 fn generate_builder_css() -> &'static str {
     r#"
+:root {
+  --emark-bg: #11111b;
+  --emark-surface: #181825;
+  --emark-surface-2: #313244;
+  --emark-border: #45475a;
+  --emark-text: #cdd6f4;
+  --emark-muted: #a6adc8;
+  --emark-blue: #89b4fa;
+  --emark-green: #a6e3a1;
+  --emark-yellow: #f9e2af;
+  --emark-red: #f38ba8;
+  --emark-mauve: #cba6f7;
+  --emark-peach: #fab387;
+  --emark-teal: #94e2d5;
+}
+
+.emark-page {
+  color: var(--emark-text);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.emark-text-plain {
+  color: var(--emark-muted);
+  line-height: 1.8;
+}
+
+.emark-toc {
+  border: 1px solid var(--emark-border);
+  border-radius: 12px;
+  background: rgba(24, 24, 37, 0.7);
+}
+
+.emark-toc summary {
+  cursor: pointer;
+  padding: 0.85rem 1rem;
+  font-weight: 600;
+}
+
+.emark-toc nav {
+  padding: 0 1rem 1rem 1rem;
+}
+
+.emark-toc ul {
+  list-style: none;
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.emark-toc > nav > ul {
+  padding-left: 0;
+}
+
+.emark-toc li {
+  margin: 0.35rem 0;
+}
+
+.emark-toc a {
+  color: var(--emark-blue);
+  text-decoration: none;
+}
+
+.emark-toc a:hover {
+  text-decoration: underline;
+}
+
+.emark-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.emark-section-heading {
+  color: var(--emark-mauve);
+  line-height: 1.25;
+  scroll-margin-top: 4rem;
+}
+
+.emark-section-h2 > .emark-section-heading {
+  font-size: 1.7rem;
+}
+
+.emark-section-h3 > .emark-section-heading {
+  font-size: 1.35rem;
+}
+
+.emark-markdown {
+  line-height: 1.8;
+}
+
+.emark-markdown h1,
+.emark-markdown h2,
+.emark-markdown h3,
+.emark-markdown h4,
+.emark-markdown h5,
+.emark-markdown h6 {
+  color: var(--emark-mauve);
+  margin: 1.5rem 0 0.75rem;
+}
+
+.emark-markdown p,
+.emark-markdown ul,
+.emark-markdown ol,
+.emark-markdown blockquote,
+.emark-markdown table {
+  margin: 1rem 0;
+}
+
+.emark-markdown ul,
+.emark-markdown ol {
+  padding-left: 1.75rem;
+}
+
+.emark-markdown li {
+  margin: 0.4rem 0;
+}
+
+.emark-markdown code {
+  background: rgba(49, 50, 68, 0.9);
+  color: var(--emark-peach);
+  border-radius: 6px;
+  padding: 0.15rem 0.35rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.92em;
+}
+
+.emark-markdown pre {
+  margin: 1rem 0;
+}
+
+.emark-markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.emark-markdown a {
+  color: var(--emark-blue);
+}
+
+.emark-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.emark-markdown th,
+.emark-markdown td {
+  border: 1px solid var(--emark-border);
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.emark-markdown th {
+  background: rgba(49, 50, 68, 0.8);
+}
+
+.emark-markdown blockquote {
+  border-left: 3px solid var(--emark-mauve);
+  padding-left: 1rem;
+  color: var(--emark-muted);
+}
+
+.emark-code-block,
+.emark-pre-plain,
+.emark-eure-source {
+  position: relative;
+  overflow-x: auto;
+  padding: 1rem;
+  border-radius: 14px;
+  background: var(--emark-surface);
+  border: 1px solid var(--emark-border);
+  box-shadow: 0 8px 30px rgba(17, 17, 27, 0.35);
+  line-height: 1.6;
+}
+
+.emark-code-block[data-language] {
+  padding-top: 2rem;
+}
+
+.emark-code-block[data-language]::before {
+  content: attr(data-language);
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 0.2rem 0.6rem;
+  border-radius: 14px 0 10px 0;
+  background: var(--emark-surface-2);
+  color: var(--emark-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.emark-alert {
+  border-left: 4px solid var(--emark-blue);
+  border-radius: 10px;
+  background: rgba(49, 50, 68, 0.72);
+  padding: 0.9rem 1rem;
+}
+
+.emark-alert-title {
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.emark-alert-tip {
+  border-left-color: var(--emark-green);
+}
+
+.emark-alert-important {
+  border-left-color: var(--emark-mauve);
+}
+
+.emark-alert-warning {
+  border-left-color: var(--emark-yellow);
+}
+
+.emark-alert-caution {
+  border-left-color: var(--emark-red);
+}
+
+.emark-eure-source {
+  color: var(--emark-text);
+}
+
 .edoc-page {
   display: flex;
   flex-direction: column;

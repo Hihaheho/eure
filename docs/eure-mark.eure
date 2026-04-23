@@ -455,7 +455,7 @@ for path in article_paths {
 | Field | Type | Description |
 |---|---|---|
 | `html` | `String` | Full rendered HTML body (not a complete `<html>` document) |
-| `css` | `String` | Same as `renderer.css()` — the syntax highlight CSS |
+| `css` | `String` | Syntax highlight CSS — same as `renderer.css()`. Does **not** include layout or theme styles; supply those externally |
 | `title` | `String` | Article title from `$frontmatter.title` |
 | `description` | `String` | Article description from `$frontmatter.description` |
 | `headings` | `Vec<PageHeading>` | Flat list of h2/h3 headings with `id`, `title`, `level` |
@@ -543,7 +543,7 @@ With this feature enabled, `eure` fenced code blocks produce HTML with semantic 
 | `emark-eure-section-marker` | The `@` sigil |
 | `emark-eure-section-header` | Section header declarations |
 
-The default CSS included in `renderer.css()` covers all these classes with Catppuccin Mocha colours.
+`renderer.css()` covers all these classes with Catppuccin Mocha colours. No additional configuration is needed for the token colours themselves.
 ```
 
 }
@@ -563,19 +563,22 @@ use eure_mark::{PageRenderer, parse_article_file, ArticleError};
 use std::path::Path;
 
 pub fn render_docs(docs_dir: &Path) -> Result<Vec<RenderedPage>, ArticleError> {
-    // Initialise once — loads highlighter data
+    // Initialise once — loads syntax highlighter data
     let renderer = PageRenderer::new()?;
 
-    // The CSS is shared across all pages
-    let css = renderer.css().to_string();
+    // Syntax highlight CSS — combine with your own base stylesheet
+    let syntax_css = renderer.css().to_string();
+    let full_css = format!("{}\n{}", syntax_css, your_base_css());
 
     let mut pages = Vec::new();
     for entry in std::fs::read_dir(docs_dir).unwrap() {
         let path = entry.unwrap().path();
         if path.extension().map_or(false, |e| e == "eure") {
             let article = parse_article_file(&path)?;
-            let mut page = renderer.render_article(&article)?;
-            page.css = css.clone();
+            let page = renderer.render_article(&article)?;
+            // page.html — rendered HTML body
+            // page.css  — syntax highlight CSS (same as renderer.css())
+            // inject full_css into your page template
             pages.push(page);
         }
     }
@@ -589,15 +592,118 @@ pub fn render_docs(docs_dir: &Path) -> Result<Vec<RenderedPage>, ArticleError> {
     "###": CSS Integration
 
     "body" = ```markdown
-`renderer.css()` returns a CSS string that must be included in the page. It defines:
+`renderer.css()` returns only **syntax highlight CSS** — it does not include layout, typography, colour variables, or component styles. You must supply those externally.
 
-- Catppuccin Mocha colour variables (`--emark-bg`, `--emark-text`, `--emark-blue`, …)
-- Typography and spacing for rendered Markdown
-- Code block styling with line-level layout
-- Alert box styles for NOTE, TIP, IMPORTANT, WARNING, CAUTION
-- Eure semantic token classes (when `eure-highlight` is active)
+The returned CSS covers:
 
-The recommended approach is to call `renderer.css()` once, write it to a shared `.css` file or `<style>` block, and reference it from every rendered page.
+- Eure semantic token classes (`emark-eure-*`) for Eure code blocks
+- `giallo`-generated token colour classes (`emark-hl-*`) for all other languages
+
+Include the result once per page, before any overriding rules:
+```
+
+    "rust-example" = ```rust
+let renderer = PageRenderer::new()?;
+let syntax_css = renderer.css(); // syntax highlight only
+
+// Combine with your own stylesheet
+let full_css = format!("{}\n{}", syntax_css, your_base_css);
+```
+
+    "body-2" = ```markdown
+All non-syntax styling — page layout, typography, code block structure, alerts, TOC, colour variables — must be injected by the consuming crate or application. `eure-mark` only guarantees the HTML class names; it ships no default theme beyond syntax colours.
+```
+
+  }
+
+  @ "available-classes" {
+    "###": Available CSS Classes
+
+    "body" = ```markdown
+`eure-mark` emits a stable set of CSS classes you can target from your external stylesheet. All classes use the `emark-` prefix.
+```
+
+    "body-page" = ```markdown
+**Page structure**
+
+| Class | Element | Notes |
+|---|---|---|
+| `emark-page` | `<article>` | Root element of every rendered page |
+| `emark-page-article` | `<article>` | Additional modifier for article pages |
+| `emark-item` | `<div>` | Wrapper for each top-level or section-level entry; has `data-key` attribute |
+| `emark-item-list` | `<div>` | Wrapper for array entries; has `data-key` attribute |
+| `emark-item-list-entry` | `<div>` | Wrapper for each element inside `emark-item-list` |
+```
+
+    "body-sections" = ```markdown
+**Sections**
+
+| Class | Element | Notes |
+|---|---|---|
+| `emark-section` | `<section>` | Every heading section |
+| `emark-section-h2` … `emark-section-h6` | `<section>` | Level modifier, e.g. `emark-section-h2` for `##` sections |
+| `emark-section-heading` | `<h2>`…`<h6>` | The heading element inside each section; has an `id` attribute |
+```
+
+    "body-content" = ```markdown
+**Content blocks**
+
+| Class | Element | Notes |
+|---|---|---|
+| `emark-text-plain` | `<p>` | Plain (non-Markdown, non-code) text |
+| `emark-markdown` | `<div>` | Rendered Markdown or trusted HTML block |
+| `emark-pre-plain` | `<pre>` | Verbatim code block with no language tag |
+| `emark-code-block` | `<pre>` | Syntax-highlighted code block; has `data-language` attribute |
+| `emark-eure-source` | `<pre>` | Eure code block with semantic highlighting |
+```
+
+    "body-toc" = ```markdown
+**Table of contents**
+
+| Class | Element | Notes |
+|---|---|---|
+| `emark-toc` | `<details>` | TOC container; rendered open by default |
+```
+
+    "body-alerts" = ```markdown
+**Alerts**
+
+| Class | Element | Notes |
+|---|---|---|
+| `emark-alert` | `<div>` | Alert box container |
+| `emark-alert-note` | `<div>` | NOTE variant |
+| `emark-alert-tip` | `<div>` | TIP variant |
+| `emark-alert-important` | `<div>` | IMPORTANT variant |
+| `emark-alert-warning` | `<div>` | WARNING variant |
+| `emark-alert-caution` | `<div>` | CAUTION variant |
+| `emark-alert-title` | `<div>` | Alert title text inside an alert box |
+| `emark-alert-body` | `<div>` | Alert body content inside an alert box |
+```
+
+    "body-highlight" = ```markdown
+**Syntax highlight (provided by `renderer.css()`)**
+
+| Class prefix | Source | Notes |
+|---|---|---|
+| `emark-hl-*` | `giallo` | Token colour classes for all non-Eure languages |
+| `emark-eure-keyword` | eure-highlight | Language keywords |
+| `emark-eure-string` | eure-highlight | String literals |
+| `emark-eure-number` | eure-highlight | Numeric literals |
+| `emark-eure-comment` | eure-highlight | Comments |
+| `emark-eure-property` | eure-highlight | Map keys and field names |
+| `emark-eure-extension-marker` | eure-highlight | The `$` sigil |
+| `emark-eure-extension-ident` | eure-highlight | Extension names |
+| `emark-eure-section-marker` | eure-highlight | The `@` sigil |
+| `emark-eure-section-header` | eure-highlight | Section header declarations |
+| `emark-eure-operator` | eure-highlight | Operators |
+| `emark-eure-punctuation` | eure-highlight | Punctuation |
+| `emark-eure-macro` | eure-highlight | Macro-like constructs |
+| `emark-eure-decorator` | eure-highlight | Decorators |
+| `emark-eure-mod-declaration` | eure-highlight | Module declarations |
+| `emark-eure-mod-definition` | eure-highlight | Module definitions |
+| `emark-eure-mod-section-header` | eure-highlight | Module section headers |
+
+These classes are the only ones styled by `renderer.css()`. All others require external CSS.
 ```
 
   }
