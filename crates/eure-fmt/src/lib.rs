@@ -138,7 +138,7 @@ mod tests {
     use super::*;
 
     fn parse_and_format(input: &str) -> String {
-        let cst = eure_parol::parse(input).expect("parse failed");
+        let cst = eure_parol::parse(input, "<input>").expect("parse failed");
         format_cst(input, &cst, &FormatConfig::default())
     }
 

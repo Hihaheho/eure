@@ -132,16 +132,19 @@ mod tests {
     fn generated_case_schema_enforces_exclusive_json_fixture_shapes() {
         let schema = parse_generated_case_schema();
 
-        let shared = parse_to_document("json = json`{\"ok\":true}`").expect("parse shared case");
+        let shared =
+            parse_to_document("json = json`{\"ok\":true}`", "<input>").expect("parse shared case");
         assert!(validate(&shared, &schema).is_valid);
 
-        let split =
-            parse_to_document("input_json = json`{\"ok\":true}`").expect("parse split case");
+        let split = parse_to_document("input_json = json`{\"ok\":true}`", "<input>")
+            .expect("parse split case");
         assert!(validate(&split, &schema).is_valid);
 
-        let mixed =
-            parse_to_document("json = json`{\"ok\":true}`\ninput_json = json`{\"ok\":true}`")
-                .expect("parse mixed case");
+        let mixed = parse_to_document(
+            "json = json`{\"ok\":true}`\ninput_json = json`{\"ok\":true}`",
+            "<input>",
+        )
+        .expect("parse mixed case");
         assert!(!validate(&mixed, &schema).is_valid);
     }
 
@@ -179,7 +182,7 @@ mod tests {
 
     fn parse_generated_case_schema() -> SchemaDocument {
         let generated = generate_case_schema_source().expect("generate schema");
-        let doc = parse_to_document(&generated).expect("parse generated schema source");
+        let doc = parse_to_document(&generated, "<input>").expect("parse generated schema source");
         let (schema, _) = document_to_schema(&doc).expect("convert generated schema");
         schema
     }

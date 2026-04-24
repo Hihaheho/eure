@@ -96,7 +96,7 @@ fn large_input() -> String {
 /// Manual pipeline: parse -> document -> json without query system overhead
 fn manual_pipeline(text: &str) -> serde_json::Value {
     // Step 1: Parse to CST
-    let cst = parse_tolerant(text).cst();
+    let cst = parse_tolerant(text, "<input>").cst();
 
     // Step 2: CST to EureDocument
     let doc = cst_to_document(text, &cst).expect("document construction should succeed");
@@ -107,7 +107,7 @@ fn manual_pipeline(text: &str) -> serde_json::Value {
 
 /// Manual: parse only (Input -> CST)
 fn manual_parse_only(text: &str) -> Cst {
-    parse_tolerant(text).cst()
+    parse_tolerant(text, "<input>").cst()
 }
 
 /// Manual: document only (CST -> EureDocument)

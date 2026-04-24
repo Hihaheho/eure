@@ -385,7 +385,7 @@ pub enum ParseError {
 
 #[allow(clippy::result_large_err)]
 pub fn parse_case_file(input: &str, path: PathBuf) -> Result<ParseResult, ParseError> {
-    let cst = eure::parol::parse(input).map_err(ParseError::ParolError)?;
+    let cst = eure::parol::parse(input, &path).map_err(ParseError::ParolError)?;
     let doc = eure::document::cst_to_document(input, &cst).map_err(|e| {
         ParseError::DocumentConstructionError {
             error: e,

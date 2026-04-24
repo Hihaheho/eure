@@ -25,7 +25,7 @@ pub struct ParsedCst {
 #[query(debug = "{Self}({file})")]
 pub fn parse_cst(db: &impl Db, file: TextFile) -> Result<ParsedCst, QueryError> {
     let text = db.asset(file.clone())?;
-    let parsed = match parse_tolerant(text.get()) {
+    let parsed = match parse_tolerant(text.get(), file.to_string()) {
         ParseResult::Ok(cst) => ParsedCst { cst, error: None },
         ParseResult::ErrWithCst { cst, error } => ParsedCst {
             cst,

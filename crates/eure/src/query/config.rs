@@ -114,7 +114,7 @@ pub fn load_config(path: &Path) -> Result<EureConfig, LoadConfigError> {
     let source = std::fs::read_to_string(path)?;
 
     // Parse CST (tolerant mode to get error messages)
-    let parse_result = eure_parol::parse_tolerant(&source);
+    let parse_result = eure_parol::parse_tolerant(&source, path);
     if let Some(error) = parse_result.error() {
         return Err(LoadConfigError::Parse(error.to_string()));
     }

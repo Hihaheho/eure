@@ -1,5 +1,7 @@
 mod interpreter;
 
+use std::path::Path;
+
 use eros::Union as _;
 pub use eure_document::data_model;
 use eure_document::document::constructor::ScopeError;
@@ -272,17 +274,19 @@ impl DocumentConstructionError {
 
 pub fn parse_to_document(
     input: &str,
+    name: impl AsRef<Path>,
 ) -> eros::UResult<EureDocument, (EureParseError, DocumentConstructionError)> {
-    let tree = eure_parol::parse(input).union()?;
+    let tree = eure_parol::parse(input, name).union()?;
     let document = cst_to_document(input, &tree).union()?;
     Ok(document)
 }
 
 pub fn parse_to_source_document(
     input: &str,
+    name: impl AsRef<Path>,
 ) -> eros::UResult<eure_document::source::SourceDocument, (EureParseError, DocumentConstructionError)>
 {
-    let tree = eure_parol::parse(input).union()?;
+    let tree = eure_parol::parse(input, name).union()?;
     let source = cst_to_source_document(input, &tree).union()?;
     Ok(source)
 }
@@ -452,7 +456,7 @@ mod tests {
     use eure_tree::tree::CstFacade;
 
     fn parse_document(input: &str) -> EureDocument {
-        let cst = eure_parol::parse(input).unwrap();
+        let cst = eure_parol::parse(input, "<input>").unwrap();
         cst_to_document(input, &cst).unwrap()
     }
 
@@ -480,7 +484,7 @@ mod tests {
     fn test_shrunk_span_excludes_leading_trailing_trivia() {
         // Input with leading whitespace and newline before binding
         let input = "\n  foo = 1";
-        let cst = eure_parol::parse(input).unwrap();
+        let cst = eure_parol::parse(input, "<input>").unwrap();
 
         let root = cst.root();
 
@@ -512,7 +516,7 @@ mod tests {
     #[test]
     fn test_shrunk_span_with_trailing_comment() {
         let input = "foo = 1 // comment\n";
-        let cst = eure_parol::parse(input).unwrap();
+        let cst = eure_parol::parse(input, "<input>").unwrap();
 
         let root = cst.root();
         let binding_node =
@@ -536,7 +540,7 @@ mod tests {
     fn test_shrunk_span_for_eure_root() {
         // Input with leading and trailing whitespace
         let input = "  \n  foo = 1  \n  ";
-        let cst = eure_parol::parse(input).unwrap();
+        let cst = eure_parol::parse(input, "<input>").unwrap();
 
         let root = cst.root();
 
@@ -562,7 +566,7 @@ mod tests {
     #[test]
     fn test_terminal_span_always_returned() {
         let input = "  foo = 1";
-        let cst = eure_parol::parse(input).unwrap();
+        let cst = eure_parol::parse(input, "<input>").unwrap();
 
         // Find a whitespace terminal
         fn find_whitespace(cst: &Cst, node_id: CstNodeId) -> Option<CstNodeId> {
@@ -645,11 +649,11 @@ mod tests {
     fn test_partial_map_structural_equality() {
         let input = "!x = 1";
         let doc1 = {
-            let cst = eure_parol::parse(input).unwrap();
+            let cst = eure_parol::parse(input, "<input>").unwrap();
             cst_to_document(input, &cst).unwrap()
         };
         let doc2 = {
-            let cst = eure_parol::parse(input).unwrap();
+            let cst = eure_parol::parse(input, "<input>").unwrap();
             cst_to_document(input, &cst).unwrap()
         };
         assert_eq!(doc1, doc2);
@@ -660,11 +664,11 @@ mod tests {
         let input1 = "!x = 1";
         let input2 = "!y = 1";
         let doc1 = {
-            let cst = eure_parol::parse(input1).unwrap();
+            let cst = eure_parol::parse(input1, "<input>").unwrap();
             cst_to_document(input1, &cst).unwrap()
         };
         let doc2 = {
-            let cst = eure_parol::parse(input2).unwrap();
+            let cst = eure_parol::parse(input2, "<input>").unwrap();
             cst_to_document(input2, &cst).unwrap()
         };
         assert_ne!(doc1, doc2);
@@ -695,7 +699,7 @@ mod tests {
     #[test]
     fn test_parse_to_source_document_preserves_leading_comment() {
         let input = "// hello\nvalue = 1\n";
-        let source = parse_to_source_document(input).expect("source parse");
+        let source = parse_to_source_document(input, "<input>").expect("source parse");
 
         assert_eq!(format_source_document(&source), input);
         assert_eq!(source.root_source().bindings.len(), 1);
@@ -710,7 +714,7 @@ mod tests {
     #[test]
     fn test_parse_to_source_document_preserves_inline_array_binding() {
         let input = "items = [1, 2, 3]\n";
-        let source = parse_to_source_document(input).expect("source parse");
+        let source = parse_to_source_document(input, "<input>").expect("source parse");
 
         assert_eq!(format_source_document(&source), input);
     }
@@ -720,7 +724,7 @@ mod tests {
     // ==========================================================================
 
     fn try_parse_document(input: &str) -> Result<EureDocument, DocumentConstructionError> {
-        let cst = eure_parol::parse(input).unwrap();
+        let cst = eure_parol::parse(input, "<input>").unwrap();
         cst_to_document(input, &cst)
     }
 

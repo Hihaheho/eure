@@ -6,6 +6,8 @@ pub mod grammar_trait;
 pub mod parser;
 pub mod tree;
 
+use std::path::Path;
+
 use eure_tree::Cst;
 pub use parol_runtime;
 
@@ -45,20 +47,20 @@ impl ParseResult {
     }
 }
 
-pub fn parse(input: &str) -> Result<Cst, EureParseError> {
+pub fn parse(input: &str, name: impl AsRef<Path>) -> Result<Cst, EureParseError> {
     let mut actions = grammar::Grammar::new();
     let mut tree_builder = CstBuilder::new();
-    parser::parse_into(input, &mut tree_builder, "test.eure", &mut actions)
+    parser::parse_into(input, &mut tree_builder, name, &mut actions)
         .map_err(EureParseError::from)?;
     Ok(tree_builder.build_tree())
 }
 
 /// Parse with error tolerance - returns a CST even if parsing fails
-pub fn parse_tolerant(input: &str) -> ParseResult {
+pub fn parse_tolerant(input: &str, name: impl AsRef<Path>) -> ParseResult {
     let mut actions = grammar::Grammar::new();
     let mut tree_builder = CstBuilder::new();
 
-    match parser::parse_into(input, &mut tree_builder, "test.eure", &mut actions) {
+    match parser::parse_into(input, &mut tree_builder, name, &mut actions) {
         Ok(()) => ParseResult::Ok(tree_builder.build_tree()),
         Err(error) => ParseResult::ErrWithCst {
             cst: tree_builder.build_tree(),

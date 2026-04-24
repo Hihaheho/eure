@@ -309,7 +309,7 @@ impl PageRenderer {
 }
 
 fn parse_article_source(source: &str, origin: &str) -> Result<Article, ArticleError> {
-    let cst = eure::parol::parse(source).map_err(|source| ArticleError::ParseEure {
+    let cst = eure::parol::parse(source, origin).map_err(|source| ArticleError::ParseEure {
         origin: origin.to_string(),
         source: Box::new(source),
     })?;
@@ -770,7 +770,7 @@ impl CodeHighlighter {
 
 #[cfg(feature = "eure-highlight")]
 fn render_eure_highlighted(content: &str, highlighter: &CodeHighlighter) -> Markup {
-    let cst = match eure::parol::parse_tolerant(content) {
+    let cst = match eure::parol::parse_tolerant(content, "<input>") {
         eure::parol::ParseResult::Ok(cst) => cst,
         eure::parol::ParseResult::ErrWithCst { cst, .. } => cst,
     };
@@ -926,7 +926,7 @@ fn render_tokens_to_string(
 
 #[cfg(feature = "eure-highlight")]
 fn render_eure_tokens_only(content: &str) -> String {
-    let cst = match eure::parol::parse_tolerant(content) {
+    let cst = match eure::parol::parse_tolerant(content, "<input>") {
         eure::parol::ParseResult::Ok(cst) => cst,
         eure::parol::ParseResult::ErrWithCst { cst, .. } => cst,
     };

@@ -598,7 +598,7 @@ mod tests {
     use super::*;
 
     fn parse_and_get_tokens(input: &str) -> Vec<SemanticToken> {
-        let cst = crate::parol::parse(input).expect("Failed to parse");
+        let cst = crate::parol::parse(input, "<input>").expect("Failed to parse");
         semantic_tokens(input, &cst)
     }
 

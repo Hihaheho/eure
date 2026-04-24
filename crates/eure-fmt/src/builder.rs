@@ -1243,7 +1243,7 @@ mod tests {
     }
 
     fn format_width(input: &str, width: usize) -> String {
-        let cst = eure_parol::parse(input).expect("parse failed");
+        let cst = eure_parol::parse(input, "<input>").expect("parse failed");
         let config = FormatConfig::default().with_max_width(width);
         let builder = FormatBuilder::new(input, &cst, &config);
         let doc = builder.build(&cst);

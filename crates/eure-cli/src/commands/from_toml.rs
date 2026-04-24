@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use eure::document::cst_to_document;
 
 use crate::util::{display_path, read_input};
@@ -38,14 +40,15 @@ pub fn run(args: Args) {
     // Format and output Eure
     let output = eure_toml::format_source_document(&source_doc);
     if !args.no_validate {
-        validate(&contents, &output);
+        let path = file_opt.map(Path::new).unwrap_or(Path::new("<stdin>"));
+        validate(&contents, &output, path);
     }
     print!("{output}");
 }
 
-pub fn validate(toml: &str, eure: &str) {
+pub fn validate(toml: &str, eure: &str, path: &Path) {
     let toml_json = toml::from_str::<serde_json::Value>(toml).unwrap();
-    let cst = eure_parol::parse(eure).unwrap();
+    let cst = eure_parol::parse(eure, path).unwrap();
     let document = cst_to_document(eure, &cst).unwrap();
     let eure_json = eure_json::document_to_value(&document, &eure_json::Config::default()).unwrap();
     if toml_json != eure_json {

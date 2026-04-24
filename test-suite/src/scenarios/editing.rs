@@ -25,11 +25,10 @@ impl Scenario for EditingScenario {
             .map(|expected| db.asset(expected))
             .transpose()?;
 
-        let mut document = EditableDocument::parse(input_source.get()).map_err(|error| {
-            ScenarioError::EditingError {
+        let mut document = EditableDocument::parse(input_source.get(), self.input.to_string())
+            .map_err(|error| ScenarioError::EditingError {
                 message: error.to_string(),
-            }
-        })?;
+            })?;
 
         for command in self.commands {
             let command = fixture_to_command(command)?;
@@ -87,11 +86,11 @@ fn parse_required_fixture_value(
 }
 
 fn parse_fixture_value(input: &str) -> Result<eure::document::EureDocument, ScenarioError> {
-    match parse_to_document(input) {
+    match parse_to_document(input, "<input>") {
         Ok(doc) => Ok(doc),
         Err(first_error) => {
             let wrapped = format!("= {input}");
-            parse_to_document(&wrapped).map_err(|_| ScenarioError::EditingError {
+            parse_to_document(&wrapped, "<input>").map_err(|_| ScenarioError::EditingError {
                 message: format_parse_union_error(first_error),
             })
         }

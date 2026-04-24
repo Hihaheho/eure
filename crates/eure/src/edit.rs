@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Write as _};
+use std::path::Path;
 use std::str::FromStr;
 
 use eros::ErrorUnion;
@@ -389,8 +390,8 @@ pub struct EditableDocument {
 }
 
 impl EditableDocument {
-    pub fn parse(input: &str) -> Result<Self, EditError> {
-        let source = parse_to_source_document(input).map_err(map_parse_union_error)?;
+    pub fn parse(input: &str, name: impl AsRef<Path>) -> Result<Self, EditError> {
+        let source = parse_to_source_document(input, name).map_err(map_parse_union_error)?;
         Ok(Self { source })
     }
 
@@ -466,11 +467,11 @@ impl EditableDocument {
 }
 
 fn parse_edit_value_document(input: &str) -> Result<EureDocument, EditError> {
-    match parse_to_document(input) {
+    match parse_to_document(input, "<input>") {
         Ok(doc) => Ok(doc),
         Err(first_error) => {
             let wrapped = format!("= {input}");
-            parse_to_document(&wrapped).map_err(|_| EditError::ValueParse {
+            parse_to_document(&wrapped, "<input>").map_err(|_| EditError::ValueParse {
                 input: input.to_string(),
                 message: format!("{}", map_parse_union_error(first_error)),
             })
