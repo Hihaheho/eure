@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "build-image")]
 use std::io::{self, Write};
 
-use eure_doc_builder::{DocsPageKind, DocsSite, build_docs_site};
+use eure_doc_builder::{DocsPageKind, DocsSite, build_docs_site, generate_llms_txt};
 
 fn main() {
     let manifest_dir =
@@ -95,6 +95,10 @@ fn generate_docs_site(manifest_dir: &Path, cargo_out_dir: &Path) {
             )
         });
     }
+
+    let llms_txt = generate_llms_txt(&site, "https://eure.dev");
+    fs::create_dir_all(manifest_dir.join("public")).expect("failed to create public/");
+    fs::write(manifest_dir.join("public/llms.txt"), llms_txt).expect("failed to write public/llms.txt");
 
     let generated_module = render_docs_module(&site);
     fs::write(

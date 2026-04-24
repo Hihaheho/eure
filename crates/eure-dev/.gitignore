@@ -4,6 +4,7 @@
 !/wrangler.toml
 !/tsconfig.json
 !/src/worker.ts
+public/llms.txt
 
 !/src/components/**/*.css
 

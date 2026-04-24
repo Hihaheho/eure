@@ -404,7 +404,7 @@ where
         path: path.to_path_buf(),
         source,
     })?;
-    let cst = eure::parol::parse(&source).map_err(|source| DocsError::ParseEure {
+    let cst = eure::parol::parse(&source, path).map_err(|source| DocsError::ParseEure {
         path: path.to_path_buf(),
         source: Box::new(source),
     })?;
@@ -796,6 +796,71 @@ fn render_adr_index_page(adrs: &[AdrSummary], css: &str) -> RenderedDocsPage {
 fn summarize_text(text: &Text) -> String {
     let summary = text.as_str().trim().replace('\n', " ");
     summary.chars().take(180).collect()
+}
+
+pub fn generate_llms_txt(site: &DocsSite, base_url: &str) -> String {
+    let base_url = base_url.trim_end_matches('/');
+    let mut out = String::new();
+
+    out.push_str(&format!("# {}\n", site.nav.title));
+
+    if let Some(index_page) = site.pages.iter().find(|p| p.public_path == "/docs/")
+        && !index_page.description.is_empty()
+    {
+        out.push('\n');
+        out.push_str(&format!("> {}\n", index_page.description));
+    }
+
+    let page_desc: std::collections::HashMap<&str, &str> = site
+        .pages
+        .iter()
+        .map(|p| (p.public_path.as_str(), p.description.as_str()))
+        .collect();
+
+    for group in &site.nav.groups {
+        out.push('\n');
+        out.push_str(&format!("## {}\n\n", group.title));
+        for entry in &group.entries {
+            let desc = page_desc.get(entry.path.as_str()).copied().unwrap_or("");
+            if desc.is_empty() {
+                out.push_str(&format!(
+                    "- [{}]({}{})\n",
+                    entry.label, base_url, entry.path
+                ));
+            } else {
+                out.push_str(&format!(
+                    "- [{}]({}{}):{}{}\n",
+                    entry.label,
+                    base_url,
+                    entry.path,
+                    if desc.starts_with(' ') { "" } else { " " },
+                    desc
+                ));
+            }
+        }
+    }
+
+    if !site.adrs.is_empty() {
+        out.push('\n');
+        out.push_str("## Optional\n\n");
+        for adr in &site.adrs {
+            out.push_str(&format!(
+                "- [{}]({}{}):{}{}, {}\n",
+                adr.title,
+                base_url,
+                adr.path,
+                if adr.decision_date.starts_with(' ') {
+                    ""
+                } else {
+                    " "
+                },
+                adr.decision_date,
+                adr.status
+            ));
+        }
+    }
+
+    out
 }
 
 fn generate_builder_css() -> &'static str {
@@ -1273,6 +1338,74 @@ alternatives-considered = [
             .find(|page| page.public_path == "/docs/adrs")
             .expect("adr index should exist");
         assert!(adr_index.html.contains("Example ADR"));
+    }
+
+    #[test]
+    fn generate_llms_txt_produces_correct_format() {
+        let site = DocsSite {
+            nav: DocsNav {
+                title: "Eure".to_string(),
+                groups: vec![DocsNavGroup {
+                    title: "Getting Started".to_string(),
+                    description: None,
+                    entries: vec![
+                        DocsNavEntry {
+                            path: "/docs/".to_string(),
+                            label: "Home".to_string(),
+                        },
+                        DocsNavEntry {
+                            path: "/docs/guide".to_string(),
+                            label: "Guide".to_string(),
+                        },
+                    ],
+                }],
+            },
+            pages: vec![
+                RenderedDocsPage {
+                    public_path: "/docs/".to_string(),
+                    title: "Home".to_string(),
+                    description: "A minimalist data format.".to_string(),
+                    html: String::new(),
+                    css: String::new(),
+                    kind: DocsPageKind::Guide,
+                    headings: vec![],
+                    tags: vec![],
+                    status: None,
+                    decision_date: None,
+                },
+                RenderedDocsPage {
+                    public_path: "/docs/guide".to_string(),
+                    title: "Guide".to_string(),
+                    description: "How to use Eure.".to_string(),
+                    html: String::new(),
+                    css: String::new(),
+                    kind: DocsPageKind::Guide,
+                    headings: vec![],
+                    tags: vec![],
+                    status: None,
+                    decision_date: None,
+                },
+            ],
+            adrs: vec![AdrSummary {
+                path: "/docs/adrs/0001-example".to_string(),
+                title: "Example Decision".to_string(),
+                status: "accepted".to_string(),
+                decision_date: "2024-01-01".to_string(),
+                tags: vec![],
+            }],
+        };
+
+        let output = generate_llms_txt(&site, "https://eure.dev");
+
+        assert!(output.starts_with("# Eure\n"));
+        assert!(output.contains("> A minimalist data format.\n"));
+        assert!(output.contains("## Getting Started\n"));
+        assert!(output.contains("- [Home](https://eure.dev/docs/): A minimalist data format.\n"));
+        assert!(output.contains("- [Guide](https://eure.dev/docs/guide): How to use Eure.\n"));
+        assert!(output.contains("## Optional\n"));
+        assert!(output.contains(
+            "- [Example Decision](https://eure.dev/docs/adrs/0001-example): 2024-01-01, accepted\n"
+        ));
     }
 
     #[test]
