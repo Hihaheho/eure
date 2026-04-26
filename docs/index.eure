@@ -22,7 +22,7 @@ If you need API-level details, see [docs.rs/eure](https://docs.rs/eure/latest/eu
 - [Syntax Reference](/docs/syntax-reference) — strings, code blocks, array markers, sections
 - [Types](/docs/data-types) — primitive and composite types
 - [Extensions](/docs/extensions) — `$schema`, `$variant`, `$types` and the extension system
-- [Schema Extensions](/docs/schema-extensions) — writing Eure schemas
+- [Schemas](/docs/schemas) — writing Eure schemas
 - [Template Extensions](/docs/template-extensions) — planned template system
 - [Schemas](/docs/schemas)
 - [Language Specification](/docs/spec/alpha)

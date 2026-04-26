@@ -133,7 +133,7 @@ $ eure check config.eure
 ```
 
   "body-3" = ```markdown
-Schema files are themselves written in Eure. See [Schema Extensions](/docs/schema-extensions) for how to write schemas, and [Project Configuration](/docs/project-configuration) for validating multiple files at once.
+Schema files are themselves written in Eure. See [Schemas](/docs/schemas) for how to write schemas, and [Project Configuration](/docs/project-configuration) for validating multiple files at once.
 ```
 
 }
@@ -229,7 +229,7 @@ print("hello")
   "body" = ```markdown
 - [Types](/docs/data-types) — complete reference for all value types
 - [Extensions](/docs/extensions) — `$schema`, `$variant`, `$types` and the extension system
-- [Schema Extensions](/docs/schema-extensions) — writing Eure schemas
+- [Schemas](/docs/schemas) — writing Eure schemas
 - [CLI Reference](/docs/cli) — all 11 commands with flags and examples
 - [Project Configuration](/docs/project-configuration) — validating multiple files with `Eure.eure`
 - [Format Conversion](/docs/format-conversion) — JSON/TOML interop

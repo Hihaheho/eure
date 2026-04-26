@@ -9,9 +9,8 @@ groups[] {
   pages[] { path = "/docs/spec/alpha" label = "Language Specification" }
   pages[] { path = "/docs/data-types" label = "Types" }
   pages[] { path = "/docs/extensions" label = "Extensions" }
-  pages[] { path = "/docs/schema-extensions" label = "Schema Extensions" }
-  pages[] { path = "/docs/template-extensions" label = "Template Extensions (Planned)" }
   pages[] { path = "/docs/schemas" label = "Schemas" }
+  pages[] { path = "/docs/template-extensions" label = "Template Extensions (Planned)" }
 }
 
 groups[] {

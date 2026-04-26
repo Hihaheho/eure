@@ -195,7 +195,7 @@ Notation as value:
 ```
 
   "body-2" = ```markdown
-Notation as type: Defined using `$variants` in schema (see [schema-extensions.md](/docs/schema-extensions#variants))
+Notation as type: Defined using `$variants` in schema (see [schemas.md](/docs/schemas#variants))
 ```
 
   @ "simple-variants" {
