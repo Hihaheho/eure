@@ -1,71 +1,37 @@
 $frontmatter {
   title: serde-eure
-  description: Using serde-eure for schema-guided, format-agnostic serialization and deserialization between EureDocument and any serde-compatible format.
+  description: Using serde-eure to bridge non-Eure formats (JSON, TOML, YAML, MessagePack, …) with EureDocument using schema-guided union variant representation.
 }
 
 "#": serde-eure
 
 "body" = ```markdown
 `serde-eure` bridges `EureDocument` with any `serde`-compatible format (JSON, TOML, YAML, MessagePack, bincode, …) using `SchemaDocument` as the authoritative guide for union variant representation.
+
+This is distinct from the [derive macros](/docs/derive-macros) (`FromEure` / `IntoEure`), which convert between `EureDocument` and Rust types. `serde-eure` converts between `EureDocument` and external serialization formats.
 ```
 
 "toc".$toc = true
 
-@ "overview" {
-  "##": Overview
+@ "when-to-use" {
+  "##": When to Use
 
   "body" = ```markdown
-Standard format conversions (e.g. `eure to-json`) operate on the Eure data model without type knowledge. `serde-eure` goes further: it reads `$interop.variant-repr` from the schema to serialize and deserialize union variants in the exact shape expected by the external format.
+Use `serde-eure` when:
+- Your JSON consumer expects a specific union shape (e.g. internal-tagged `{"type": "ok", ...}`).
+- You are reading TOML/YAML/MessagePack/bincode data into `EureDocument` with known union semantics.
+- You need a truly format-agnostic bridge — not JSON-specific.
 
-This matters when:
-- Your JSON consumer expects internal-tagged unions (`{"type": "ok", "value": 42}`).
-- You are reading TOML/YAML/MessagePack data with a known union representation into `EureDocument`.
-- You need a true format-agnostic bridge — not JSON-specific.
+For simple Eure ↔ JSON conversion without union concerns, use `eure to-json` / `eure from-json` or the `eure-json` crate directly (see [Format Conversion](/docs/format-conversion)).
 ```
 
 }
 
-@ "derive-macros" {
-  "##": Derive Macros
+@ "serialization" {
+  "##": Serialization (EureDocument → external format)
 
   "body" = ```markdown
-`eure-macros` provides four derive macros that generate serde-eure integration for Rust types:
-
-| Macro | Purpose |
-|-------|---------|
-| `FromEure` | Deserialize `EureDocument` → `T` |
-| `IntoEure` | Serialize `T` → `EureDocument` |
-| `BuildSchema` | Generate `SchemaDocument` from `T`'s type structure |
-| `ObjectKey` | Mark a type as usable as an Eure map key |
-
-Example:
-```
-
-  "text-snippet" = ```text
-use eure_macros::{BuildSchema, FromEure, IntoEure};
-
-#[derive(Debug, Clone, FromEure, IntoEure, BuildSchema)]
-struct Config {
-    name: String,
-    port: u16,
-    #[eure(optional)]
-    debug: Option<bool>,
-}
-
-#[derive(Debug, FromEure, IntoEure, BuildSchema)]
-enum Status {
-    Active,
-    Inactive { reason: String },
-}
-```
-
-}
-
-@ "schema-guided-serialization" {
-  "##": Schema-Guided Serialization
-
-  "body" = ```markdown
-Use `serde_eure::to_serializer` to serialize an `EureDocument` into any `serde::Serializer` using a schema for variant representation:
+Use `serde_eure::to_serializer` to serialize an `EureDocument` into any `serde::Serializer`. The schema's `$interop.variant-repr` controls how union variants are encoded.
 ```
 
   "text-snippet" = ```text
@@ -92,23 +58,23 @@ let json_str = String::from_utf8(buf)?;
 
 }
 
-@ "schema-guided-deserialization" {
-  "##": Schema-Guided Deserialization
+@ "deserialization" {
+  "##": Deserialization (external format → EureDocument)
 
   "body" = ```markdown
-Use `serde_eure::from_deserializer` to deserialize any `serde::Deserializer` into an `EureDocument` using a schema:
+Use `serde_eure::from_deserializer` to deserialize any `serde::Deserializer` into an `EureDocument`:
 ```
 
   "text-snippet" = ```text
 use serde_eure::from_deserializer;
 
-// Deserialize from JSON
+// From JSON
 let json_str = r#"{"type": "ok", "value": 42}"#;
 let mut json_de = serde_json::Deserializer::from_str(json_str);
 let doc: EureDocument = from_deserializer(&mut json_de, &schema)?;
 
-// Deserialize from TOML (same API, different deserializer)
-let toml_str = r#"type = "ok"\nvalue = 42"#;
+// From TOML — same API, different deserializer
+let toml_str = "type = \"ok\"\nvalue = 42";
 let toml_de = toml::Deserializer::new(toml_str);
 let doc: EureDocument = from_deserializer(toml_de, &schema)?;
 ```
@@ -128,7 +94,7 @@ The schema controls how union variants appear in external formats via `$interop.
 | `adjacent` | Separate tag and content fields | `{"type": "ok", "content": {"value": 42}}` |
 | `untagged` | Content only, no tag | `{"value": 42}` |
 
-When no schema is present (or the schema node is `Any`), serde-eure uses **untagged** as the fallback for both serialization and deserialization.
+When no schema is present (or the schema node is `Any`), serde-eure uses **untagged** as the fallback for both directions.
 ```
 
   "eure-snippet" = ```eure
@@ -144,15 +110,15 @@ When no schema is present (or the schema node is `Any`), serde-eure uses **untag
 
 }
 
-@ "internal-adjacent-buffering" {
-  "##": Internal and Adjacent Tagging
+@ "buffering" {
+  "##": Internal and Adjacent Tagging: Buffering
 
   "body" = ```markdown
 Internal and adjacent tagging require buffering map entries because serde's `MapAccess` is a forward-only stream — the tag field may appear at any position.
 
-`serde-eure` introduces a minimal format-agnostic buffer (`EureContent`) that captures the full serde data model without relying on any format-specific type like `serde_json::Value`. This ensures true format-agnosticism: TOML datetimes, large integers, and binary data are not corrupted.
+`serde-eure` introduces a minimal format-agnostic buffer (`EureContent`) that captures the full serde data model without relying on any format-specific type like `serde_json::Value`. This ensures true format-agnosticism: TOML datetimes, large integers, and binary data are preserved correctly.
 
-All other paths (external, untagged, primitives, arrays, records) use pure visitor traversal without any buffering overhead.
+All other paths (external, untagged, primitives, arrays, records) use pure visitor traversal with no buffering overhead.
 ```
 
 }

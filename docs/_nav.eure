@@ -21,6 +21,7 @@ groups[] {
   pages[] { path = "/docs/project-configuration" label = "Project Configuration" }
   pages[] { path = "/docs/editor-setup" label = "Editor Setup" }
   pages[] { path = "/docs/format-conversion" label = "Format Conversion" }
+  pages[] { path = "/docs/derive-macros" label = "Derive Macros" }
   pages[] { path = "/docs/serde-eure" label = "serde-eure" }
   pages[] { path = "/docs/eure-mark" label = "eure-mark" }
 }

@@ -1,0 +1,189 @@
+$frontmatter {
+  title: Derive Macros
+  description: Using eure-macros derive macros (FromEure, IntoEure, BuildSchema, ObjectKey) to convert between Rust types and EureDocument.
+}
+
+"#": Derive Macros
+
+"body" = ```markdown
+The `eure-macros` crate provides four derive macros for working with Eure data directly from Rust types.
+```
+
+"toc".$toc = true
+
+@ "overview" {
+  "##": Overview
+
+  "body" = ```markdown
+| Macro | Direction | Purpose |
+|-------|-----------|---------|
+| `FromEure` | `EureDocument` → `T` | Extract a typed Rust value from a document |
+| `IntoEure` | `T` → `EureDocument` | Build a document from a typed Rust value |
+| `BuildSchema` | `T` → `SchemaDocument` | Generate a schema from a type's structure |
+| `ObjectKey` | — | Mark a type as usable as an Eure map key |
+
+These macros are the primary way to work with Eure data in Rust without manual document traversal.
+```
+
+}
+
+@ "basic-usage" {
+  "##": Basic Usage
+
+  "text-snippet" = ```text
+use eure_macros::{BuildSchema, FromEure, IntoEure};
+
+#[derive(Debug, Clone, FromEure, IntoEure, BuildSchema)]
+struct Config {
+    name: String,
+    port: u16,
+    #[eure(optional)]
+    debug: Option<bool>,
+}
+```
+
+  "body" = ```markdown
+With these derives you can:
+
+- Parse a validated `EureDocument` into `Config` via `FromEure`
+- Build a `Config` back into a document via `IntoEure`
+- Generate a `SchemaDocument` at runtime for validation via `BuildSchema`
+```
+
+}
+
+@ "from-eure" {
+  "##": FromEure
+
+  "body" = ```markdown
+`FromEure` enables type-safe extraction from `EureDocument`. Use `doc.parse::<T>(node_id)` or the record API:
+```
+
+  "text-snippet" = ```text
+use eure_document::document::EureDocument;
+
+let doc: EureDocument = /* parse your .eure file */;
+let config: Config = doc.parse(doc.root())?;
+```
+
+  "body-2" = ```markdown
+For manual extraction without derives, use the `FromEure` API directly:
+```
+
+  "text-snippet-2" = ```text
+// Primitives
+let name: &str = doc.parse(node_id)?;
+let port: u16   = doc.parse(node_id)?;
+let flag: bool  = doc.parse(node_id)?;
+
+// Records
+let rec = doc.parse_record(node_id)?;
+let name: String = rec.parse_field("name")?;
+let debug: Option<bool> = rec.parse_field_optional("debug")?;
+
+// Extensions
+let ctx = doc.parse_extension_context(node_id);
+let repr: Option<String> = ctx.parse_ext_optional("variant-repr")?;
+
+// Collections
+let tags: Vec<String> = doc.parse(node_id)?;
+```
+
+}
+
+@ "into-eure" {
+  "##": IntoEure
+
+  "body" = ```markdown
+`IntoEure` builds an `EureDocument` from a Rust value:
+```
+
+  "text-snippet" = ```text
+use eure_document::document::EureDocument;
+
+let config = Config {
+    name: "my-app".to_string(),
+    port: 8080,
+    debug: Some(true),
+};
+
+let doc: EureDocument = config.into_eure();
+```
+
+}
+
+@ "build-schema" {
+  "##": BuildSchema
+
+  "body" = ```markdown
+`BuildSchema` generates a `SchemaDocument` reflecting the type's structure. This is useful for runtime validation or generating `.eure` schema files from Rust types:
+```
+
+  "text-snippet" = ```text
+use eure_schema::SchemaDocument;
+
+let schema: SchemaDocument = Config::build_schema();
+
+// Use for validation
+let doc: EureDocument = /* ... */;
+doc.validate(&schema)?;
+```
+
+}
+
+@ "enums" {
+  "##": Enums (Unions)
+
+  "body" = ```markdown
+Enum variants map to Eure unions. Use `$variant` in Eure documents to select a variant:
+```
+
+  "text-snippet" = ```text
+#[derive(Debug, FromEure, IntoEure, BuildSchema)]
+enum Status {
+    Active,
+    Inactive { reason: String },
+}
+```
+
+  "body-2" = ```markdown
+Corresponding Eure document:
+```
+
+  "eure-snippet" = ```eure
+$variant = "inactive"
+reason = "maintenance"
+```
+
+}
+
+@ "object-key" {
+  "##": ObjectKey
+
+  "body" = ```markdown
+`ObjectKey` marks a type as usable as a key in an Eure map (i.e., it can appear as the left-hand side of a binding). Implement it for newtypes or enums that represent string-like keys:
+```
+
+  "text-snippet" = ```text
+#[derive(Debug, PartialEq, Eq, Hash, ObjectKey)]
+struct UserId(String);
+
+// Allows: {user-id => value} maps where keys deserialize as UserId
+```
+
+}
+
+@ "attributes" {
+  "##": Field Attributes
+
+  "body" = ```markdown
+| Attribute | Effect |
+|-----------|--------|
+| `#[eure(optional)]` | Field maps to `Option<T>`; absent in document is treated as `None` |
+| `#[eure(rename = "key")]` | Use a different key name in the document |
+| `#[eure(default)]` | Use `Default::default()` when field is absent |
+
+See `crates/eure-macros/src/` for the full attribute reference.
+```
+
+}

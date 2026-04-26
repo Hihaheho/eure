@@ -37,7 +37,8 @@ If you need API-level details, see [docs.rs/eure](https://docs.rs/eure/latest/eu
 - [Project Configuration](/docs/project-configuration) — `Eure.eure` workspace config
 - [Editor Setup](/docs/editor-setup) — VS Code and LSP integration
 - [Format Conversion](/docs/format-conversion) — JSON, TOML, and YAML interop
-- [serde-eure](/docs/serde-eure) — schema-guided Rust serde integration
+- [Derive Macros](/docs/derive-macros) — `FromEure` / `IntoEure` / `BuildSchema` (Eure ↔ Rust)
+- [serde-eure](/docs/serde-eure) — schema-guided bridge (non-Eure formats ↔ Eure)
 - [eure-mark](/docs/eure-mark) — structured documentation rendering
 ```
 }
