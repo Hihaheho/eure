@@ -863,6 +863,389 @@ pub fn generate_llms_txt(site: &DocsSite, base_url: &str) -> String {
     out
 }
 
+/// Returns the combined CSS for all static docs pages as a single stylesheet.
+///
+/// Write this to `public/docs/docs.css`; each page references it via `<link>`.
+pub fn generate_static_docs_css(site: &DocsSite) -> String {
+    let article_css = site.pages.first().map(|p| p.css.as_str()).unwrap_or("");
+    let layout_css = generate_static_layout_css();
+    format!("{article_css}\n{layout_css}")
+}
+
+/// Generates complete standalone HTML pages for each docs page.
+///
+/// Returns `(relative_file_path, full_html)` pairs, e.g.:
+/// - `("docs/index.html", "<!DOCTYPE html>...")`
+/// - `("docs/getting-started.html", ...)`
+/// - `("docs/adrs/0001-foo.html", ...)`
+pub fn generate_static_docs_site(site: &DocsSite) -> Vec<(String, String)> {
+    site.pages
+        .iter()
+        .map(|page| {
+            let file_path = public_path_to_static_file_path(&page.public_path);
+            let html = render_static_page(site, page);
+            (file_path, html)
+        })
+        .collect()
+}
+
+fn public_path_to_static_file_path(public_path: &str) -> String {
+    // "/docs/"         → "docs/index.html"
+    // "/docs/foo"      → "docs/foo.html"
+    // "/docs/adrs/bar" → "docs/adrs/bar.html"
+    let without_leading_slash = public_path.trim_start_matches('/');
+    if without_leading_slash == "docs/" || without_leading_slash == "docs" {
+        return "docs/index.html".to_string();
+    }
+    let trimmed = without_leading_slash.trim_end_matches('/');
+    format!("{trimmed}.html")
+}
+
+fn render_static_page(site: &DocsSite, page: &RenderedDocsPage) -> String {
+    let title = format!("{} | Eure Docs", page.title);
+    let breadcrumbs = build_static_breadcrumbs(&page.public_path, page, site);
+    let sidebar = render_static_sidebar(site, &page.public_path);
+
+    let markup = maud::html! {
+        (maud::DOCTYPE)
+        html lang="en" {
+            head {
+                meta charset="utf-8";
+                meta name="viewport" content="width=device-width, initial-scale=1";
+                title { (title) }
+                meta name="description" content=(page.description);
+                link rel="stylesheet" href="/docs/docs.css";
+            }
+            body {
+                div class="ssg-layout" {
+                    aside class="ssg-sidebar" {
+                        nav class="ssg-sidebar-inner" {
+                            (sidebar)
+                        }
+                    }
+                    main class="ssg-main" {
+                        nav class="ssg-breadcrumbs" {
+                            @for (i, crumb) in breadcrumbs.iter().enumerate() {
+                                @if i > 0 { span class="ssg-breadcrumb-sep" { "/" } }
+                                @if crumb.2 {
+                                    span class="ssg-breadcrumb-current" { (crumb.0.as_str()) }
+                                } @else {
+                                    a href=(crumb.1.as_str()) class="ssg-breadcrumb-link" { (crumb.0.as_str()) }
+                                }
+                            }
+                        }
+                        header class="ssg-page-header" {
+                            h1 class="ssg-page-title" { (page.title) }
+                            @if !page.description.is_empty() {
+                                p class="ssg-page-desc" { (page.description) }
+                            }
+                            @if page.status.is_some() || page.decision_date.is_some() || !page.tags.is_empty() {
+                                div class="ssg-page-meta" {
+                                    @if let Some(status) = &page.status {
+                                        span class="ssg-tag ssg-tag-status" { (status) }
+                                    }
+                                    @if let Some(date) = &page.decision_date {
+                                        span class="ssg-tag" { (date) }
+                                    }
+                                    @for tag in &page.tags {
+                                        span class="ssg-tag" { (tag) }
+                                    }
+                                }
+                            }
+                        }
+                        article class="docs-content" {
+                            (maud::PreEscaped(&page.html))
+                        }
+                    }
+                }
+            }
+        }
+    };
+    markup.into_string()
+}
+
+/// Returns `(label, path, is_current)` breadcrumb triples.
+fn build_static_breadcrumbs(
+    public_path: &str,
+    current_page: &RenderedDocsPage,
+    site: &DocsSite,
+) -> Vec<(String, String, bool)> {
+    let mut crumbs: Vec<(String, String, bool)> = vec![(
+        "Docs".to_string(),
+        "/docs/".to_string(),
+        public_path == "/docs/",
+    )];
+
+    if public_path == "/docs/" {
+        return crumbs;
+    }
+
+    let inner = public_path.trim_start_matches("/docs/").trim_matches('/');
+    if inner.is_empty() {
+        return crumbs;
+    }
+
+    let segments: Vec<&str> = inner.split('/').collect();
+    let mut accumulated = String::from("/docs");
+    for (i, seg) in segments.iter().enumerate() {
+        accumulated.push('/');
+        accumulated.push_str(seg);
+        let label = site
+            .pages
+            .iter()
+            .find(|p| p.public_path == accumulated)
+            .map(|p| p.title.clone())
+            .or_else(|| {
+                site.adrs
+                    .iter()
+                    .find(|a| a.path.ends_with(seg))
+                    .map(|a| a.title.clone())
+            })
+            .unwrap_or_else(|| humanize_slug(seg));
+        let is_current = i + 1 == segments.len();
+        let label = if is_current {
+            current_page.title.clone()
+        } else {
+            label
+        };
+        crumbs.push((label, accumulated.clone(), is_current));
+    }
+    crumbs
+}
+
+fn humanize_slug(slug: &str) -> String {
+    slug.split(['-', '_'])
+        .filter(|p| !p.is_empty())
+        .map(|p| {
+            let mut chars = p.chars();
+            match chars.next() {
+                Some(first) => {
+                    let mut word = String::new();
+                    word.extend(first.to_uppercase());
+                    word.push_str(chars.as_str());
+                    word
+                }
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn render_static_sidebar(site: &DocsSite, current_path: &str) -> maud::Markup {
+    maud::html! {
+        p class="ssg-nav-label" { (site.nav.title) }
+        @for group in &site.nav.groups {
+            div class="ssg-nav-group" {
+                h2 class="ssg-nav-group-title" { (group.title) }
+                @if let Some(desc) = &group.description {
+                    p class="ssg-nav-group-desc" { (desc) }
+                }
+                nav {
+                    @for entry in &group.entries {
+                        (render_static_nav_link(&entry.path, &entry.label, current_path))
+                    }
+                }
+            }
+        }
+        div class="ssg-nav-group ssg-nav-group-adrs" {
+            h2 class="ssg-nav-group-title" { "Architecture Decision Records" }
+            p class="ssg-nav-group-desc" { "Generated from docs/adrs/*.eure and sorted by decision date." }
+            nav {
+                (render_static_nav_link("/docs/adrs", "ADR Index", current_path))
+                @for adr in &site.adrs {
+                    (render_static_nav_link(&adr.path, &adr.title, current_path))
+                }
+            }
+        }
+    }
+}
+
+fn render_static_nav_link(path: &str, label: &str, current_path: &str) -> maud::Markup {
+    let is_active = current_path == path;
+    let class = if is_active {
+        "ssg-nav-link ssg-nav-link-active"
+    } else {
+        "ssg-nav-link"
+    };
+    maud::html! {
+        a href=(path) class=(class) { (label) }
+    }
+}
+
+fn generate_static_layout_css() -> &'static str {
+    r#"
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background: var(--emark-bg, #11111b);
+  color: var(--emark-text, #cdd6f4);
+  min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+a { color: var(--emark-blue, #89b4fa); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.ssg-layout {
+  display: grid;
+  grid-template-columns: 18rem minmax(0, 1fr);
+  max-width: 1400px;
+  margin: 0 auto;
+  gap: 2rem;
+  padding: 1.5rem 1rem 3rem;
+  min-height: 100vh;
+}
+
+@media (max-width: 900px) {
+  .ssg-layout { grid-template-columns: 1fr; }
+  .ssg-sidebar { position: static !important; }
+}
+
+.ssg-sidebar {
+  position: sticky;
+  top: 1.5rem;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+}
+
+.ssg-sidebar-inner {
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+  border-radius: 1rem;
+  padding: 1rem;
+}
+
+.ssg-nav-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  opacity: 0.5;
+  margin-bottom: 1rem;
+}
+
+.ssg-nav-group {
+  margin-bottom: 1.25rem;
+}
+
+.ssg-nav-group-adrs {
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding-top: 1.25rem;
+}
+
+.ssg-nav-group-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+.ssg-nav-group-desc {
+  font-size: 0.75rem;
+  opacity: 0.65;
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+}
+
+.ssg-nav-link {
+  display: block;
+  border-radius: 0.6rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  opacity: 0.8;
+  color: inherit;
+  transition: background 0.1s, opacity 0.1s;
+}
+
+.ssg-nav-link:hover {
+  background: rgba(255,255,255,0.05);
+  opacity: 1;
+  text-decoration: none;
+}
+
+.ssg-nav-link-active {
+  border: 1px solid rgba(137,180,250,0.3);
+  background: rgba(137,180,250,0.1);
+  color: #bdd5ff;
+  opacity: 1;
+  font-weight: 500;
+}
+
+.ssg-main {
+  min-width: 0;
+}
+
+.ssg-breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  opacity: 0.6;
+  margin-bottom: 1rem;
+}
+
+.ssg-breadcrumb-sep { opacity: 0.5; }
+
+.ssg-breadcrumb-link:hover { opacity: 1; }
+
+.ssg-breadcrumb-current { font-weight: 500; opacity: 1; }
+
+.ssg-page-header {
+  margin-bottom: 2rem;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.15);
+  border-radius: 1.25rem;
+  padding: 1.5rem 2rem 1.25rem;
+}
+
+.ssg-page-title {
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-bottom: 0.6rem;
+}
+
+.ssg-page-desc {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  opacity: 0.75;
+  max-width: 42rem;
+  margin-bottom: 0.75rem;
+}
+
+.ssg-page-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.ssg-tag {
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  padding: 0.2rem 0.7rem;
+  font-size: 0.75rem;
+}
+
+.ssg-tag-status {
+  border-color: rgba(137,180,250,0.3);
+  background: rgba(137,180,250,0.1);
+  color: #bdd5ff;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+article.docs-content {
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.1);
+  border-radius: 1.5rem;
+  padding: 1.5rem 2rem 2rem;
+}
+"#
+}
+
 fn generate_builder_css() -> &'static str {
     r#"
 :root {

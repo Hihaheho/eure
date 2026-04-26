@@ -4,7 +4,10 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "build-image")]
 use std::io::{self, Write};
 
-use eure_doc_builder::{DocsPageKind, DocsSite, build_docs_site, generate_llms_txt};
+use eure_doc_builder::{
+    DocsPageKind, DocsSite, build_docs_site, generate_llms_txt, generate_static_docs_css,
+    generate_static_docs_site,
+};
 
 fn main() {
     let manifest_dir =
@@ -98,7 +101,26 @@ fn generate_docs_site(manifest_dir: &Path, cargo_out_dir: &Path) {
 
     let llms_txt = generate_llms_txt(&site, "https://eure.dev");
     fs::create_dir_all(manifest_dir.join("public")).expect("failed to create public/");
-    fs::write(manifest_dir.join("public/llms.txt"), llms_txt).expect("failed to write public/llms.txt");
+    fs::write(manifest_dir.join("public/llms.txt"), llms_txt)
+        .expect("failed to write public/llms.txt");
+
+    let docs_public_dir = manifest_dir.join("public/docs");
+    fs::create_dir_all(&docs_public_dir).expect("failed to create public/docs/");
+
+    let static_css = generate_static_docs_css(&site);
+    fs::write(docs_public_dir.join("docs.css"), static_css)
+        .expect("failed to write public/docs/docs.css");
+
+    let static_pages = generate_static_docs_site(&site);
+    for (rel_path, html) in static_pages {
+        let file_path = manifest_dir.join("public").join(&rel_path);
+        if let Some(parent) = file_path.parent() {
+            fs::create_dir_all(parent)
+                .unwrap_or_else(|e| panic!("failed to create dir for {rel_path}: {e}"));
+        }
+        fs::write(&file_path, html)
+            .unwrap_or_else(|e| panic!("failed to write static page {rel_path}: {e}"));
+    }
 
     let generated_module = render_docs_module(&site);
     fs::write(

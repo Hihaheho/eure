@@ -5,6 +5,7 @@
 !/tsconfig.json
 !/src/worker.ts
 public/llms.txt
+public/docs/
 
 !/src/components/**/*.css
 

@@ -39,7 +39,14 @@ export default {
       });
     }
 
-    // Fallback to static assets (no CORS headers)
+    // /docs with no trailing slash → redirect to /docs/
+    if (path === "/docs") {
+      return Response.redirect(new URL("/docs/", request.url).toString(), 301);
+    }
+
+    // For /docs/* and /llms.txt: serve from ASSETS directly.
+    // ASSETS automatically resolves /docs/foo → docs/foo.html (no explicit rewrite needed),
+    // so we just pass the original request through without URL rewriting.
     return env.ASSETS.fetch(request);
   },
 };

@@ -8,5 +8,5 @@ command = "dx build --release --features build-image"
 [assets]
 directory = "../../target/dx/eure-dev/release/web/public"
 binding = "ASSETS"
-run_worker_first = ["/v*"]
+run_worker_first = ["/v*", "/docs/*", "/llms.txt"]
 not_found_handling = "single-page-application"
