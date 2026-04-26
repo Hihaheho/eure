@@ -3,12 +3,8 @@ use eure::query::{
     build_runtime,
 };
 use eure::query_flow::DurabilityLevel;
-use eure_document::document::EureDocument;
 use eure_json::{Config as JsonConfig, EureToJsonFormatted};
 use eure_schema::interop::VariantRepr;
-use eure_schema::SchemaDocument;
-use serde::Serialize;
-use serde_json::Serializer as JsonSerializer;
 
 use crate::args::CacheArgs;
 use crate::util::{
@@ -38,18 +34,6 @@ pub struct Args {
     /// Cache options when the schema is loaded from a remote URL
     #[command(flatten)]
     pub cache: CacheArgs,
-}
-
-/// Bridges `serde_json::Serializer` with serde-eure's schema-aware `Serialize` implementation.
-struct SchemaAwareEureDocument<'a> {
-    doc: &'a EureDocument,
-    schema: &'a SchemaDocument,
-}
-
-impl Serialize for SchemaAwareEureDocument<'_> {
-    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
-        serde_eure::to_serializer(ser, self.doc, self.schema)
-    }
 }
 
 pub fn run(args: Args) {
@@ -100,20 +84,14 @@ pub fn run(args: Args) {
             Some(&cache_opts),
         ));
 
-        let wrapped = SchemaAwareEureDocument {
-            doc: &parsed.doc,
-            schema: &validated.schema,
-        };
-        let mut buf = Vec::new();
-        let mut ser = JsonSerializer::new(&mut buf);
-        if let Err(e) = wrapped.serialize(&mut ser) {
-            eprintln!("Schema-aware JSON serialization failed: {e}");
-            std::process::exit(1);
-        }
-        match serde_json::from_slice(&buf) {
-            Ok(v) => v,
+        match serde_eure::to_serializer(
+            serde_json::value::Serializer,
+            &parsed.doc,
+            &validated.schema,
+        ) {
+            Ok(value) => value,
             Err(e) => {
-                eprintln!("Internal error building JSON value: {e}");
+                eprintln!("Schema-aware JSON serialization failed: {e}");
                 std::process::exit(1);
             }
         }
@@ -131,10 +109,11 @@ pub fn run(args: Args) {
 
         let config = JsonConfig { variant_repr };
 
-        handle_formatted_error(runtime.query(WithFormattedError::new(
+        let json = handle_formatted_error(runtime.query(WithFormattedError::new(
             EureToJsonFormatted::new(file.clone(), config),
             true,
-        )))
+        )));
+        std::sync::Arc::unwrap_or_clone(json)
     };
 
     // Output JSON

@@ -71,7 +71,11 @@ pub fn run(args: Args) {
         ));
 
         let mut de = serde_json::Deserializer::from_str(&contents);
-        match serde_eure::from_deserializer(&mut de, &validated.schema) {
+        match serde_eure::from_deserializer(&mut de, &validated.schema).and_then(|doc| {
+            de.end()
+                .map_err(|e| serde_eure::DeError::Custom(e.to_string()))?;
+            Ok(doc)
+        }) {
             Ok(doc) => std::sync::Arc::new(doc),
             Err(e) => {
                 eprintln!("Schema-aware JSON deserialization failed: {e}");
