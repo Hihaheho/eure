@@ -1,0 +1,118 @@
+$frontmatter {
+  title: Editor Setup
+  description: How to set up Eure language support in your editor — VS Code extension, LSP integration for other editors, and available IDE features.
+}
+
+"#": Editor Setup
+
+"toc".$toc = true
+
+@ "vscode" {
+  "##": VS Code
+
+  "body" = ```markdown
+The Eure VS Code extension is located in `editors/vscode` in the repository. It provides a WebAssembly-based language server that runs entirely in the extension host without a separate native process.
+
+**Features provided:**
+- Syntax highlighting via semantic tokens
+- Diagnostics (parse errors, schema validation errors)
+- Document formatting (when formatter is implemented)
+
+**Installation from source:**
+```
+
+  "text-snippet" = ```text
+# Build the WASM language server
+cd crates/eure-ls
+cargo build --target wasm32-unknown-unknown --release
+
+# Package the VS Code extension
+cd editors/vscode
+npm install
+npm run package
+
+# Install the .vsix
+code --install-extension eure-*.vsix
+```
+
+}
+
+@ "other-editors" {
+  "##": Other Editors (Native LSP)
+
+  "body" = ```markdown
+The `eure-ls` crate also ships a native binary mode that speaks LSP over HTTP. You can connect any LSP-capable editor to it.
+
+Build the native LSP server:
+```
+
+  "text-snippet" = ```text
+cargo build -p eure-ls --release
+# Binary at: target/release/eure-ls
+```
+
+  "body-2" = ```markdown
+Configure your editor to launch `eure-ls` for files with the `.eure` extension. The server accepts LSP messages over stdio or HTTP depending on build configuration.
+
+**Neovim (example via nvim-lspconfig):**
+```
+
+  "text-snippet-2" = ```text
+require('lspconfig').eure_ls.setup({
+  cmd = { '/path/to/eure-ls' },
+  filetypes = { 'eure' },
+  root_dir = require('lspconfig.util').root_pattern('Eure.eure', '.git'),
+})
+```
+
+}
+
+@ "features" {
+  "##": Supported LSP Features
+
+  "body" = ```markdown
+| Feature | Status |
+|---------|--------|
+| Semantic token highlighting | Implemented |
+| Parse error diagnostics | Implemented |
+| Schema validation diagnostics | Implemented |
+| Document formatting | Planned (formatter not yet implemented) |
+| Completion | Planned (design in progress) |
+| Hover documentation | Planned |
+| Go to definition | Planned |
+
+The language server uses the same query engine as `eure check`, so schema validation in the editor is always consistent with CLI validation.
+```
+
+}
+
+@ "semantic-tokens" {
+  "##": Semantic Token Types
+
+  "body" = ```markdown
+The LSP server emits semantic tokens to enable rich syntax highlighting beyond what TextMate grammars can express. Tokens cover:
+
+- Keywords, operators, and punctuation
+- String variants (escaped, literal, delimited, code)
+- Numbers and booleans
+- Property names (keys) vs. section headers
+- Extension prefixes (`$`)
+- Comment blocks
+- Section markers (`@`)
+- Decorator/metadata markers
+
+These map to standard LSP token types so most editors with semantic token support will apply appropriate colors automatically.
+```
+
+}
+
+@ "file-association" {
+  "##": File Association
+
+  "body" = ```markdown
+Eure files use the `.eure` extension. The language identifier for LSP is `eure`.
+
+The project configuration file is named `Eure.eure` (capital E) by convention.
+```
+
+}

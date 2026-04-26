@@ -4,22 +4,34 @@ groups[] {
   title = "Start Here"
   description: Public documentation for the Eure language and tooling.
   pages[] { path = "/docs/" label = "Overview" }
+  pages[] { path = "/docs/getting-started" label = "Getting Started" }
+  pages[] { path = "/docs/syntax-reference" label = "Syntax Reference" }
   pages[] { path = "/docs/spec/alpha" label = "Language Specification" }
   pages[] { path = "/docs/data-types" label = "Types" }
   pages[] { path = "/docs/extensions" label = "Extensions" }
   pages[] { path = "/docs/schema-extensions" label = "Schema Extensions" }
-  pages[] { path = "/docs/template-extensions" label = "Template Extensions" }
+  pages[] { path = "/docs/template-extensions" label = "Template Extensions (Planned)" }
   pages[] { path = "/docs/schemas" label = "Schemas" }
 }
 
 groups[] {
   title = "Tooling"
-  description: Editor, completion, and document-model details for implementers.
+  description: CLI, editor integration, and format conversion guides.
+  pages[] { path = "/docs/cli" label = "CLI Reference" }
+  pages[] { path = "/docs/project-configuration" label = "Project Configuration" }
+  pages[] { path = "/docs/editor-setup" label = "Editor Setup" }
+  pages[] { path = "/docs/format-conversion" label = "Format Conversion" }
+  pages[] { path = "/docs/serde-eure" label = "serde-eure" }
   pages[] { path = "/docs/eure-mark" label = "eure-mark" }
+}
+
+groups[] {
+  title = "Implementation Reference"
+  description: Document model, CST traversal, and design proposals for implementers.
   pages[] { path = "/docs/euredocument-vs-value" label = "EureDocument vs Value" }
   pages[] { path = "/docs/cst-and-visitor" label = "CST and Visitor" }
-  pages[] { path = "/docs/completion_architecture" label = "Completion Architecture" }
-  pages[] { path = "/docs/completion_with_error_recovery" label = "Completion with Error Recovery" }
+  pages[] { path = "/docs/completion_architecture" label = "Completion Architecture (Design)" }
+  pages[] { path = "/docs/completion_with_error_recovery" label = "Completion with Error Recovery (Design)" }
   pages[] { path = "/docs/codegen-ir-design" label = "Codegen IR Design Draft" }
 }
 

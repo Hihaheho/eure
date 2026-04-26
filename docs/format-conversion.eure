@@ -1,0 +1,190 @@
+$frontmatter {
+  title: Format Conversion
+  description: Converting between Eure and other formats — JSON, TOML, and YAML — using the eure CLI and the Rust conversion APIs.
+}
+
+"#": Format Conversion
+
+"toc".$toc = true
+
+@ "eure-to-json" {
+  "##": Eure → JSON
+
+  "###-basic" {
+    "###": Basic Conversion
+
+    "body" = ```markdown
+Convert any Eure file to JSON with `eure to-json`:
+```
+
+    "text-snippet" = ```text
+$ eure to-json config.eure
+$ eure to-json config.eure --pretty
+$ cat config.eure | eure to-json -
+```
+
+    "body-2" = ```markdown
+Given:
+```
+
+    "eure-snippet" = ```eure
+name = "my-app"
+version = "1.0.0"
+@ server {
+  host = "localhost"
+  port = 8080
+}
+```
+
+    "body-3" = ```markdown
+Output:
+```
+
+    "text-snippet-2" = ```text
+{"name":"my-app","version":"1.0.0","server":{"host":"localhost","port":8080}}
+```
+
+  }
+
+  "###-variants" {
+    "###": Union Variant Representation
+
+    "body" = ```markdown
+When a document contains `$variant` extensions (union values), the JSON representation depends on the `--variant` flag.
+
+| Mode | JSON shape | Example |
+|------|-----------|---------|
+| `external` (default) | `{"variant-name": {...}}` | `{"ok": {"value": 42}}` |
+| `internal` | tag field inside object | `{"type": "ok", "value": 42}` |
+| `adjacent` | separate tag + content | `{"type": "ok", "content": {"value": 42}}` |
+| `untagged` | content only | `{"value": 42}` |
+```
+
+    "eure-snippet" = ```eure
+$variant = "ok"
+value = 42
+```
+
+    "text-snippet" = ```text
+# External (default)
+$ eure to-json result.eure --pretty
+{"ok": {"value": 42}}
+
+# Internal-tagged
+$ eure to-json result.eure --variant internal --tag type --pretty
+{"type": "ok", "value": 42}
+
+# Adjacent-tagged
+$ eure to-json result.eure --variant adjacent --tag type --content data --pretty
+{"type": "ok", "data": {"value": 42}}
+
+# Untagged
+$ eure to-json result.eure --variant untagged --pretty
+{"value": 42}
+```
+
+  }
+
+  "###-schema-aware" {
+    "###": Schema-Aware Conversion
+
+    "body" = ```markdown
+When `--schema` is provided, variant representation is read from `$interop.variant-repr` in the schema, overriding `--variant`. This is the recommended approach when the JSON consumer expects a specific shape defined in your schema.
+```
+
+    "text-snippet" = ```text
+$ eure to-json data.eure --schema schema.eure --pretty
+```
+
+    "body-2" = ```markdown
+Schema-aware mode uses `serde-eure` internally and correctly handles nested unions, optional fields, and all interop metadata.
+```
+
+  }
+
+}
+
+@ "json-to-eure" {
+  "##": JSON → Eure
+
+  "body" = ```markdown
+Convert JSON back to Eure with `eure from-json`. Accepts the same `--variant`, `--tag`, `--content`, and `--schema` flags as `to-json` to correctly reconstruct union values.
+```
+
+  "text-snippet" = ```text
+$ eure from-json data.json
+$ eure from-json data.json --schema schema.eure
+$ cat data.json | eure from-json - --variant internal --tag type
+```
+
+  "body-2" = ```markdown
+When `--schema` is provided, the deserializer uses the schema's `$interop.variant-repr` to reconstruct `$variant` extensions in the output document.
+```
+
+}
+
+@ "toml-to-eure" {
+  "##": TOML → Eure
+
+  "body" = ```markdown
+Convert TOML to Eure with `eure from-toml`:
+```
+
+  "text-snippet" = ```text
+$ eure from-toml Cargo.toml
+$ cat pyproject.toml | eure from-toml -
+```
+
+  "body-2" = ```markdown
+TOML arrays of tables (`[[name]]`) are converted to Eure `name[]` push-style arrays. Inline tables become Eure object literals.
+
+**Tip:** After converting, add a `$schema` extension and run `eure check` to validate the result against your schema.
+```
+
+}
+
+@ "yaml-support" {
+  "##": YAML
+
+  "body" = ```markdown
+The `eure-yaml` crate provides YAML conversion at the library level. CLI exposure (`from-yaml`) is not yet available. To convert YAML, convert it to JSON first (e.g. with `yq`), then use `eure from-json`:
+```
+
+  "text-snippet" = ```text
+$ yq eval -o=json config.yaml | eure from-json -
+```
+
+}
+
+@ "rust-api" {
+  "##": Rust API
+
+  "body" = ```markdown
+The conversion crates provide direct Rust APIs:
+
+**eure-json:**
+```
+
+  "eure-snippet" = ```eure
+// In Cargo.toml
+// eure-json = "0.1.9"
+```
+
+  "text-snippet" = ```text
+use eure_json::{eure_to_json, json_to_eure, Config};
+use eure_schema::interop::VariantRepr;
+
+// Eure → JSON (schema-free)
+let json_value = eure_to_json(&document, Config { variant_repr: VariantRepr::External })?;
+
+// JSON → Eure (schema-free)
+let document = json_to_eure(&json_value, Config { variant_repr: VariantRepr::External })?;
+```
+
+  "body-2" = ```markdown
+**serde-eure (schema-aware):**
+
+See [serde-eure](/docs/serde-eure) for schema-aware serialization and deserialization using any serde-compatible format.
+```
+
+}

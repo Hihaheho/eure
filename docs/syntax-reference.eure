@@ -1,0 +1,355 @@
+$frontmatter {
+  title: Syntax Reference
+  description: Comprehensive reference for Eure syntax — string variants, code blocks, array markers (including [^]), the arrow operator =>, sections, and extensions.
+}
+
+"#": Syntax Reference
+
+"body" = ```markdown
+This page covers the complete surface syntax of Eure. For the formal grammar see the [Language Specification](/docs/spec/alpha). For the type system see [Types](/docs/data-types).
+```
+
+"toc".$toc = true
+
+@ "comments" {
+  "##": Comments
+
+  "eure-snippet" = ```eure
+// Line comment
+
+/* Block comment
+   spanning multiple lines */
+
+name = "Alice"  // inline comment
+```
+
+}
+
+@ "keys" {
+  "##": Keys
+
+  "body" = ```markdown
+Keys are identifiers, integers, or dot-separated paths. Quoted keys allow arbitrary strings.
+```
+
+  "eure-snippet" = ```eure
+// Plain identifier
+name = "Alice"
+
+// Dot-separated path (creates nested structure)
+server.host = "localhost"
+server.port = 8080
+
+// Integer key
+0 = "first"
+
+// Quoted key (allows spaces and special characters)
+"content-type" = "application/json"
+"hello world" = true
+```
+
+}
+
+@ "string-variants" {
+  "##": String Variants
+
+  "body" = ```markdown
+Eure has several string syntaxes for different use cases.
+```
+
+  "###-escaped" {
+    "###": Escaped Strings
+
+    "body" = ```markdown
+Standard double-quoted strings with backslash escape sequences.
+```
+
+    "eure-snippet" = ```eure
+greeting = "Hello, \"World\"!"
+path = "C:\\Users\\Alice"
+newline = "line one\nline two"
+unicode = "\u{1F600}"
+```
+
+  }
+
+  "###-literal" {
+    "###": Literal Strings
+
+    "body" = ```markdown
+Single-quoted strings with no escape processing. What you type is what you get.
+```
+
+    "eure-snippet" = ```eure
+regex = '\d+\.\d+'
+windows-path = 'C:\Users\Alice\Documents'
+```
+
+  }
+
+  "###-delimited" {
+    "###": Delimited Literal Strings
+
+    "body" = ```markdown
+Delimited strings use angle-bracket syntax. Useful for strings containing single quotes. Three nesting levels are available — choose the one whose delimiter does not appear in your content.
+```
+
+    "eure-snippet" = ```eure
+// Level 1: <'...'>
+sql = <'SELECT * FROM "users" WHERE name = 'Alice''>
+
+// Level 2: <<'...'>>
+escaped = <<'Contains <'angle brackets'> inside'>>
+
+// Level 3: <<<'...'>>>
+nested = <<<'Even deeper <<<nesting>>> example'>>>
+```
+
+  }
+
+  "###-text-binding" {
+    "###": Text Binding (Multi-line)
+
+    "body" = ```markdown
+Use `:` instead of `=` for multi-line prose text. Indentation is stripped based on the first non-empty line.
+```
+
+    "eure-snippet" = ```eure
+description:
+  This is a multi-line text block.
+  Each line's leading indentation (relative to this block) is stripped.
+
+  Blank lines are preserved.
+```
+
+  }
+
+}
+
+@ "code-blocks" {
+  "##": Code Blocks
+
+  "body" = ```markdown
+Eure supports inline and block code with optional language tags.
+```
+
+  "###-inline-code" {
+    "###": Inline Code
+
+    "eure-snippet" = ```eure
+// Inline code (backtick syntax)
+command = `ls -la`
+
+// Inline code with language tag
+expression = `rust`1 + 2`
+```
+
+  }
+
+  "###-delimited-code" {
+    "###": Delimited Inline Code
+
+    "body" = ```markdown
+Three nesting levels, mirroring delimited strings:
+```
+
+    "eure-snippet" = ```eure
+snippet = <`rust`let x = 1;`>
+nested = <<`python`code with `backticks` inside`>>
+```
+
+  }
+
+  "###-code-fences" {
+    "###": Code Fences
+
+    "body" = ```markdown
+Block code uses 3 to 6 backticks. Use more backticks than appear in the content.
+```
+
+    "eure-snippet" = `````eure
+script = ```python
+def greet(name):
+    print(f"Hello, {name}!")
+```
+
+// 4-backtick fence — allows ``` inside the content
+example = ````markdown
+Here is some ```code``` inside markdown.
+````
+`````
+
+  }
+
+}
+
+@ "arrays" {
+  "##": Arrays
+
+  "###-inline-array" {
+    "###": Inline Arrays
+
+    "eure-snippet" = ```eure
+tags = ["rust", "eure", "config"]
+numbers = [1, 2, 3]
+mixed = ["text", 42, true, null]
+```
+
+  }
+
+  "###-push-marker" {
+    "###": Push Marker `[]`
+
+    "body" = ```markdown
+`[]` appends a new element to the array. Each occurrence creates a distinct element.
+```
+
+    "eure-snippet" = ```eure
+// Appends two separate elements
+items[].name = "first"
+items[].name = "second"
+
+// Equivalent to:
+items = [{ name => "first" }, { name => "second" }]
+```
+
+  }
+
+  "###-current-index" {
+    "###": Current-Index Marker `[^]`
+
+    "body" = ```markdown
+`[^]` refers to the element most recently pushed by `[]` in the **current block scope**. It lets you attach multiple fields to the same pushed element without repeating a numeric index.
+
+This is similar to TOML's `[[array]]` header behavior: subsequent `array.field` assignments attach to the most recent `[[array]]` entry.
+```
+
+    "eure-snippet" = ```eure
+// Both fields go on the same "Alice" element
+users[].name = "Alice"
+users[^].age  = 30
+
+// This pushes a new element for "Bob"
+users[].name = "Bob"
+users[^].age  = 25
+```
+
+    "body-2" = ```markdown
+**Scoping rules:** `[^]` only sees pushes from the same block scope (a `{ ... }` body or a section body). A `[^]` in an inner block cannot reference a push from an outer block.
+```
+
+    "eure-snippet-2" = ```eure
+// This works: push and [^] in the same scope
+outer[].x = 1
+outer[^].y = 2
+
+// This is an error: [^] in inner block cannot reach outer push
+outer[] {
+  inner[].a = 1
+}
+// outer[^].z = 3  // [^] here refers only to pushes in the root scope — this would work
+```
+
+    "body-3" = ```markdown
+**Error cases:**
+- Using `[^]` before any `[]` push in the current scope → `ArrayCurrentOutOfScope` error.
+- Using `[^]` after `[n]` (numeric index) — numeric indexing does not count as a push, so `[^]` still errors if no prior `[]` push exists in scope.
+```
+
+  }
+
+  "###-numeric-index" {
+    "###": Numeric Index `[n]`
+
+    "eure-snippet" = ```eure
+// Assign to a specific index
+colors[0] = "red"
+colors[1] = "green"
+colors[2] = "blue"
+```
+
+  }
+
+}
+
+@ "objects" {
+  "##": Objects
+
+  "###-section" {
+    "###": Sections (Nested Bindings)
+
+    "body" = ```markdown
+Sections use `@` and support text bindings (`:`) and nested `@` sections inside.
+```
+
+    "eure-snippet" = ```eure
+@ server {
+  host = "localhost"
+  port = 8080
+  description: A local development server.
+
+  @ tls {
+    enabled = true
+    cert = "/etc/ssl/cert.pem"
+  }
+}
+```
+
+  }
+
+  "###-object-literal" {
+    "###": Object Literals
+
+    "body" = ```markdown
+Object literals use `{ key => value }` syntax. Note `=>` (not `=`) for map entries inside `{ }`. Text bindings and nested sections are **not** available inside object literals.
+```
+
+    "eure-snippet" = ```eure
+// Object literal
+point = { x => 10, y => 20 }
+
+// Multi-line object literal
+config = {
+  host => "localhost",
+  port => 8080,
+}
+```
+
+  }
+
+}
+
+@ "extensions" {
+  "##": Extensions
+
+  "body" = ```markdown
+Extensions use a `$` prefix and carry metadata that does not appear in the data model. See [Extensions](/docs/extensions) for the full reference.
+```
+
+  "eure-snippet" = ```eure
+// Schema declaration
+$schema = "https://example.com/schema.eure"
+
+// Union variant selection
+$variant = "ok"
+value = 42
+
+// Type definition namespace
+$types.Color = { $variant = "enum", variants = ["red", "green", "blue"] }
+```
+
+}
+
+@ "tuples" {
+  "##": Tuples
+
+  "body" = ```markdown
+Tuples use `( ... )` syntax with positional elements separated by commas.
+```
+
+  "eure-snippet" = ```eure
+position = (10, 20)
+rgb = (255, 128, 0)
+```
+
+}

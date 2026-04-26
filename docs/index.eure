@@ -18,24 +18,39 @@ If you need API-level details, see [docs.rs/eure](https://docs.rs/eure/latest/eu
   "##": Getting Started
 
   "body" = ```markdown
-- [Language Specification](/docs/spec/alpha)
-- [Types](/docs/data-types)
-- [Extensions](/docs/extensions)
-- [Schema Extensions](/docs/schema-extensions)
-- [Template Extensions](/docs/template-extensions)
+- [Getting Started](/docs/getting-started) — install, hello world, and basic syntax
+- [Syntax Reference](/docs/syntax-reference) — strings, code blocks, array markers, sections
+- [Types](/docs/data-types) — primitive and composite types
+- [Extensions](/docs/extensions) — `$schema`, `$variant`, `$types` and the extension system
+- [Schema Extensions](/docs/schema-extensions) — writing Eure schemas
+- [Template Extensions](/docs/template-extensions) — planned template system
 - [Schemas](/docs/schemas)
+- [Language Specification](/docs/spec/alpha)
 ```
 }
 
-@ "tooling-and-implementation" {
-  "##": Tooling and Implementation
+@ "tooling" {
+  "##": Tooling
+
+  "body" = ```markdown
+- [CLI Reference](/docs/cli) — all 11 commands with flags and examples
+- [Project Configuration](/docs/project-configuration) — `Eure.eure` workspace config
+- [Editor Setup](/docs/editor-setup) — VS Code and LSP integration
+- [Format Conversion](/docs/format-conversion) — JSON, TOML, and YAML interop
+- [serde-eure](/docs/serde-eure) — schema-guided Rust serde integration
+- [eure-mark](/docs/eure-mark) — structured documentation rendering
+```
+}
+
+@ "implementation" {
+  "##": Implementation Reference
 
   "body" = ```markdown
 - [EureDocument vs Value](/docs/euredocument-vs-value)
 - [CST and Visitor](/docs/cst-and-visitor)
-- [Completion Architecture](/docs/completion_architecture)
-- [Completion with Error Recovery](/docs/completion_with_error_recovery)
-- [Codegen IR Design Draft](/docs/codegen-ir-design)
+- [Completion Architecture](/docs/completion_architecture) *(design proposal)*
+- [Completion with Error Recovery](/docs/completion_with_error_recovery) *(design proposal)*
+- [Codegen IR Design Draft](/docs/codegen-ir-design) *(partially implemented)*
 ```
 }
 

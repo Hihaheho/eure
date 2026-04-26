@@ -1,0 +1,239 @@
+$frontmatter {
+  title: Getting Started
+  description: A quick introduction to Eure — what it is, how to install the CLI, and how to write and validate your first Eure file.
+}
+
+"#": Getting Started
+
+"toc".$toc = true
+
+@ "what-is-eure" {
+  "##": What is Eure?
+
+  "body" = ```markdown
+Eure is a minimalist, schema-friendly data format designed for configuration and structured data exchange. It combines JSON's data model with TOML-style readability, and adds a rich extension system for schemas, templates, and tooling metadata.
+
+Key properties:
+- **Human-readable** — clean key-value syntax without unnecessary punctuation.
+- **Schema-validated** — attach a `$schema` to any document and `eure check` validates it.
+- **JSON-compatible data model** — maps, arrays, strings, numbers, booleans, and null.
+- **Rich type system** — unions, tuples, typed strings (e.g. `text.email`), and code blocks.
+- **Format interop** — round-trip conversion with JSON, TOML, and YAML.
+```
+
+}
+
+@ "installation" {
+  "##": Installation
+
+  "body" = ```markdown
+Install the `eure` CLI from [crates.io](https://crates.io/crates/eure):
+```
+
+  "eure-snippet" = ```eure
+// Shell — requires Rust toolchain (https://rustup.rs)
+// cargo install eure
+```
+
+  "body-2" = ```markdown
+Verify the installation:
+```
+
+  "text-snippet" = ```text
+$ eure --help
+Eure file utilities
+
+Usage: eure <COMMAND>
+
+Commands:
+  inspect    Parse and display Eure file syntax tree
+  unformat   Unformat Eure file
+  fmt        Format Eure file
+  to-json    Convert Eure to JSON
+  from-json  Convert JSON to Eure
+  from-toml  Convert TOML to Eure
+  highlight  Syntax highlight Eure file with colors
+  html       Export Eure file as HTML with syntax highlighting
+  check      Validate Eure file against a schema
+  mark       Eure Markdown document commands
+  cache      Manage remote schema cache
+```
+
+}
+
+@ "hello-world" {
+  "##": Hello World
+
+  "body" = ```markdown
+Create a file `config.eure`:
+```
+
+  "eure-snippet" = ```eure
+name = "my-app"
+version = "1.0.0"
+debug = false
+
+@ server {
+  host = "localhost"
+  port = 8080
+}
+
+features = ["auth", "logging"]
+```
+
+  "body-2" = ```markdown
+Parse and inspect the syntax tree:
+```
+
+  "text-snippet" = ```text
+$ eure inspect config.eure
+```
+
+  "body-3" = ```markdown
+Convert to JSON:
+```
+
+  "text-snippet-2" = ```text
+$ eure to-json config.eure --pretty
+{
+  "name": "my-app",
+  "version": "1.0.0",
+  "debug": false,
+  "server": {
+    "host": "localhost",
+    "port": 8080
+  },
+  "features": ["auth", "logging"]
+}
+```
+
+}
+
+@ "schema-validation" {
+  "##": Schema Validation
+
+  "body" = ```markdown
+Attach a schema with the `$schema` extension and validate with `eure check`:
+```
+
+  "eure-snippet" = ```eure
+$schema = "https://example.com/config.schema.eure"
+
+name = "my-app"
+version = "1.0.0"
+```
+
+  "body-2" = ```markdown
+Run validation:
+```
+
+  "text-snippet" = ```text
+$ eure check config.eure
+✓ config.eure is valid
+```
+
+  "body-3" = ```markdown
+Schema files are themselves written in Eure. See [Schema Extensions](/docs/schema-extensions) for how to write schemas, and [Project Configuration](/docs/project-configuration) for validating multiple files at once.
+```
+
+}
+
+@ "basic-syntax" {
+  "##": Basic Syntax
+
+  "###-scalars" {
+    "###": Scalars
+
+    "eure-snippet" = ```eure
+// Strings
+name = "Alice"
+greeting = 'Hello, world!'  // literal string — no escape sequences
+
+// Numbers
+age = 30
+pi = 3.14159
+
+// Booleans
+active = true
+deleted = false
+
+// Null
+metadata = null
+```
+
+  }
+
+  "###-maps" {
+    "###": Maps and Sections
+
+    "body" = ```markdown
+A **section** (`@`) is the idiomatic way to write nested maps. It supports text bindings and nested sections.
+An **object literal** (`{ key => value }`) is for inline anonymous maps.
+```
+
+    "eure-snippet" = ```eure
+// Section binding
+@ database {
+  host = "localhost"
+  port = 5432
+}
+
+// Object literal (uses => for map entries, not =)
+point = { x => 10, y => 20 }
+```
+
+  }
+
+  "###-arrays" {
+    "###": Arrays
+
+    "eure-snippet" = ```eure
+// Inline array
+tags = ["rust", "config", "schema"]
+
+// Push-style arrays (each [] appends a new element)
+items[].name = "first"
+items[].name = "second"
+
+// Current-index marker [^] — reuse the most recently pushed element
+users[].name = "Alice"
+users[^].age = 30
+users[].name = "Bob"
+users[^].age = 25
+```
+
+  }
+
+  "###-text" {
+    "###": Multi-line Text
+
+    "eure-snippet" = ````eure
+// Text binding (multi-line prose)
+description:
+  This is a multi-line text value.
+  It preserves newlines and indentation is stripped.
+
+// Code block with language tag
+script = ```python
+print("hello")
+```
+````
+
+  }
+
+}
+
+@ "next-steps" {
+  "##": Next Steps
+
+  "body" = ```markdown
+- [Types](/docs/data-types) — complete reference for all value types
+- [Extensions](/docs/extensions) — `$schema`, `$variant`, `$types` and the extension system
+- [Schema Extensions](/docs/schema-extensions) — writing Eure schemas
+- [CLI Reference](/docs/cli) — all 11 commands with flags and examples
+- [Project Configuration](/docs/project-configuration) — validating multiple files with `Eure.eure`
+- [Format Conversion](/docs/format-conversion) — JSON/TOML interop
+- [Language Specification](/docs/spec/alpha) — formal language reference
+```
+
+}

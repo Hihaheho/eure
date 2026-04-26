@@ -1,0 +1,356 @@
+$frontmatter {
+  title: CLI Reference
+  description: Complete reference for all 11 eure CLI commands, their flags, and usage examples.
+}
+
+"#": CLI Reference
+
+"body" = ````markdown
+The `eure` CLI provides utilities for parsing, validating, formatting, and converting Eure files.
+
+```text
+eure <COMMAND> [OPTIONS] [FILE]
+```
+
+Most commands accept `-` as the file argument to read from stdin.
+````
+
+"toc".$toc = true
+
+@ "inspect" {
+  "##": inspect
+
+  "body" = ```markdown
+Parse an Eure file and display its concrete syntax tree (CST). Useful for debugging parsing issues or understanding how the parser sees a document.
+```
+
+  "text-snippet" = ```text
+Usage: eure inspect [FILE]
+
+Arguments:
+  [FILE]  Path to Eure file (use '-' or omit for stdin)
+```
+
+  "body-2" = ```markdown
+Example:
+```
+
+  "text-snippet-2" = ```text
+$ eure inspect config.eure
+```
+
+}
+
+@ "unformat" {
+  "##": unformat
+
+  "body" = ```markdown
+Remove all formatting from an Eure file by randomizing whitespace. The output is semantically equivalent but uses minimal, non-idiomatic layout. Useful for normalizing files or testing parser robustness.
+```
+
+  "text-snippet" = ```text
+Usage: eure unformat [OPTIONS] [FILE]
+
+Arguments:
+  [FILE]  Path to Eure file (use '-' or omit for stdin)
+
+Options:
+  --seed <SEED>  Random seed for reproducible output
+```
+
+}
+
+@ "fmt" {
+  "##": fmt
+
+  "body" = ```markdown
+> **Not Yet Implemented**
+>
+> The `fmt` command exits with an error. The formatter API is currently under development. Use `eure unformat` to normalize whitespace in the meantime.
+```
+
+  "text-snippet" = ```text
+Usage: eure fmt [OPTIONS] [FILE]
+
+Options:
+  -c, --check              Exit non-zero if formatting is needed (check mode)
+  -i, --indent-width <N>   Indent width (default: 2)
+```
+
+}
+
+@ "to-json" {
+  "##": to-json
+
+  "body" = ```markdown
+Convert an Eure file to JSON. Supports schema-aware conversion (using `serde-eure`) and schema-free conversion with configurable variant representation.
+```
+
+  "text-snippet" = ```text
+Usage: eure to-json [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>  Path to Eure file (use '-' for stdin)
+
+Options:
+  -s, --schema <PATH|URL>  Schema for schema-aware serialization
+  -v, --variant <FORMAT>   Variant repr: external (default), internal, adjacent, untagged
+  -t, --tag <FIELD>        Tag field name for internal/adjacent (default: "type")
+  -c, --content <FIELD>    Content field for adjacent (default: "content")
+  -p, --pretty             Pretty-print JSON output
+      --offline            Only use cached remote schemas
+      --refresh            Force-refresh cached remote schemas
+      --max-age <DURATION> Max cache age before revalidation (e.g. "24h", "7d")
+```
+
+  "body-2" = ```markdown
+**Schema-free conversion** (default): unions are emitted with `$variant` mapped to a wrapper key.
+
+**Schema-aware conversion** (`--schema`): union variant representation follows the `$interop.variant-repr` setting in the schema, overriding `--variant`.
+
+Examples:
+```
+
+  "text-snippet-2" = ```text
+# Basic conversion
+$ eure to-json config.eure --pretty
+
+# Schema-aware (variant repr from schema)
+$ eure to-json data.eure --schema schema.eure --pretty
+
+# Internal-tagged variants ({"type": "...", ...})
+$ eure to-json data.eure --variant internal --tag type --pretty
+
+# Adjacent-tagged variants ({"type": "...", "value": {...}})
+$ eure to-json data.eure --variant adjacent --tag type --content value --pretty
+
+# Read from stdin, compact output
+$ cat data.eure | eure to-json -
+```
+
+}
+
+@ "from-json" {
+  "##": from-json
+
+  "body" = ```markdown
+Convert a JSON file to Eure. Mirrors the `to-json` options for variant representation. When `--schema` is provided, union variants are reconstructed using schema interop metadata.
+```
+
+  "text-snippet" = ```text
+Usage: eure from-json [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>  Path to JSON file (use '-' for stdin)
+
+Options:
+  -s, --schema <PATH|URL>  Schema for schema-aware deserialization
+  -v, --variant <FORMAT>   Variant repr: external (default), internal, adjacent, untagged
+  -t, --tag <FIELD>        Tag field name for internal/adjacent (default: "type")
+  -c, --content <FIELD>    Content field for adjacent (default: "content")
+      --offline / --refresh / --max-age  (same as to-json)
+```
+
+  "body-2" = ```markdown
+Examples:
+```
+
+  "text-snippet-2" = ```text
+$ eure from-json data.json
+$ eure from-json data.json --schema schema.eure
+$ cat data.json | eure from-json - --variant internal
+```
+
+}
+
+@ "from-toml" {
+  "##": from-toml
+
+  "body" = ```markdown
+Convert a TOML file to Eure.
+```
+
+  "text-snippet" = ```text
+Usage: eure from-toml <FILE>
+
+Arguments:
+  <FILE>  Path to TOML file (use '-' for stdin)
+```
+
+  "body-2" = ```markdown
+Example:
+```
+
+  "text-snippet-2" = ```text
+$ eure from-toml Cargo.toml
+$ cat pyproject.toml | eure from-toml -
+```
+
+}
+
+@ "highlight" {
+  "##": highlight
+
+  "body" = ```markdown
+Syntax-highlight an Eure file using ANSI terminal colors. Uses the same semantic token engine as the language server.
+```
+
+  "text-snippet" = ```text
+Usage: eure highlight [FILE]
+
+Arguments:
+  [FILE]  Path to Eure file (use '-' or omit for stdin)
+```
+
+}
+
+@ "html" {
+  "##": html
+
+  "body" = ```markdown
+Export an Eure file as HTML with syntax highlighting. Uses the [Catppuccin](https://catppuccin.com/) color palette.
+```
+
+  "text-snippet" = ```text
+Usage: eure html [OPTIONS] [FILE]
+
+Arguments:
+  [FILE]  Path to Eure file (use '-' or omit for stdin)
+
+Options:
+  -t, --theme <THEME>  Color theme: mocha, macchiato, frappe (default), latte
+```
+
+  "body-2" = ```markdown
+Examples:
+```
+
+  "text-snippet-2" = ```text
+$ eure html config.eure > config.html
+$ eure html config.eure --theme mocha > config.html
+```
+
+}
+
+@ "check" {
+  "##": check
+
+  "body" = ```markdown
+Validate Eure files against schemas. Operates in two modes:
+
+**File mode** — validate a single file, optionally with a schema override:
+```
+
+  "text-snippet" = ```text
+$ eure check config.eure
+$ eure check config.eure --schema schema.eure
+$ eure check config.eure --quiet
+```
+
+  "body-2" = ```markdown
+**Project mode** — when a `Eure.eure` config file exists in the current or parent directory, validate targets defined in it:
+```
+
+  "text-snippet-2" = ```text
+# Run default targets from Eure.eure
+$ eure check
+
+# Run specific targets
+$ eure check docs schemas
+
+# Run all targets
+$ eure check --all
+
+# Quiet: suppress per-file output, print summary only
+$ eure check --quiet
+```
+
+  "body-3" = ```markdown
+Full options:
+```
+
+  "text-snippet-3" = ```text
+Usage: eure check [OPTIONS] [FILES_OR_TARGETS]...
+
+Options:
+  -s, --schema <PATH|URL>  Schema override (file mode only)
+  -q, --quiet              Suppress per-file output; print summary line
+      --all                Run all targets in Eure.eure
+      --offline / --refresh / --max-age  (remote schema cache control)
+```
+
+  "body-4" = ```markdown
+Exit codes: `0` = all valid, `1` = validation errors or no file specified.
+
+See [Project Configuration](/docs/project-configuration) for how to write a `Eure.eure` file.
+```
+
+}
+
+@ "mark" {
+  "##": mark
+
+  "body" = ```markdown
+Commands for working with Eure Markdown (`eure-mark`) document files. Currently provides reference checking.
+```
+
+  "text-snippet" = ```text
+Usage: eure mark <SUBCOMMAND>
+
+Subcommands:
+  check-refs  Check that all !cite, !footnote, and !ref targets exist
+```
+
+  "body-2" = ```markdown
+See [eure-mark](/docs/eure-mark) for the full document format reference.
+```
+
+}
+
+@ "cache" {
+  "##": cache
+
+  "body" = ```markdown
+Manage the local cache for remote schemas fetched via HTTPS URLs. Remote schemas are cached to avoid repeated network requests.
+```
+
+  "text-snippet" = ```text
+Usage: eure cache <SUBCOMMAND>
+
+Subcommands:
+  list    List all cached entries
+  gc      Run garbage collection (remove old or oversized entries)
+  clean   Remove all cached entries
+  path    Print the cache directory path
+  fetch   Fetch a URL and store it in the cache
+```
+
+  "body-2" = ```markdown
+Examples:
+```
+
+  "text-snippet-2" = ```text
+# Show where schemas are cached
+$ eure cache path
+
+# List cached entries
+$ eure cache list
+
+# Remove entries older than 7 days, keep total under 100 MiB
+$ eure cache gc --older-than 7d --max-size 100MiB
+
+# Remove all cached schemas
+$ eure cache clean
+
+# Pre-fetch a schema
+$ eure cache fetch https://example.com/schema.eure
+
+# Force re-fetch (ignore current cache)
+$ eure cache fetch https://example.com/schema.eure --refresh
+```
+
+  "body-3" = ```markdown
+The `--offline`, `--refresh`, `--max-age`, and `--cache-dir` flags are available on all commands that load remote schemas (`check`, `to-json`, `from-json`).
+```
+
+}

@@ -1,9 +1,15 @@
 $frontmatter {
   title: eure-codegen-ir Design Draft (v2)
-  description: eure-codegen-ir is the canonical intermediate representation (IR) for bidirectional conversion between:
+  description: Design draft for eure-codegen-ir, the canonical IR for bidirectional conversion between Rust types, Eure schema, and generated code. Partially implemented; sections marked "pending implementation" are not yet in the codebase.
 }
 
 "#": eure-codegen-ir Design Draft (v2)
+
+"body" = ```markdown
+> **Design Draft — Partially Implemented**
+>
+> This document is a v2 design draft. The `eure-codegen-ir` and `eure-codegen` crates exist and implement the core IR structures, but several sections (marked "pending implementation" inline) are not yet complete. Sections describing `FromEure` / `IntoEure` / `BuildSchema` derivation are implemented; sections on Rust literal emission from `(EureSchema, IR, EureDoc)` are pending.
+```
 
 "toc".$toc = true
 

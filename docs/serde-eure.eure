@@ -1,0 +1,158 @@
+$frontmatter {
+  title: serde-eure
+  description: Using serde-eure for schema-guided, format-agnostic serialization and deserialization between EureDocument and any serde-compatible format.
+}
+
+"#": serde-eure
+
+"body" = ```markdown
+`serde-eure` bridges `EureDocument` with any `serde`-compatible format (JSON, TOML, YAML, MessagePack, bincode, …) using `SchemaDocument` as the authoritative guide for union variant representation.
+```
+
+"toc".$toc = true
+
+@ "overview" {
+  "##": Overview
+
+  "body" = ```markdown
+Standard format conversions (e.g. `eure to-json`) operate on the Eure data model without type knowledge. `serde-eure` goes further: it reads `$interop.variant-repr` from the schema to serialize and deserialize union variants in the exact shape expected by the external format.
+
+This matters when:
+- Your JSON consumer expects internal-tagged unions (`{"type": "ok", "value": 42}`).
+- You are reading TOML/YAML/MessagePack data with a known union representation into `EureDocument`.
+- You need a true format-agnostic bridge — not JSON-specific.
+```
+
+}
+
+@ "derive-macros" {
+  "##": Derive Macros
+
+  "body" = ```markdown
+`eure-macros` provides four derive macros that generate serde-eure integration for Rust types:
+
+| Macro | Purpose |
+|-------|---------|
+| `FromEure` | Deserialize `EureDocument` → `T` |
+| `IntoEure` | Serialize `T` → `EureDocument` |
+| `BuildSchema` | Generate `SchemaDocument` from `T`'s type structure |
+| `ObjectKey` | Mark a type as usable as an Eure map key |
+
+Example:
+```
+
+  "text-snippet" = ```text
+use eure_macros::{BuildSchema, FromEure, IntoEure};
+
+#[derive(Debug, Clone, FromEure, IntoEure, BuildSchema)]
+struct Config {
+    name: String,
+    port: u16,
+    #[eure(optional)]
+    debug: Option<bool>,
+}
+
+#[derive(Debug, FromEure, IntoEure, BuildSchema)]
+enum Status {
+    Active,
+    Inactive { reason: String },
+}
+```
+
+}
+
+@ "schema-guided-serialization" {
+  "##": Schema-Guided Serialization
+
+  "body" = ```markdown
+Use `serde_eure::to_serializer` to serialize an `EureDocument` into any `serde::Serializer` using a schema for variant representation:
+```
+
+  "text-snippet" = ```text
+use serde::Serialize;
+use serde_json::Serializer as JsonSerializer;
+
+struct SchemaAwareDoc<'a> {
+    doc: &'a EureDocument,
+    schema: &'a SchemaDocument,
+}
+
+impl Serialize for SchemaAwareDoc<'_> {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        serde_eure::to_serializer(ser, self.doc, self.schema)
+    }
+}
+
+// Serialize to JSON
+let mut buf = Vec::new();
+let mut ser = JsonSerializer::new(&mut buf);
+SchemaAwareDoc { doc: &my_doc, schema: &my_schema }.serialize(&mut ser)?;
+let json_str = String::from_utf8(buf)?;
+```
+
+}
+
+@ "schema-guided-deserialization" {
+  "##": Schema-Guided Deserialization
+
+  "body" = ```markdown
+Use `serde_eure::from_deserializer` to deserialize any `serde::Deserializer` into an `EureDocument` using a schema:
+```
+
+  "text-snippet" = ```text
+use serde_eure::from_deserializer;
+
+// Deserialize from JSON
+let json_str = r#"{"type": "ok", "value": 42}"#;
+let mut json_de = serde_json::Deserializer::from_str(json_str);
+let doc: EureDocument = from_deserializer(&mut json_de, &schema)?;
+
+// Deserialize from TOML (same API, different deserializer)
+let toml_str = r#"type = "ok"\nvalue = 42"#;
+let toml_de = toml::Deserializer::new(toml_str);
+let doc: EureDocument = from_deserializer(toml_de, &schema)?;
+```
+
+}
+
+@ "variant-repr" {
+  "##": Variant Representation
+
+  "body" = ```markdown
+The schema controls how union variants appear in external formats via `$interop.variant-repr`:
+
+| Schema setting | Serialized shape | Example |
+|---------------|-----------------|---------|
+| `external` (default) | `{"variant-name": {content}}` | `{"ok": {"value": 42}}` |
+| `internal` | Tag field inside content map | `{"type": "ok", "value": 42}` |
+| `adjacent` | Separate tag and content fields | `{"type": "ok", "content": {"value": 42}}` |
+| `untagged` | Content only, no tag | `{"value": 42}` |
+
+When no schema is present (or the schema node is `Any`), serde-eure uses **untagged** as the fallback for both serialization and deserialization.
+```
+
+  "eure-snippet" = ```eure
+// In a schema file
+@ $types.ApiResult {
+  $variant = "union"
+  $interop.variant-repr = "internal"
+  $interop.tag = "type"
+  variants.ok.value.$type = "integer"
+  variants.error.message.$type = "text"
+}
+```
+
+}
+
+@ "internal-adjacent-buffering" {
+  "##": Internal and Adjacent Tagging
+
+  "body" = ```markdown
+Internal and adjacent tagging require buffering map entries because serde's `MapAccess` is a forward-only stream — the tag field may appear at any position.
+
+`serde-eure` introduces a minimal format-agnostic buffer (`EureContent`) that captures the full serde data model without relying on any format-specific type like `serde_json::Value`. This ensures true format-agnosticism: TOML datetimes, large integers, and binary data are not corrupted.
+
+All other paths (external, untagged, primitives, arrays, records) use pure visitor traversal without any buffering overhead.
+```
+
+}

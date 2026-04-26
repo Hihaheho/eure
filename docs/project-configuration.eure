@@ -1,0 +1,161 @@
+$frontmatter {
+  title: Project Configuration
+  description: How to configure an Eure workspace with Eure.eure — defining validation targets, assigning schemas to file groups, and running eure check across a project.
+}
+
+"#": Project Configuration
+
+"body" = ```markdown
+A `Eure.eure` file at the root of your project tells `eure check` how to validate multiple files. When this file is present, `eure check` automatically finds it by walking up from the current directory.
+```
+
+"toc".$toc = true
+
+@ "structure" {
+  "##": File Structure
+
+  "body" = ```markdown
+A minimal `Eure.eure` consists of one or more **targets** and a **cli** section that sets default targets:
+```
+
+  "eure-snippet" = ```eure
+$schema = "assets/schemas/eure-config.schema.eure"
+
+@ targets.docs
+globs = ["docs/**/*.eure"]
+schema = "schemas/article.schema.eure"
+
+@ targets.config-files
+globs = ["config/*.eure"]
+schema = "schemas/config.schema.eure"
+
+@ cli
+default-targets = ["docs", "config-files"]
+```
+
+}
+
+@ "targets" {
+  "##": Targets
+
+  "body" = ```markdown
+Each target under `targets.<name>` defines a set of files to validate:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `globs` | `string[]` | Glob patterns relative to the `Eure.eure` directory |
+| `schema` | `string` | Path or URL of the schema to validate matched files against |
+
+The `schema` field is optional. When omitted, matched files are parsed for syntax errors only — no schema validation is performed.
+
+Glob patterns follow standard Unix glob syntax. Patterns starting with `!` are negations (exclude matching files).
+```
+
+  "eure-snippet" = ```eure
+@ targets.schemas
+globs = ["assets/schemas/**/*.eure"]
+schema = "assets/schemas/eure-schema.schema.eure"
+
+// Validate all .eure files except those starting with _
+@ targets.pages
+globs = ["docs/[!_]*.eure", "docs/spec/**/*.eure"]
+schema = "assets/schemas/article.schema.eure"
+
+// Syntax-check only, no schema
+@ targets.examples
+globs = ["examples/**/*.eure"]
+```
+
+}
+
+@ "cli-section" {
+  "##": CLI Section
+
+  "body" = ```markdown
+The `@ cli` section configures how `eure check` behaves when run without arguments:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `default-targets` | `string[]` | Targets to run when `eure check` is called with no arguments |
+```
+
+  "eure-snippet" = ```eure
+@ cli
+default-targets = ["docs", "config-files", "schemas"]
+```
+
+  "body-2" = ````markdown
+With default targets set:
+
+```text
+# Runs the three targets listed in default-targets
+$ eure check
+
+# Runs specific targets regardless of default-targets
+$ eure check docs schemas
+
+# Runs all defined targets
+$ eure check --all
+```
+````
+
+}
+
+@ "remote-schemas" {
+  "##": Remote Schemas
+
+  "body" = ```markdown
+The `schema` field in a target (and the `$schema` extension in any Eure document) can be an HTTPS URL. Eure fetches and caches remote schemas automatically.
+
+Cache control flags available on `eure check`:
+
+| Flag | Description |
+|------|-------------|
+| `--offline` | Use only cached schemas; fail if a schema is not cached |
+| `--refresh` | Force re-fetch all remote schemas |
+| `--max-age <DURATION>` | Revalidate if cached entry is older than this (e.g. `24h`, `7d`) |
+| `--cache-dir <PATH>` | Use a custom cache directory |
+
+Manage the cache with `eure cache`. See [CLI Reference](/docs/cli) for details.
+```
+
+}
+
+@ "real-world-example" {
+  "##": Real-world Example
+
+  "body" = ```markdown
+This is the `Eure.eure` used by the Eure repository itself:
+```
+
+  "eure-snippet" = ```eure
+$schema = "assets/schemas/eure-config.schema.eure"
+
+@ targets.docs-adrs
+globs = ["docs/adrs/**/*.eure"]
+schema = "assets/schemas/eure-adr.schema.eure"
+
+@ targets.docs-pages
+globs = ["docs/[!_]*.eure", "docs/spec/**/*.eure"]
+schema = "assets/schemas/eure-mark-article.schema.eure"
+
+@ targets.docs-nav
+globs = ["docs/_nav.eure"]
+schema = "crates/eure-doc-builder/assets/nav.schema.eure"
+
+@ targets.schemas
+globs = ["assets/schemas/**/*.eure"]
+schema = "assets/schemas/eure-schema.schema.eure"
+
+@ targets.examples
+globs = ["assets/examples/**/*.eure"]
+
+@ targets.test-suite-cases
+globs = ["test-suite/cases/**/*.eure"]
+schema = "assets/schemas/test-suite-case.schema.eure"
+
+@ cli
+default-targets = ["docs-pages", "docs-nav", "docs-adrs", "schemas", "examples", "test-suite-cases"]
+```
+
+}
