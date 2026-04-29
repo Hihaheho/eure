@@ -215,7 +215,15 @@ impl<'a> SourceDocBuilder<'a> {
             parts.push(self.build_trivia(&section.trivia_before));
         }
 
-        let mut header = Doc::text("@ ").concat(self.build_path(&section.path));
+        let at = if matches!(
+            section.path.first().map(|segment| &segment.key),
+            Some(SourceKey::Root)
+        ) {
+            Doc::text("@")
+        } else {
+            Doc::text("@ ")
+        };
+        let mut header = at.concat(self.build_path(&section.path));
 
         if let Some(comment) = &section.trailing_comment {
             header = header.concat(self.build_trailing_comment(comment));
@@ -285,7 +293,9 @@ impl<'a> SourceDocBuilder<'a> {
             if i > 0 {
                 result = result.concat(Doc::text("."));
             }
-            result = result.concat(self.build_key(&segment.key));
+            if !matches!(&segment.key, SourceKey::Root) {
+                result = result.concat(self.build_key(&segment.key));
+            }
             if let Some(index) = &segment.array {
                 result = result.concat(Doc::text("["));
                 match index {
@@ -305,6 +315,7 @@ impl<'a> SourceDocBuilder<'a> {
 
     fn build_key(&self, key: &SourceKey) -> Doc {
         match key {
+            SourceKey::Root => Doc::Nil,
             SourceKey::Ident(s) => Doc::text(s.as_ref()),
             SourceKey::Extension(s) => Doc::text("$").concat(Doc::text(s.as_ref())),
             SourceKey::Hole(None) => Doc::text("!"),

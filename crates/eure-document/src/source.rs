@@ -237,6 +237,15 @@ pub struct SourcePathSegment {
 }
 
 impl SourcePathSegment {
+    /// Create a root-relative segment used when a path starts with an array
+    /// marker, e.g. `@[]` or `[]` inside a section body.
+    pub fn root_array(array: crate::path::ArrayIndexKind) -> Self {
+        Self {
+            key: SourceKey::Root,
+            array: Some(array),
+        }
+    }
+
     /// Create a simple identifier segment without array marker.
     pub fn ident(name: Identifier) -> Self {
         Self {
@@ -314,6 +323,9 @@ pub enum StringStyle {
 /// This determines how the key should be rendered in the output.
 #[derive(Debug, Clone)]
 pub enum SourceKey {
+    /// Current/root node. Used only as a carrier for a leading array marker.
+    Root,
+
     /// Bare identifier: `foo`, `bar_baz`
     Ident(Identifier),
 
@@ -343,6 +355,7 @@ pub enum SourceKey {
 impl PartialEq for SourceKey {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
+            (Self::Root, Self::Root) => true,
             (Self::Ident(a), Self::Ident(b)) => a == b,
             (Self::Extension(a), Self::Extension(b)) => a == b,
             (Self::Hole(a), Self::Hole(b)) => a == b,

@@ -65,6 +65,8 @@ struct FormatVisitor<'a> {
     object_needs_comma_before_next: bool,
     /// Track doc index where section binding content starts (for indentation)
     section_binding_content_start: Option<usize>,
+    /// Whether the current section header starts with an array marker (`@[]`).
+    section_starts_with_array_marker: bool,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -96,6 +98,7 @@ impl<'a> FormatVisitor<'a> {
             object_open_doc_count: None,
             object_needs_comma_before_next: false,
             section_binding_content_start: None,
+            section_starts_with_array_marker: false,
         }
     }
 
@@ -415,7 +418,14 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
         // Request newline before section - will be flushed when first content is emitted
         self.request_newline();
         self.push_context(FormatContext::Section);
+        let previous = self.section_starts_with_array_marker;
+        self.section_starts_with_array_marker = view
+            .keys
+            .get_view(tree)
+            .and_then(|keys| keys.first_key.get_view(tree))
+            .is_ok_and(|first_key| matches!(first_key, FirstKeyView::ArrayMarker(_)));
         self.visit_section_super(handle, view, tree)?;
+        self.section_starts_with_array_marker = previous;
         self.pop_context();
         Ok(())
     }
@@ -539,7 +549,11 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
         data: TerminalData,
         _tree: &F,
     ) -> Result<(), Self::Error> {
-        self.emit_text("@ ");
+        if self.section_starts_with_array_marker {
+            self.emit_text("@");
+        } else {
+            self.emit_text("@ ");
+        }
         self.mark_content(data);
         Ok(())
     }
@@ -1283,6 +1297,13 @@ mod tests {
         let input = "@ foo\na = 1";
         let output = format(input);
         assert_eq!(output, "@ foo\na = 1\n");
+    }
+
+    #[test]
+    fn test_root_array_section() {
+        let input = "@[]\na = 1";
+        let output = format(input);
+        assert_eq!(output, "@[]\na = 1\n");
     }
 
     #[test]

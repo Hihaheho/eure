@@ -35,3 +35,38 @@ normalized = ```eure
 json = ```json
 { "a": [1, 2, 3], "b": [ { "x": 1 }, { "y": 1 } ], "c": [{ "x": 1, "y": 1 }], "d": ["list 1", "list 2", [["list item 3"], ["list item 4"]], [["list item 5"]]] }
 ```
+
+@ cases.root-array-sections
+input_eure = ```eure
+@[]
+a = 1
+@[]
+b = 2
+@[]
+c = 3
+```
+
+normalized = ```eure
+= [
+  { a => 1 },
+  { b => 2 },
+  { c => 3 },
+]
+```
+
+json = ```json
+[
+  { "a": 1 },
+  { "b": 2 },
+  { "c": 3 }
+]
+```
+
+formatted_input = ```eure
+@[]
+a = 1
+@[]
+b = 2
+@[]
+c = 3
+```

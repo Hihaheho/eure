@@ -52,6 +52,12 @@ enum BuilderContext {
     },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PendingPathContext {
+    Binding,
+    Section,
+}
+
 /// A document constructor that tracks source layout for round-trip formatting.
 ///
 /// `SourceConstructor` wraps [`DocumentConstructor`] and records source structure
@@ -116,6 +122,9 @@ pub struct SourceConstructor {
 
     /// Inline container traversal should not mutate the pending binding path.
     suspended_path_tracking: usize,
+
+    /// Whether the pending path belongs to a binding or a section header.
+    pending_path_context: Option<PendingPathContext>,
 }
 
 /// Scope handle for [`SourceConstructor`].
@@ -157,6 +166,7 @@ impl SourceConstructor {
             last_block_id: None,
             skip_path_restore_for_next_scope: false,
             suspended_path_tracking: 0,
+            pending_path_context: None,
         }
     }
 
@@ -521,14 +531,21 @@ impl InterpreterSink for SourceConstructor {
             if let PathSegment::ArrayIndex(idx) = &segment {
                 if let Some(last) = self.pending_path.last_mut() {
                     last.array = Some(*idx);
-                } else if !matches!(
-                    self.builder_stack.last(),
-                    Some(BuilderContext::SectionItems { .. })
-                ) {
-                    return Err(InsertError {
-                        kind: ConstructorError::StandaloneArrayIndex.into(),
-                        path: EurePath::from_iter(self.inner.current_path().iter().cloned()),
-                    });
+                } else {
+                    let in_section_items = matches!(
+                        self.builder_stack.last(),
+                        Some(BuilderContext::SectionItems { .. })
+                    );
+                    let in_section_header =
+                        self.pending_path_context == Some(PendingPathContext::Section);
+                    if in_section_items || in_section_header {
+                        self.pending_path.push(SourcePathSegment::root_array(*idx));
+                    } else {
+                        return Err(InsertError {
+                            kind: ConstructorError::StandaloneArrayIndex.into(),
+                            path: EurePath::from_iter(self.inner.current_path().iter().cloned()),
+                        });
+                    }
                 }
             } else {
                 let source_segment = Self::path_segment_to_source(&segment);
@@ -652,6 +669,7 @@ impl InterpreterSink for SourceConstructor {
 
     fn begin_binding(&mut self) {
         self.pending_path.clear();
+        self.pending_path_context = Some(PendingPathContext::Binding);
         self.skip_path_restore_for_next_scope = true;
     }
 
@@ -665,6 +683,7 @@ impl InterpreterSink for SourceConstructor {
 
         let binding = BindingSource::value(path, node_id);
         self.push_binding(binding);
+        self.pending_path_context = None;
         Ok(())
     }
 
@@ -678,11 +697,13 @@ impl InterpreterSink for SourceConstructor {
 
         let binding = BindingSource::block(path, source_id);
         self.push_binding(binding);
+        self.pending_path_context = None;
         Ok(())
     }
 
     fn begin_section(&mut self) {
         self.pending_path.clear();
+        self.pending_path_context = Some(PendingPathContext::Section);
         self.skip_path_restore_for_next_scope = true;
     }
 
@@ -700,6 +721,7 @@ impl InterpreterSink for SourceConstructor {
             value,
             bindings: Vec::new(),
         });
+        self.pending_path_context = None;
     }
 
     fn end_section_items(&mut self) -> Result<(), Self::Error> {
@@ -733,6 +755,7 @@ impl InterpreterSink for SourceConstructor {
 
         let section = SectionSource::block(path, source_id);
         self.push_section(section, trivia_before);
+        self.pending_path_context = None;
         Ok(())
     }
 
@@ -1005,6 +1028,45 @@ mod tests {
             }
             _ => panic!("Expected SectionBody::Items"),
         }
+    }
+
+    #[test]
+    fn test_pattern4_root_array_section_items() {
+        let mut constructor = SourceConstructor::new();
+
+        // Build:
+        // @[]
+        // a = 1
+
+        constructor.begin_section();
+        let scope = constructor.begin_scope();
+        constructor
+            .navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))
+            .unwrap();
+        constructor.begin_section_items();
+
+        constructor.begin_binding();
+        let inner_scope = constructor.begin_scope();
+        constructor
+            .navigate(PathSegment::Ident(ident("a")))
+            .unwrap();
+        constructor
+            .bind_primitive(PrimitiveValue::Integer(1.into()))
+            .unwrap();
+        constructor.end_scope(inner_scope).unwrap();
+        constructor.end_binding_value().unwrap();
+
+        constructor.end_section_items().unwrap();
+        constructor.end_scope(scope).unwrap();
+
+        let source_doc = constructor.finish();
+        let root = source_doc.root_source();
+        assert_eq!(root.sections.len(), 1);
+
+        let section = &root.sections[0];
+        assert_eq!(section.path.len(), 1);
+        assert_eq!(section.path[0].key, SourceKey::Root);
+        assert_eq!(section.path[0].array, Some(ArrayIndexKind::Push));
     }
 
     // =========================================================================

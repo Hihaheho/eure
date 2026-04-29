@@ -554,6 +554,8 @@ pub(crate) fn to_source_path(path: &[PathSegment]) -> SourcePath {
             PathSegment::ArrayIndex(index) => {
                 if let Some(last) = out.last_mut() {
                     last.array = Some(*index);
+                } else {
+                    out.push(SourcePathSegment::root_array(*index));
                 }
             }
         }

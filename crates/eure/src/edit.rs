@@ -1114,8 +1114,10 @@ fn resolve_source_path(
     let mut current = base;
     let mut last_array_parent = None;
     for segment in path {
-        let key_segment = source_key_to_path_segment(&segment.key)?;
-        current = traverse::child_node_id(document, current, &key_segment)?;
+        if !matches!(&segment.key, SourceKey::Root) {
+            let key_segment = source_key_to_path_segment(&segment.key)?;
+            current = traverse::child_node_id(document, current, &key_segment)?;
+        }
         if let Some(array) = segment.array {
             let array_id = current;
             let element = match array {
@@ -1145,6 +1147,7 @@ fn resolve_source_path(
 
 fn source_key_to_path_segment(key: &SourceKey) -> Option<PathSegment> {
     match key {
+        SourceKey::Root => None,
         SourceKey::Ident(ident) => Some(PathSegment::Ident(ident.clone())),
         SourceKey::Extension(ident) => Some(PathSegment::Extension(ident.clone())),
         SourceKey::Hole(label) => Some(PathSegment::HoleKey(label.clone())),
@@ -1173,7 +1176,10 @@ fn source_key_to_object_key(key: &SourceKey) -> Option<ObjectKey> {
                 .map(source_key_to_object_key)
                 .collect::<Option<Vec<_>>>()?,
         ))),
-        SourceKey::Extension(_) | SourceKey::Hole(_) | SourceKey::TupleIndex(_) => None,
+        SourceKey::Root
+        | SourceKey::Extension(_)
+        | SourceKey::Hole(_)
+        | SourceKey::TupleIndex(_) => None,
     }
 }
 
