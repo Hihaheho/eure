@@ -60,10 +60,10 @@ With these derives you can:
 ```
 
   "text-snippet" = ```text
-use eure_document::document::EureDocument;
+use eure::document::EureDocument;
 
 let doc: EureDocument = /* parse your .eure file */;
-let config: Config = doc.parse(doc.root())?;
+let config: Config = doc.parse(doc.get_root_id())?;
 ```
 
   "body-2" = ```markdown
@@ -95,11 +95,12 @@ let tags: Vec<String> = doc.parse(node_id)?;
   "##": IntoEure
 
   "body" = ```markdown
-`IntoEure` builds an `EureDocument` from a Rust value:
+`IntoEure` builds an `EureDocument` from a Rust value. Drive a `DocumentConstructor` to write the value, then call `finish()`:
 ```
 
   "text-snippet" = ```text
-use eure_document::document::EureDocument;
+use eure::document::EureDocument;
+use eure::document::constructor::DocumentConstructor;
 
 let config = Config {
     name: "my-app".to_string(),
@@ -107,7 +108,13 @@ let config = Config {
     debug: Some(true),
 };
 
-let doc: EureDocument = config.into_eure();
+let mut c = DocumentConstructor::new();
+c.write(config)?;
+let doc: EureDocument = c.finish();
+```
+
+  "body-2" = ```markdown
+See [Programmatic API](/docs/programmatic-api) for the full constructor / record-builder reference.
 ```
 
 }
@@ -116,17 +123,21 @@ let doc: EureDocument = config.into_eure();
   "##": BuildSchema
 
   "body" = ```markdown
-`BuildSchema` generates a `SchemaDocument` reflecting the type's structure. This is useful for runtime validation or generating `.eure` schema files from Rust types:
+`BuildSchema` generates a `SchemaDocument` reflecting the type's structure. This is useful for runtime validation or generating `.eure` schema files from Rust types. Use `SchemaDocument::of::<T>()` as the entry point:
 ```
 
   "text-snippet" = ```text
-use eure_schema::SchemaDocument;
+use eure::SchemaDocument;
 
-let schema: SchemaDocument = Config::build_schema();
+let schema: SchemaDocument = SchemaDocument::of::<Config>();
 
 // Use for validation
 let doc: EureDocument = /* ... */;
-doc.validate(&schema)?;
+let output = eure_schema::validate(&doc, &schema);
+assert!(output.is_valid);
+for error in &output.errors {
+    eprintln!("schema error: {error}");
+}
 ```
 
 }
@@ -151,8 +162,12 @@ Corresponding Eure document:
 ```
 
   "eure-snippet" = ```eure
-$variant = "inactive"
+$variant = "Inactive"
 reason = "maintenance"
+```
+
+  "body-3" = ```markdown
+By default, variant names are written verbatim (PascalCase). Add `#[eure(rename_all = snake_case)]` on the enum to emit `"inactive"` instead.
 ```
 
 }

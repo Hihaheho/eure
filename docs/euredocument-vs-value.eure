@@ -41,7 +41,7 @@ The `FromEure` trait provides type-safe extraction from `EureDocument` nodes. Th
 ```
 
     "rust-snippet" = ```rust
-use eure::parse::FromEure;
+use eure::FromEure;
 
 // Primitives
 let name: &str = doc.parse::<&str>(node_id)?;
@@ -91,9 +91,11 @@ let tags: Vec<&str> = doc.parse::<Vec<&str>>(node_id)?;
 ```
 
     "rust-snippet" = ```rust
-   // Validation errors include exact source locations
-   let validator = SchemaValidator::new(input, schema, &tree);
-   let errors = validator.validate(); // Errors have InputSpan
+   // Validation errors include schema-aware diagnostics
+   let output = eure_schema::validate(&document, &schema);
+   for error in &output.errors {
+       eprintln!("{error}");
+   }
 ```
 
     "body-2" = ```markdown
@@ -101,9 +103,12 @@ let tags: Vec<&str> = doc.parse::<Vec<&str>>(node_id)?;
 ```
 
     "rust-snippet-2" = ```rust
-   // Validation errors include exact source locations
-   let validator = SchemaValidator::new(input, schema, &tree);
-   let errors = validator.validate(); // Errors have InputSpan
+   let output = eure_schema::validate(&document, &schema);
+   if !output.is_valid {
+       for error in &output.errors {
+           eprintln!("schema error: {error}");
+       }
+   }
 ```
 
     "body-3" = ```markdown
@@ -111,9 +116,20 @@ let tags: Vec<&str> = doc.parse::<Vec<&str>>(node_id)?;
 ```
 
     "rust-snippet-3" = ```rust
+   use eure::document::path::PathSegment;
+   use eure::document::node::NodeValue;
+   use eure::value::PrimitiveValue;
+   use num_bigint::BigInt;
+
    // Build up a document node by node
-   let node_id = document.create_node(NodeValue::Primitive(PrimitiveValue::Integer(8080.into())));
-   document.add_child_by_segment(parent_id, PathSegment::Ident("port".into()), node_id)?;
+   let node_id = document.create_node(
+       NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(8080))),
+   );
+   document.add_child_by_segment(
+       parent_id,
+       PathSegment::Ident("port".parse()?),
+       node_id,
+   )?;
 ```
 
     "body-4" = ```markdown
@@ -123,8 +139,7 @@ let tags: Vec<&str> = doc.parse::<Vec<&str>>(node_id)?;
     "rust-snippet-4" = ```rust
    // Read a node's content
    let node = document.node(node_id);
-   // Nodes hold NodeValue which is the typed content
-   match &node.value {
+   match &node.content {
        NodeValue::Primitive(p) => { /* handle primitive */ }
        NodeValue::Map(_) => { /* handle map */ }
        _ => {}
@@ -156,8 +171,9 @@ let tags: Vec<&str> = doc.parse::<Vec<&str>>(node_id)?;
    let json_value = eure_json::document_to_value(&document, &eure_json::Config::default())?;
    let json_string = serde_json::to_string(&json_value)?;
 
-   // Or use serde_eure for Serde-compatible types
-   let config: MyConfig = serde_eure::from_document(&document)?;
+   // Or use serde_eure to feed any serde Deserializer
+   let mut json_de = serde_json::Deserializer::from_str(&json_string);
+   let doc2: EureDocument = serde_eure::from_deserializer(&mut json_de, &schema)?;
 ```
 
     "body-3" = ```markdown
@@ -199,7 +215,9 @@ Use `eure_json::document_to_value` to convert an `EureDocument` to a `serde_json
 ```
 
     "rust-snippet" = ```rust
-let document: EureDocument = parse_and_build_document(input)?;
+use eure::document::parse_to_document;
+
+let document: EureDocument = parse_to_document(input, "config.eure")?;
 let json = eure_json::document_to_value(&document, &eure_json::Config::default())?;
 ```
 
@@ -233,14 +251,17 @@ let description: Option<&str> = ctx.parse_ext_optional::<&str>("description")?;
     "###": Parsing Documents
 
     "body" = ```markdown
-Documents are built via `CstInterpreter` (located in `crates/eure/src/document/interpreter.rs`):
+Use `parse_to_document` for the `EureDocument` only, or `parse_to_source_document` to additionally retain comments and layout for round-tripping (see [Programmatic API](/docs/programmatic-api)):
 ```
 
     "rust-snippet" = ```rust
-let tree = parse(input)?;
-let mut visitor = CstInterpreter::new(input);
-tree.visit_from_root(&mut visitor)?;
-let document: EureDocument = visitor.into_document();
+use eure::document::{parse_to_document, parse_to_source_document};
+
+let document = parse_to_document(input, "config.eure")?;
+
+// Or, with trivia preserved for source-faithful editing:
+let source = parse_to_source_document(input, "config.eure")?;
+let document = &source.document;
 ```
 
   }
@@ -254,26 +275,24 @@ let document: EureDocument = visitor.into_document();
     "###": Example 1: Schema Validation with Diagnostics
 
     "rust-snippet" = ```rust
-// Using EureDocument for rich error reporting
-pub fn validate_with_diagnostics(input: &str) -> Vec<Diagnostic> {
-    let tree = parse(input)?;
-    let mut visitor = CstInterpreter::new(input);
-    tree.visit_from_root(&mut visitor)?;
-    let document = visitor.into_document();
+use eure::document::{EureDocument, parse_to_document};
+use eure_schema::{SchemaDocument, ValidationError, validate};
 
-    let validator = SchemaValidator::new(input, schema, &tree);
-    validator.validate()
-        .into_iter()
-        .map(|error| Diagnostic {
-            span: error.span, // Exact source location
-            message: error.message,
-            severity: error.severity,
-        })
-        .collect()
+// Using EureDocument for schema-aware error reporting
+pub fn validate_with_diagnostics(
+    input: &str,
+    schema: &SchemaDocument,
+) -> Vec<ValidationError> {
+    let document = match parse_to_document(input, "<input>") {
+        Ok(doc) => doc,
+        Err(_) => return Vec::new(),
+    };
+    let output = validate(&document, schema);
+    output.errors
 }
 
-// Using FromEure for simple validation
-pub fn validate_simple(doc: &EureDocument, root: NodeId) -> Result<(), EureError> {
+// Using FromEure for simple field-level validation
+pub fn validate_simple(doc: &EureDocument, root: NodeId) -> Result<(), ParseError> {
     let rec = doc.parse_record(root)?;
     let _required: &str = rec.parse_field::<&str>("required_field")?;
     Ok(())
@@ -286,27 +305,37 @@ pub fn validate_simple(doc: &EureDocument, root: NodeId) -> Result<(), EureError
     "###": Example 2: Configuration Processing
 
     "rust-snippet" = ```rust
-// Using EureDocument for config with source tracking
+use eure::document::{EureDocument, NodeId};
+use eure::document::node::NodeValue;
+use eure::document::path::PathSegment;
+use eure::identifier::Identifier;
+use eure::text::Text;
+use eure::value::PrimitiveValue;
+
+// Using EureDocument for config edited via path
 pub struct ConfigManager {
     document: EureDocument,
 }
 
 impl ConfigManager {
-    pub fn update_setting(&mut self, parent_id: NodeId, key: &str, value: &str) -> Result<(), InsertError> {
+    pub fn update_setting(
+        &mut self,
+        parent_id: NodeId,
+        key: &str,
+        value: &str,
+    ) -> anyhow::Result<()> {
+        let ident: Identifier = key.parse()?;
         let node_id = self.document.create_node(
-            NodeValue::Primitive(PrimitiveValue::Text(Text::plain(value)))
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(value))),
         );
-        self.document.add_child_by_segment(
-            parent_id,
-            PathSegment::Ident(Identifier::new(key)?),
-            node_id,
-        )?;
+        self.document
+            .add_child_by_segment(parent_id, PathSegment::Ident(ident), node_id)?;
         Ok(())
     }
 }
 
 // Using FromEure for config extraction
-pub fn load_config(document: &EureDocument) -> Result<Config, EureError> {
+pub fn load_config(document: &EureDocument) -> anyhow::Result<Config> {
     let root = document.get_root_id();
     let rec = document.parse_record(root)?;
     Ok(Config {
@@ -322,15 +351,16 @@ pub fn load_config(document: &EureDocument) -> Result<Config, EureError> {
     "###": Example 3: Editor Features
 
     "rust-snippet" = ```rust
-// EureDocument is used for LSP features - span tracking enables completions and diagnostics
-// Use document.node(id) to read NodeValue and determine context
+use eure::document::{EureDocument, NodeId};
+use eure::document::node::NodeValue;
+
 pub fn analyze_node(document: &EureDocument, node_id: NodeId) -> NodeKind {
-    match &document.node(node_id).value {
+    match &document.node(node_id).content {
         NodeValue::Map(_) => NodeKind::Map,
         NodeValue::Array(_) => NodeKind::Array,
+        NodeValue::Tuple(_) => NodeKind::Tuple,
         NodeValue::Primitive(_) => NodeKind::Primitive,
-        NodeValue::Hole => NodeKind::Hole,
-        _ => NodeKind::Other,
+        NodeValue::Hole(_) => NodeKind::Hole,
     }
 }
 ```

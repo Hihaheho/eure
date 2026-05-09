@@ -1,0 +1,239 @@
+$frontmatter {
+  title: Programmatic API
+  description: Build, edit, and format Eure documents from Rust using IntoEure, EditableDocument, and eure-fmt.
+}
+
+"#": Programmatic API
+
+"body" = ```markdown
+This guide shows how to work with Eure data from Rust without going through the CLI:
+
+- **`IntoEure`** — turn a Rust value into an `EureDocument`.
+- **`EditableDocument`** — parse Eure source into a document that preserves comments and layout, then mutate it by path.
+- **`eure-fmt`** — render a document back to formatted text.
+
+These three APIs compose into a single workflow: build → edit → format. Add the `eure` crate to your `Cargo.toml`; everything below is re-exported from there.
+```
+
+"toc".$toc = true
+
+@ "overview" {
+  "##": Overview
+
+  "body" = ```markdown
+| API | Path | Direction |
+|-----|------|-----------|
+| `IntoEure` (trait + derive) | `eure::IntoEure` | Rust value → `EureDocument` |
+| `DocumentConstructor` | `eure::document::constructor::DocumentConstructor` | Imperative document builder |
+| `EditableDocument` | `eure::edit::EditableDocument` | Parse / mutate / render with trivia preserved |
+| `format_source_document` | `eure_fmt::format_source_document` | `SourceDocument` → `String` |
+| `parse_to_source_document` | `eure::document::parse_to_source_document` | Eure text → `SourceDocument` |
+
+For type-safe extraction in the other direction (`EureDocument` → Rust value), see [Derive Macros](/docs/derive-macros) for `FromEure`.
+```
+
+}
+
+@ "into_eure_with_derive" {
+  "##": IntoEure: From a Rust Struct
+
+  "body" = ```markdown
+Add `#[derive(IntoEure)]` to any struct or enum, then drive a `DocumentConstructor` to produce an `EureDocument`. The `#[eure(crate = ::eure::document)]` attribute tells the derive where to find the runtime types when you depend on the umbrella `eure` crate.
+```
+
+  "text-snippet" = ```text
+use eure::IntoEure;
+use eure::document::constructor::DocumentConstructor;
+
+#[derive(IntoEure)]
+#[eure(crate = ::eure::document)]
+struct Server {
+    host: String,
+    port: u16,
+    tags: Vec<String>,
+}
+
+let server = Server {
+    host: "localhost".into(),
+    port: 8080,
+    tags: vec!["api".into(), "internal".into()],
+};
+
+let mut c = DocumentConstructor::new();
+c.write(server)?;
+let doc = c.finish();
+```
+
+  "body-2" = ```markdown
+The resulting `EureDocument` corresponds to:
+```
+
+  "eure-snippet" = ```eure
+host = "localhost"
+port = 8080
+tags = ["api", "internal"]
+```
+
+  "body-3" = ```markdown
+You can also call the trait method directly when you do not want to import `IntoEure` as a bound:
+
+`Server::write(server, &mut c)?;`
+
+For field renaming, flattening, and union (enum) representation, see [Derive Macros](/docs/derive-macros).
+```
+
+}
+
+@ "manual_construction" {
+  "##": IntoEure: Without a Derive
+
+  "body" = ```markdown
+For ad-hoc records, drive `DocumentConstructor` directly. The `record` closure exposes a `RecordWriter` whose `field` method accepts any `IntoEure` value:
+```
+
+  "text-snippet" = ```text
+use eure::document::constructor::DocumentConstructor;
+use eure::document::write::WriteError;
+
+let mut c = DocumentConstructor::new();
+c.record(|rec| {
+    rec.field("name", "Alice")?;
+    rec.field("active", true)?;
+    rec.field("scores", vec![90, 85, 100])?;
+    Ok::<(), WriteError>(())
+})?;
+let doc = c.finish();
+```
+
+  "body-2" = ```markdown
+Other entry points on `DocumentConstructor`:
+
+| Method | Purpose |
+|--------|---------|
+| `tuple(\|t\| { t.next(...)?; ... })` | Build a tuple value |
+| `set_extension("name", value)` | Attach a `$name` extension to the current node |
+| `set_variant("Foo")` | Set `$variant = "Foo"` for union types |
+| `write_via::<Marker, _>(value)` | Write a foreign type via a marker that implements `IntoEure<T>` |
+
+See `crates/eure-document/src/write.rs` for the full reference.
+```
+
+}
+
+@ "editable_document_round_trip" {
+  "##": EditableDocument: Round-Trip With Comments Preserved
+
+  "body" = ```markdown
+`EditableDocument` parses Eure source into a `SourceDocument` (an `EureDocument` plus all comments and blank lines) and renders it back identically. Use this when formatting fidelity matters — for example, modifying a user's config file in place.
+```
+
+  "text-snippet" = ```text
+use eure::edit::EditableDocument;
+
+let input = "// server config\n\
+             host = \"localhost\"\n\
+             port = 8080\n";
+
+let doc = EditableDocument::parse(input, "config.eure")?;
+assert_eq!(doc.render(), input);
+```
+
+  "body-2" = ```markdown
+Mutate the document by **edit path** — a dotted path with optional `[index]` selectors:
+```
+
+  "text-snippet-2" = ```text
+let mut doc = EditableDocument::parse(input, "config.eure")?;
+
+doc.set("port", "9090")?;            // overwrite
+doc.insert("tags", "[\"api\"]")?;     // create new key
+doc.delete("host")?;                  // remove key
+
+println!("{}", doc.render());
+```
+
+  "body-3" = ```markdown
+The second argument to `set` / `insert` is **Eure source**, not a Rust value — it is parsed before being applied. For batched edits use `apply_all(commands)` with `EditCommand::{Set, Insert, Delete}`.
+
+To read back, call `doc.document()` to get a `&EureDocument` and parse it with `FromEure`:
+```
+
+  "text-snippet-3" = ```text
+use eure::FromEure;
+
+let server: Server = Server::parse(
+    &doc.document().parse_context(doc.document().get_root_id())
+)?;
+```
+
+}
+
+@ "intoeure_to_string" {
+  "##": From a Rust Value to Formatted Text
+
+  "body" = ```markdown
+To go straight from a Rust value to an Eure source string, build the document with `IntoEure`, wrap it in a `SourceDocument`, then call `format_source_document`:
+```
+
+  "text-snippet" = ```text
+use eure::document::constructor::DocumentConstructor;
+use eure::document::source::SourceDocument;
+use eure_fmt::format_source_document;
+
+let mut c = DocumentConstructor::new();
+c.write(server)?;
+let doc = c.finish();
+
+let source = SourceDocument::new(doc, vec![]);
+let text = format_source_document(&source);
+println!("{text}");
+```
+
+  "body-2" = ```markdown
+Because the document was built from a Rust value, it has no original trivia, so the output is freshly formatted with the formatter's defaults. If you instead want to preserve a user's existing comments and layout, parse with `EditableDocument`, mutate, and call `render()`.
+```
+
+}
+
+@ "eure_fmt_formatting_text" {
+  "##": eure-fmt: Formatting Existing Source
+
+  "body" = ```markdown
+To format an arbitrary Eure source string, parse it into a `SourceDocument` and pass it to `format_source_document`:
+```
+
+  "text-snippet" = ```text
+use eure::document::parse_to_source_document;
+use eure_fmt::format_source_document;
+
+let messy = "name=\"alice\"\n  age=  30\n";
+let source = parse_to_source_document(messy, "config.eure")?;
+let pretty = format_source_document(&source);
+```
+
+  "body-2" = ```markdown
+This is also what `EditableDocument::render()` calls internally, so for parse-edit-format pipelines you usually do not need to touch `eure-fmt` directly.
+
+For callers that already hold a parsed CST (for example, an editor extension), `eure-fmt` also exposes `format_cst(input, &cst, &FormatConfig)` and a `FormatConfig` builder with `max_width`, `indent_width`, `use_tabs`, `trailing_comma`, and `newline` knobs. See `crates/eure-fmt/src/lib.rs` for the lower-level API.
+
+The `eure fmt` CLI subcommand is not yet implemented; use the library API for now.
+```
+
+}
+
+@ "errors" {
+  "##": Errors
+
+  "body" = ```markdown
+Every error type in this stack is a `thiserror` enum — match on the variants rather than stringifying:
+
+| Error | Where | Notes |
+|-------|-------|-------|
+| `eure::document::write::WriteError` | `DocumentConstructor::record` / `field` / `write` | Identifier validity, scope, variant-path issues |
+| `eure::edit::EditError` | `EditableDocument::parse` / `set` / `insert` / `delete` | Wraps both parse failures and path resolution errors |
+| `eure_fmt::FormatError` | `format_cst` (low-level) | Parse failures during direct CST formatting |
+
+`format_source_document` is infallible — any errors must already have been surfaced when parsing or constructing the document.
+```
+
+}
