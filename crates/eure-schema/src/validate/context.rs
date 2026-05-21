@@ -305,14 +305,10 @@ impl<'a> ValidationContext<'a> {
             let content = &self.schema.node(current_id).content;
             match content {
                 SchemaNodeContent::Reference(type_ref) => {
-                    if type_ref.namespace.is_some() {
-                        return content; // Cross-schema refs not resolved
-                    }
-                    if let Some(&resolved_id) = self.schema.types.get(&type_ref.name) {
-                        current_id = resolved_id;
-                    } else {
-                        return content; // Unresolved reference
-                    }
+                    let Some(resolved_id) = self.schema.resolve_reference(type_ref) else {
+                        return content;
+                    };
+                    current_id = resolved_id;
                 }
                 _ => return content,
             }

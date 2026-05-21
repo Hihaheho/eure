@@ -43,16 +43,18 @@
 //! **Type reference:** `` `$types.my-type` `` or `` `$types.namespace.type` ``
 
 use crate::parse::{
-    ParsedArraySchema, ParsedExtTypeSchema, ParsedFloatSchema, ParsedIntegerSchema,
-    ParsedMapSchema, ParsedRecordSchema, ParsedSchemaMetadata, ParsedSchemaNode,
-    ParsedSchemaNodeContent, ParsedTupleSchema, ParsedUnionSchema, ParsedUnknownFieldsPolicy,
+    ParsedArraySchema, ParsedExports, ParsedExtTypeSchema, ParsedFloatSchema, ParsedImports,
+    ParsedIntegerSchema, ParsedMapSchema, ParsedRecordSchema, ParsedSchemaMetadata,
+    ParsedSchemaNode, ParsedSchemaNodeContent, ParsedTupleSchema, ParsedUnionSchema,
+    ParsedUnknownFieldsPolicy, parse_root_exports, parse_root_imports,
 };
+use crate::resolver::{LoadedSchemaSet, ResolvedSchemaUri, ResolverError};
 use crate::type_path_trace::LayoutStrategies;
 use crate::{
     ArraySchema, Bound, CodegenDefaults, ExtTypeSchema, FloatPrecision, FloatSchema, IntegerSchema,
     MapSchema, RecordCodegen, RecordFieldSchema, RecordSchema, RootCodegen, SchemaDocument,
-    SchemaMetadata, SchemaNodeContent, SchemaNodeId, TupleSchema, TypeCodegen, UnionCodegen,
-    UnionSchema, UnknownFieldsPolicy,
+    SchemaImport, SchemaMetadata, SchemaNodeContent, SchemaNodeId, TupleSchema, TypeCodegen,
+    TypeReference, UnionCodegen, UnionSchema, UnknownFieldsPolicy,
 };
 use eure_document::document::node::{Node, NodeValue};
 use eure_document::document::{EureDocument, InsertErrorKind, NodeId};
@@ -60,7 +62,7 @@ use eure_document::identifier::Identifier;
 use eure_document::parse::ParseError;
 use eure_document::path::{ArrayIndexKind, EurePath, PathSegment};
 use eure_document::value::{ObjectKey, ValueKind};
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use num_bigint::BigInt;
 use thiserror::Error;
 
@@ -99,51 +101,297 @@ pub enum ConversionError {
         schema_kind: String,
     },
 
+    #[error("failed to resolve schema import `{alias}` -> \"{raw_path}\": {source}")]
+    ImportResolverFailed {
+        alias: String,
+        raw_path: String,
+        #[source]
+        source: ResolverError,
+    },
+
+    #[error("schema import cycle: {}", format_cycle(.cycle, .attempted))]
+    ImportCycle {
+        cycle: Vec<ResolvedSchemaUri>,
+        attempted: ResolvedSchemaUri,
+    },
+
+    #[error(
+        "type reference uses unknown import namespace `{namespace}` (in `$types.{namespace}.{name}`)"
+    )]
+    UnknownImportNamespace { namespace: String, name: String },
+
+    #[error("type `{name}` is not exported by `{namespace}` (declared in $import)")]
+    TypeNotExported { namespace: String, name: String },
+
+    #[error("$export lists `{name}`, but no such locally-declared type exists")]
+    ExportedNameNotDeclared { name: String },
+
+    #[error("schema import `{alias}` -> \"{raw_path}\" was not loaded for {base}")]
+    ImportNotLoaded {
+        base: ResolvedSchemaUri,
+        alias: String,
+        raw_path: String,
+    },
+
     #[error("Parse error: {0}")]
     ParseError(#[from] ParseError),
 }
 
+fn format_cycle(cycle: &[ResolvedSchemaUri], attempted: &ResolvedSchemaUri) -> String {
+    let mut parts: Vec<String> = cycle.iter().map(|u| u.to_string()).collect();
+    parts.push(attempted.to_string());
+    parts.join(" -> ")
+}
+
+/// Source document location for a schema node.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SchemaSource {
+    pub uri: ResolvedSchemaUri,
+    pub node_id: NodeId,
+}
+
 /// Mapping from schema node IDs to their source document node IDs.
 /// Used for propagating origin information for error formatting.
-pub type SchemaSourceMap = IndexMap<SchemaNodeId, NodeId>;
+pub type SchemaSourceMap = IndexMap<SchemaNodeId, SchemaSource>;
 
 /// Internal converter state
 struct Converter<'a> {
     doc: &'a EureDocument,
+    loaded: &'a LoadedSchemaSet,
     schema: SchemaDocument,
     /// Track source document NodeId for each schema node
     source_map: SchemaSourceMap,
+    /// Canonical identity of *this* document (the importer). Used as the base
+    /// against which `$import` paths resolve, and for cycle detection.
+    base_uri: ResolvedSchemaUri,
 }
 
 impl<'a> Converter<'a> {
-    fn new(doc: &'a EureDocument) -> Self {
+    fn new(
+        doc: &'a EureDocument,
+        loaded: &'a LoadedSchemaSet,
+        base_uri: ResolvedSchemaUri,
+    ) -> Self {
         Self {
             doc,
+            loaded,
             schema: SchemaDocument::new(),
             source_map: IndexMap::new(),
+            base_uri,
         }
     }
 
-    /// Convert the root node and produce the final schema with source mapping
-    fn convert(mut self) -> Result<(SchemaDocument, SchemaSourceMap), ConversionError> {
+    /// Convert the root node and produce the final schema with source mapping.
+    ///
+    /// `visited` is the set of schema URIs already on the conversion stack; it
+    /// is used to detect import cycles. The caller is responsible for inserting
+    /// `self.base_uri` into the set before calling and removing it afterwards.
+    fn run(
+        mut self,
+        visited: &mut IndexSet<ResolvedSchemaUri>,
+    ) -> Result<(SchemaDocument, SchemaSourceMap), ConversionError> {
         let root_id = self.doc.get_root_id();
-        let root_node = self.doc.node(root_id);
 
-        // Convert all type definitions from $types extension
+        // 1. Inline already-loaded imports first so their nodes are available
+        //    before local definitions reference them.
+        self.process_imports(visited)?;
+
+        // 2. Convert local `$types` definitions and root codegen.
+        let root_node = self.doc.node(root_id);
         self.convert_types(root_node)?;
         self.convert_root_codegen(root_node)?;
 
-        // Convert root node
-        // Root-level `$codegen` is handled separately via `convert_root_codegen`.
-        // If root content is not record/union, keep it as root metadata instead of
-        // treating it as invalid type-level codegen.
+        // 3. Convert the root node itself.
         self.schema.root = self.convert_node_allow_non_type_codegen(root_id)?;
 
-        // Validate all type references exist
-        self.validate_type_references()?;
+        // 4. Compute the export set from `$export` (or default to all locally-declared).
+        self.compute_exports()?;
+
+        // 5. Validate type references and resolve them to schema node IDs.
+        self.validate_and_rewrite_type_references()?;
         self.validate_non_productive_reference_cycles()?;
 
         Ok((self.schema, self.source_map))
+    }
+
+    /// Inline every already-loaded `$import` entry into `self.schema`.
+    fn process_imports(
+        &mut self,
+        visited: &mut IndexSet<ResolvedSchemaUri>,
+    ) -> Result<(), ConversionError> {
+        let root_id = self.doc.get_root_id();
+        let root_ctx = self.doc.parse_context(root_id);
+        let parsed: ParsedImports = parse_root_imports(&root_ctx)?;
+
+        for (alias, entry) in parsed.entries {
+            let imported_uri = self
+                .loaded
+                .import_target(&self.base_uri, &alias)
+                .cloned()
+                .ok_or_else(|| ConversionError::ImportNotLoaded {
+                    base: self.base_uri.clone(),
+                    alias: alias.to_string(),
+                    raw_path: entry.raw_path.clone(),
+                })?;
+            let child_doc = self.loaded.document(&imported_uri).ok_or_else(|| {
+                ConversionError::ImportNotLoaded {
+                    base: self.base_uri.clone(),
+                    alias: alias.to_string(),
+                    raw_path: entry.raw_path.clone(),
+                }
+            })?;
+            let (child_schema, child_source_map) =
+                convert_with_visited(self.loaded, imported_uri.clone(), child_doc, visited)?;
+
+            self.inline_imported_schema(&alias, imported_uri, child_schema, child_source_map)?;
+        }
+        Ok(())
+    }
+
+    /// Deep-copy `child` into `self.schema` and register its types under
+    /// `self.schema.imports[alias]` for later reference resolution.
+    fn inline_imported_schema(
+        &mut self,
+        alias: &Identifier,
+        child_uri: ResolvedSchemaUri,
+        child: SchemaDocument,
+        child_source_map: SchemaSourceMap,
+    ) -> Result<(), ConversionError> {
+        // Reserve placeholder nodes in the parent arena, one per child node.
+        let mut remap: Vec<SchemaNodeId> = Vec::with_capacity(child.nodes.len());
+        for _ in 0..child.nodes.len() {
+            let new_id = self.schema.create_node(SchemaNodeContent::Any);
+            remap.push(new_id);
+        }
+
+        // Copy each child node, remapping SchemaNodeIds.
+        for (i, child_node) in child.nodes.iter().enumerate() {
+            let parent_id = remap[i];
+            let new_content = remap_node_content(&child_node.content, &remap);
+            let new_ext_types = remap_ext_types(&child_node.ext_types, &remap);
+
+            let parent_node = self.schema.node_mut(parent_id);
+            parent_node.content = new_content;
+            parent_node.metadata = child_node.metadata.clone();
+            parent_node.ext_types = new_ext_types;
+            parent_node.type_codegen = child_node.type_codegen.clone();
+        }
+
+        // Register only the child's local type namespace under this import.
+        let mut all_types = IndexMap::new();
+        for (name, child_id) in &child.types {
+            all_types.insert(name.clone(), remap[child_id.0]);
+        }
+
+        for (child_id, source) in child_source_map {
+            self.source_map.insert(remap[child_id.0], source);
+        }
+
+        self.schema.imports.insert(
+            alias.clone(),
+            SchemaImport {
+                uri: child_uri,
+                all_types,
+                exports: child.exports.clone(),
+            },
+        );
+        Ok(())
+    }
+
+    /// Compute `self.schema.exports` from the optional root-level `$export`.
+    /// Defaults to "all locally-declared types".
+    fn compute_exports(&mut self) -> Result<(), ConversionError> {
+        let root_ctx = self.doc.parse_context(self.doc.get_root_id());
+        let parsed = parse_root_exports(&root_ctx)?;
+
+        match parsed {
+            None => {
+                // No `$export` — every locally-declared type is public.
+                self.schema.exports = self.schema.types.keys().cloned().collect();
+            }
+            Some(ParsedExports::Explicit { names }) => {
+                let mut exports = IndexSet::new();
+                for name in names {
+                    if !self.schema.types.contains_key(&name) {
+                        return Err(ConversionError::ExportedNameNotDeclared {
+                            name: name.to_string(),
+                        });
+                    }
+                    exports.insert(name);
+                }
+                self.schema.exports = exports;
+            }
+        }
+        Ok(())
+    }
+
+    /// Validate that every `Reference` resolves and rewrite named refs to
+    /// arena-local schema node IDs. Runs after imports have been inlined and
+    /// local types registered.
+    fn validate_and_rewrite_type_references(&mut self) -> Result<(), ConversionError> {
+        for index in 0..self.schema.nodes.len() {
+            // Only Reference nodes need rewriting.
+            let needs_rewrite = matches!(
+                &self.schema.nodes[index].content,
+                SchemaNodeContent::Reference(_)
+            );
+            if !needs_rewrite {
+                continue;
+            }
+
+            // Take the existing content out so we can transform it without
+            // holding a long-lived borrow of `self.schema`.
+            let placeholder = SchemaNodeContent::Any;
+            let original = std::mem::replace(&mut self.schema.nodes[index].content, placeholder);
+            let SchemaNodeContent::Reference(type_ref) = original else {
+                unreachable!("checked above");
+            };
+            let resolved = self.resolve_type_reference(type_ref)?;
+            self.schema.nodes[index].content = SchemaNodeContent::Reference(resolved);
+        }
+        Ok(())
+    }
+
+    fn resolve_type_reference(
+        &self,
+        type_ref: TypeReference,
+    ) -> Result<TypeReference, ConversionError> {
+        match type_ref {
+            TypeReference::Resolved(_) => Ok(type_ref),
+            TypeReference::Named {
+                namespace: None,
+                name,
+            } => {
+                let target = self
+                    .schema
+                    .types
+                    .get(&name)
+                    .copied()
+                    .ok_or_else(|| ConversionError::UndefinedTypeReference(name.to_string()))?;
+                Ok(TypeReference::Resolved(target))
+            }
+            TypeReference::Named {
+                namespace: Some(ns),
+                name,
+            } => {
+                let import = self.schema.imports.get(&ns).ok_or_else(|| {
+                    ConversionError::UnknownImportNamespace {
+                        namespace: ns.to_string(),
+                        name: name.to_string(),
+                    }
+                })?;
+                if !import.exports.contains(&name) {
+                    return Err(ConversionError::TypeNotExported {
+                        namespace: ns.to_string(),
+                        name: name.to_string(),
+                    });
+                }
+                let target = import.all_types.get(&name).copied().ok_or_else(|| {
+                    ConversionError::UndefinedTypeReference(format!("{}.{}", ns, name))
+                })?;
+                Ok(TypeReference::Resolved(target))
+            }
+        }
     }
 
     fn convert_root_codegen(&mut self, node: &Node) -> Result<(), ConversionError> {
@@ -164,7 +412,7 @@ impl<'a> Converter<'a> {
         Ok(())
     }
 
-    /// Convert all type definitions from $types extension
+    /// Convert all local type definitions from $types extension.
     fn convert_types(&mut self, node: &Node) -> Result<(), ConversionError> {
         let types_ident: Identifier = "types".parse().unwrap();
         if let Some(types_node_id) = node.extensions.get(&types_ident) {
@@ -191,21 +439,6 @@ impl<'a> Converter<'a> {
         Ok(())
     }
 
-    /// Validate that all type references point to defined types
-    fn validate_type_references(&self) -> Result<(), ConversionError> {
-        for node in &self.schema.nodes {
-            if let SchemaNodeContent::Reference(type_ref) = &node.content
-                && type_ref.namespace.is_none()
-                && !self.schema.types.contains_key(&type_ref.name)
-            {
-                return Err(ConversionError::UndefinedTypeReference(
-                    type_ref.name.to_string(),
-                ));
-            }
-        }
-        Ok(())
-    }
-
     fn validate_non_productive_reference_cycles(&self) -> Result<(), ConversionError> {
         #[derive(Clone, Copy, PartialEq, Eq)]
         enum Mark {
@@ -218,14 +451,12 @@ impl<'a> Converter<'a> {
             let SchemaNodeContent::Reference(type_ref) = &node.content else {
                 return None;
             };
-            if type_ref.namespace.is_some() {
-                return None;
-            }
-            schema.get_type(&type_ref.name)
+            schema.resolve_reference(type_ref)
         }
 
         fn display_node(schema: &SchemaDocument, id: SchemaNodeId) -> String {
-            if let Some((name, _)) = schema.types.iter().find(|(_, sid)| **sid == id) {
+            let reference = TypeReference::Resolved(id);
+            if let Some(name) = schema.reference_name(&reference) {
                 format!("$types.{}", name)
             } else {
                 format!("node#{}", id.0)
@@ -312,7 +543,13 @@ impl<'a> Converter<'a> {
         schema_node.type_codegen = type_codegen;
 
         // Record source mapping for span resolution
-        self.source_map.insert(schema_id, node_id);
+        self.source_map.insert(
+            schema_id,
+            SchemaSource {
+                uri: self.base_uri.clone(),
+                node_id,
+            },
+        );
         Ok(schema_id)
     }
 
@@ -903,6 +1140,16 @@ fn collect_document_node_paths(doc: &EureDocument) -> IndexMap<NodeId, EurePath>
     out
 }
 
+fn collect_loaded_document_node_paths(
+    loaded: &LoadedSchemaSet,
+) -> IndexMap<ResolvedSchemaUri, IndexMap<NodeId, EurePath>> {
+    loaded
+        .documents
+        .iter()
+        .map(|(uri, doc)| (uri.clone(), collect_document_node_paths(doc)))
+        .collect()
+}
+
 fn schema_node_fallback_path(schema_id: SchemaNodeId) -> EurePath {
     EurePath(vec![PathSegment::Value(ObjectKey::String(format!(
         "schema-node-{}",
@@ -913,12 +1160,15 @@ fn schema_node_fallback_path(schema_id: SchemaNodeId) -> EurePath {
 fn build_layout_strategies(
     schema: &SchemaDocument,
     source_map: &SchemaSourceMap,
-    source_node_paths: &IndexMap<NodeId, EurePath>,
+    source_node_paths: &IndexMap<ResolvedSchemaUri, IndexMap<NodeId, EurePath>>,
 ) -> LayoutStrategies {
     let mut layout = LayoutStrategies::default();
 
-    for (schema_id, source_node_id) in source_map {
-        if let Some(path) = source_node_paths.get(source_node_id) {
+    for (schema_id, source) in source_map {
+        if let Some(path) = source_node_paths
+            .get(&source.uri)
+            .and_then(|paths| paths.get(&source.node_id))
+        {
             layout.schema_node_paths.insert(*schema_id, path.clone());
         }
     }
@@ -1006,8 +1256,9 @@ fn parse_f64(s: &str) -> Result<f64, ConversionError> {
 /// # Returns
 ///
 /// A tuple of (SchemaDocument, SchemaSourceMap) on success, or a ConversionError on failure.
-/// The SchemaSourceMap maps each schema node ID to its source document node ID, which can be
-/// used for propagating origin information for error formatting.
+/// The SchemaSourceMap maps each schema node ID to its source schema URI and
+/// document node ID, which can be used for propagating origin information for
+/// error formatting.
 ///
 /// # Examples
 ///
@@ -1023,20 +1274,171 @@ fn parse_f64(s: &str) -> Result<f64, ConversionError> {
 /// let doc = parse_to_document(input).unwrap();
 /// let (schema, source_map) = document_to_schema(&doc).unwrap();
 /// ```
-pub fn document_to_schema_with_layout(
+/// Recursive entry point for schema conversion. Performs cycle detection by
+/// inserting `base_uri` into `visited` for the duration of the call.
+pub(crate) fn convert_with_visited(
+    loaded: &LoadedSchemaSet,
+    base_uri: ResolvedSchemaUri,
     doc: &EureDocument,
+    visited: &mut IndexSet<ResolvedSchemaUri>,
+) -> Result<(SchemaDocument, SchemaSourceMap), ConversionError> {
+    if !visited.insert(base_uri.clone()) {
+        return Err(ConversionError::ImportCycle {
+            cycle: visited.iter().cloned().collect(),
+            attempted: base_uri,
+        });
+    }
+    let result = Converter::new(doc, loaded, base_uri.clone()).run(visited);
+    visited.shift_remove(&base_uri);
+    result
+}
+
+/// Convert a pre-loaded schema import graph to a schema.
+pub fn loaded_schema_set_to_schema(
+    loaded: &LoadedSchemaSet,
+) -> Result<(SchemaDocument, SchemaSourceMap), ConversionError> {
+    let root_doc =
+        loaded
+            .document(&loaded.root_uri)
+            .ok_or_else(|| ConversionError::ImportNotLoaded {
+                base: loaded.root_uri.clone(),
+                alias: "<root>".to_string(),
+                raw_path: loaded.root_uri.to_string(),
+            })?;
+    let mut visited = IndexSet::new();
+    convert_with_visited(loaded, loaded.root_uri.clone(), root_doc, &mut visited)
+}
+
+/// Convert a pre-loaded schema import graph and compute its layout strategies.
+pub fn loaded_schema_set_to_schema_with_layout(
+    loaded: &LoadedSchemaSet,
 ) -> Result<(SchemaDocument, LayoutStrategies, SchemaSourceMap), ConversionError> {
-    let (schema, source_map) = Converter::new(doc).convert()?;
-    let source_node_paths = collect_document_node_paths(doc);
+    let (schema, source_map) = loaded_schema_set_to_schema(loaded)?;
+    let source_node_paths = collect_loaded_document_node_paths(loaded);
     let layout = build_layout_strategies(&schema, &source_map, &source_node_paths);
     Ok((schema, layout, source_map))
 }
 
+/// Backwards-compatible single-document entry point. `$import` entries require
+/// a pre-loaded graph, so use
+/// [`loaded_schema_set_to_schema_with_layout`] for import support.
+pub fn document_to_schema_with_layout(
+    doc: &EureDocument,
+) -> Result<(SchemaDocument, LayoutStrategies, SchemaSourceMap), ConversionError> {
+    let root_uri = ResolvedSchemaUri::Inline("<root>".to_string());
+    let loaded = LoadedSchemaSet::new(root_uri, doc.clone());
+    loaded_schema_set_to_schema_with_layout(&loaded)
+}
+
+/// Backwards-compatible single-document entry point. `$import` entries require
+/// a pre-loaded graph.
 pub fn document_to_schema(
     doc: &EureDocument,
 ) -> Result<(SchemaDocument, SchemaSourceMap), ConversionError> {
     let (schema, _layout, source_map) = document_to_schema_with_layout(doc)?;
     Ok((schema, source_map))
+}
+
+// =============================================================================
+// Helpers for inlining imported schemas
+// =============================================================================
+
+/// Deep-copy a `SchemaNodeContent` from a child schema into a parent arena,
+/// remapping every embedded `SchemaNodeId`.
+fn remap_node_content(content: &SchemaNodeContent, remap: &[SchemaNodeId]) -> SchemaNodeContent {
+    let map_id = |id: SchemaNodeId| remap[id.0];
+    match content {
+        SchemaNodeContent::Reference(TypeReference::Resolved(id)) => {
+            SchemaNodeContent::Reference(TypeReference::Resolved(map_id(*id)))
+        }
+        SchemaNodeContent::Reference(TypeReference::Named { namespace, name }) => {
+            SchemaNodeContent::Reference(TypeReference::Named {
+                namespace: namespace.clone(),
+                name: name.clone(),
+            })
+        }
+        SchemaNodeContent::Array(a) => SchemaNodeContent::Array(ArraySchema {
+            item: map_id(a.item),
+            min_length: a.min_length,
+            max_length: a.max_length,
+            unique: a.unique,
+            contains: a.contains.map(map_id),
+            binding_style: a.binding_style,
+        }),
+        SchemaNodeContent::Map(m) => SchemaNodeContent::Map(MapSchema {
+            key: map_id(m.key),
+            value: map_id(m.value),
+            min_size: m.min_size,
+            max_size: m.max_size,
+        }),
+        SchemaNodeContent::Record(r) => {
+            let mut properties = IndexMap::new();
+            for (name, field) in &r.properties {
+                properties.insert(
+                    name.clone(),
+                    RecordFieldSchema {
+                        schema: map_id(field.schema),
+                        optional: field.optional,
+                        binding_style: field.binding_style,
+                        field_codegen: field.field_codegen.clone(),
+                    },
+                );
+            }
+            let flatten: Vec<SchemaNodeId> = r.flatten.iter().map(|id| map_id(*id)).collect();
+            let unknown_fields = match &r.unknown_fields {
+                UnknownFieldsPolicy::Schema(id) => UnknownFieldsPolicy::Schema(map_id(*id)),
+                UnknownFieldsPolicy::Deny => UnknownFieldsPolicy::Deny,
+                UnknownFieldsPolicy::Allow => UnknownFieldsPolicy::Allow,
+            };
+            SchemaNodeContent::Record(RecordSchema {
+                properties,
+                flatten,
+                unknown_fields,
+            })
+        }
+        SchemaNodeContent::Tuple(t) => SchemaNodeContent::Tuple(TupleSchema {
+            elements: t.elements.iter().map(|id| map_id(*id)).collect(),
+            binding_style: t.binding_style,
+        }),
+        SchemaNodeContent::Union(u) => {
+            let mut variants = IndexMap::new();
+            for (name, &id) in &u.variants {
+                variants.insert(name.clone(), map_id(id));
+            }
+            SchemaNodeContent::Union(UnionSchema {
+                variants,
+                unambiguous: u.unambiguous.clone(),
+                interop: u.interop.clone(),
+                deny_untagged: u.deny_untagged.clone(),
+            })
+        }
+        // Primitives + Literal contain no SchemaNodeIds.
+        SchemaNodeContent::Any => SchemaNodeContent::Any,
+        SchemaNodeContent::Boolean => SchemaNodeContent::Boolean,
+        SchemaNodeContent::Null => SchemaNodeContent::Null,
+        SchemaNodeContent::Text(t) => SchemaNodeContent::Text(t.clone()),
+        SchemaNodeContent::Integer(i) => SchemaNodeContent::Integer(i.clone()),
+        SchemaNodeContent::Float(f) => SchemaNodeContent::Float(f.clone()),
+        SchemaNodeContent::Literal(d) => SchemaNodeContent::Literal(d.clone()),
+    }
+}
+
+fn remap_ext_types(
+    ext_types: &IndexMap<Identifier, ExtTypeSchema>,
+    remap: &[SchemaNodeId],
+) -> IndexMap<Identifier, ExtTypeSchema> {
+    let mut out = IndexMap::new();
+    for (name, ext) in ext_types {
+        out.insert(
+            name.clone(),
+            ExtTypeSchema {
+                schema: remap[ext.schema.0],
+                optional: ext.optional,
+                binding_style: ext.binding_style,
+            },
+        );
+    }
+    out
 }
 
 #[cfg(test)]
@@ -1280,8 +1682,12 @@ mod tests {
             .extensions
             .insert("variant".parse().unwrap(), variant_value_id);
 
+        let uri = ResolvedSchemaUri::Inline("<test>".to_string());
+        let loaded = LoadedSchemaSet::new(uri.clone(), doc.clone());
         assert_eq!(
-            Converter::new(&doc).node_to_document(root_id).unwrap_err(),
+            Converter::new(&doc, &loaded, uri)
+                .node_to_document(root_id)
+                .unwrap_err(),
             ConversionError::UnsupportedLiteralValue {
                 node_id: root_id,
                 kind: ValueKind::PartialMap,
@@ -1503,6 +1909,246 @@ mod tests {
                 assert!(path.contains("$types.b"));
             }
             other => panic!("expected NonProductiveReferenceCycle, got {:?}", other),
+        }
+    }
+
+    // =========================================================================
+    // Cross-schema reference (`$import` / `$export`) tests.
+    // =========================================================================
+
+    fn to_inline_uri(s: &str) -> ResolvedSchemaUri {
+        ResolvedSchemaUri::Inline(s.to_string())
+    }
+
+    fn loaded_single(name: &str, doc: EureDocument) -> LoadedSchemaSet {
+        LoadedSchemaSet::new(to_inline_uri(name), doc)
+    }
+
+    #[test]
+    fn import_resolves_namespaced_reference() {
+        // common.schema.eure (lib): defines `$types.username` and exports it.
+        let common = eure!({
+            %types.username = @code("text")
+        });
+        // user.schema.eure: imports common, references `$types.common.username`.
+        let user = eure!({
+            %import.common = "common"
+            %types.user {
+                name = @code("$types.common.username")
+            }
+        });
+        let user_uri = to_inline_uri("user");
+        let common_uri = to_inline_uri("common");
+        let mut loaded = LoadedSchemaSet::new(user_uri.clone(), user);
+        loaded.insert_document(common_uri.clone(), common);
+        loaded.insert_import(user_uri, "common".parse().unwrap(), common_uri);
+
+        let (schema, _) = loaded_schema_set_to_schema(&loaded).expect("conversion succeeds");
+
+        let user_id: Identifier = "user".parse().unwrap();
+        let common_id: Identifier = "common".parse().unwrap();
+        assert!(schema.types.contains_key(&user_id));
+        assert!(schema.imports.contains_key(&common_id));
+        let username: Identifier = "username".parse().unwrap();
+        let imported_username = schema.imports[&common_id].all_types[&username];
+
+        // Reference in `user.name` was rewritten to the imported schema node id.
+        let user_node_id = schema.types.get(&user_id).unwrap();
+        let SchemaNodeContent::Record(rec) = &schema.node(*user_node_id).content else {
+            panic!("user must be a record");
+        };
+        let name_field = rec.properties.get("name").unwrap();
+        let SchemaNodeContent::Reference(tr) = &schema.node(name_field.schema).content else {
+            panic!("name field must be a Reference");
+        };
+        assert_eq!(*tr, TypeReference::Resolved(imported_username));
+    }
+
+    #[test]
+    fn imported_type_does_not_collide_with_similar_local_name() {
+        let common = eure!({
+            %types.User = @code("text")
+        });
+        let user = eure!({
+            %import.common = "common"
+            %types.common__User = @code("integer")
+            %types.wrapper {
+                imported = @code("$types.common.User")
+                local = @code("$types.common__User")
+            }
+        });
+        let user_uri = to_inline_uri("user");
+        let common_uri = to_inline_uri("common");
+        let mut loaded = LoadedSchemaSet::new(user_uri.clone(), user);
+        loaded.insert_document(common_uri.clone(), common);
+        loaded.insert_import(user_uri, "common".parse().unwrap(), common_uri);
+
+        let (schema, _) = loaded_schema_set_to_schema(&loaded).expect("conversion succeeds");
+        let local_name: Identifier = "common__User".parse().unwrap();
+        let imported_name: Identifier = "User".parse().unwrap();
+        let common_alias: Identifier = "common".parse().unwrap();
+        let local_id = schema.types[&local_name];
+        let imported_id = schema.imports[&common_alias].all_types[&imported_name];
+        assert_ne!(local_id, imported_id);
+
+        let wrapper_name: Identifier = "wrapper".parse().unwrap();
+        let SchemaNodeContent::Record(rec) = &schema.node(schema.types[&wrapper_name]).content
+        else {
+            panic!("wrapper must be a record");
+        };
+        let SchemaNodeContent::Reference(imported_ref) =
+            &schema.node(rec.properties["imported"].schema).content
+        else {
+            panic!("imported field must be a reference");
+        };
+        let SchemaNodeContent::Reference(local_ref) =
+            &schema.node(rec.properties["local"].schema).content
+        else {
+            panic!("local field must be a reference");
+        };
+        assert_eq!(*imported_ref, TypeReference::Resolved(imported_id));
+        assert_eq!(*local_ref, TypeReference::Resolved(local_id));
+    }
+
+    #[test]
+    fn import_cycle_is_rejected() {
+        let a = eure!({
+            %import.b = "b"
+        });
+        let b = eure!({
+            %import.a = "a"
+        });
+        let a_uri = to_inline_uri("a");
+        let b_uri = to_inline_uri("b");
+        let mut loaded = LoadedSchemaSet::new(a_uri.clone(), a);
+        loaded.insert_document(b_uri.clone(), b);
+        loaded.insert_import(a_uri.clone(), "b".parse().unwrap(), b_uri.clone());
+        loaded.insert_import(b_uri, "a".parse().unwrap(), a_uri);
+
+        let err = loaded_schema_set_to_schema(&loaded).expect_err("cycle must be rejected");
+        match err {
+            ConversionError::ImportCycle { cycle, attempted } => {
+                let formatted = format_cycle(&cycle, &attempted);
+                assert!(formatted.contains("a"));
+                assert!(formatted.contains("b"));
+            }
+            other => panic!("expected ImportCycle, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn unknown_import_namespace_is_rejected() {
+        let user = eure!({
+            %types.user {
+                name = @code("$types.common.username")
+            }
+        });
+        let err = loaded_schema_set_to_schema(&loaded_single("user", user))
+            .expect_err("missing import must be rejected");
+        match err {
+            ConversionError::UnknownImportNamespace { namespace, name } => {
+                assert_eq!(namespace, "common");
+                assert_eq!(name, "username");
+            }
+            other => panic!("expected UnknownImportNamespace, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn type_not_exported_is_rejected() {
+        // common.schema.eure: declares `username` and `internal-helper`,
+        // but only exports `username`.
+        let common = eure!({
+            %types.username = @code("text")
+            %types."internal-helper" = @code("text")
+            %export = ["username"]
+        });
+        let user = eure!({
+            %import.common = "common"
+            %types.user {
+                helper = @code("$types.common.internal-helper")
+            }
+        });
+        let user_uri = to_inline_uri("user");
+        let common_uri = to_inline_uri("common");
+        let mut loaded = LoadedSchemaSet::new(user_uri.clone(), user);
+        loaded.insert_document(common_uri.clone(), common);
+        loaded.insert_import(user_uri, "common".parse().unwrap(), common_uri);
+
+        let err =
+            loaded_schema_set_to_schema(&loaded).expect_err("non-exported type must be rejected");
+        match err {
+            ConversionError::TypeNotExported { namespace, name } => {
+                assert_eq!(namespace, "common");
+                assert_eq!(name, "internal-helper");
+            }
+            other => panic!("expected TypeNotExported, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn omitted_export_exposes_all_local_types() {
+        // Without `$export`, every locally-declared type is exposed.
+        let common = eure!({
+            %types.username = @code("text")
+            %types.email = @code("text")
+        });
+        let user = eure!({
+            %import.common = "common"
+            %types.user {
+                name = @code("$types.common.username")
+                mail = @code("$types.common.email")
+            }
+        });
+        let user_uri = to_inline_uri("user");
+        let common_uri = to_inline_uri("common");
+        let mut loaded = LoadedSchemaSet::new(user_uri.clone(), user);
+        loaded.insert_document(common_uri.clone(), common);
+        loaded.insert_import(user_uri, "common".parse().unwrap(), common_uri);
+        let _ = loaded_schema_set_to_schema(&loaded).expect("omitted export exposes all types");
+    }
+
+    #[test]
+    fn explicit_export_lists_become_the_export_set() {
+        let common = eure!({
+            %types.username = @code("text")
+            %types.email = @code("text")
+            %export = ["username"]
+        });
+        // Compute the schema for `common` indirectly: import it and inspect
+        // the imports map via a stub user schema.
+        let user = eure!({
+            %import.common = "common"
+        });
+        let user_uri = to_inline_uri("user");
+        let common_uri = to_inline_uri("common");
+        let mut loaded = LoadedSchemaSet::new(user_uri.clone(), user);
+        loaded.insert_document(common_uri.clone(), common);
+        loaded.insert_import(user_uri, "common".parse().unwrap(), common_uri);
+        let (schema, _) = loaded_schema_set_to_schema(&loaded).expect("conversion succeeds");
+
+        let common_id: Identifier = "common".parse().unwrap();
+        let username: Identifier = "username".parse().unwrap();
+        let email: Identifier = "email".parse().unwrap();
+        assert!(schema.imports[&common_id].all_types.contains_key(&username));
+        assert!(schema.imports[&common_id].all_types.contains_key(&email));
+        assert!(schema.imports[&common_id].exports.contains(&username));
+        assert!(!schema.imports[&common_id].exports.contains(&email));
+    }
+
+    #[test]
+    fn export_lists_must_match_locally_declared_types() {
+        let common = eure!({
+            %types.username = @code("text")
+            %export = ["nope"]
+        });
+        let err = loaded_schema_set_to_schema(&loaded_single("common", common))
+            .expect_err("$export must reference a declared type");
+        match err {
+            ConversionError::ExportedNameNotDeclared { name } => {
+                assert_eq!(name, "nope");
+            }
+            other => panic!("expected ExportedNameNotDeclared, got {:?}", other),
         }
     }
 }

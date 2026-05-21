@@ -34,10 +34,6 @@ pub enum ValidatorError {
     #[error("conflicting variant tags: $variant = {explicit}, repr = {repr}")]
     ConflictingVariantTags { explicit: String, repr: String },
 
-    /// Cross-schema reference not supported
-    #[error("cross-schema reference not supported: {namespace}.{name}")]
-    CrossSchemaReference { namespace: String, name: String },
-
     /// Parse error (from eure-document)
     #[error("parse error: {0}")]
     DocumentParseError(#[from] ParseError),

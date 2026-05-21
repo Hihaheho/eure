@@ -22,7 +22,7 @@ use eure_schema::convert::{ConversionError, document_to_schema};
 use eure_schema::interop::VariantRepr;
 use eure_schema::{
     ArraySchema, Bound, FloatSchema, IntegerSchema, MapSchema, SchemaDocument, SchemaMetadata,
-    SchemaNodeContent, SchemaNodeId, TextSchema, UnknownFieldsPolicy,
+    SchemaNodeContent, SchemaNodeId, TextSchema, TypeReference, UnknownFieldsPolicy,
 };
 use num_bigint::BigInt;
 
@@ -595,50 +595,20 @@ where
 fn assert_reference(schema: &SchemaDocument, node_id: SchemaNodeId, expected_name: &str) {
     let node = schema.node(node_id);
     if let SchemaNodeContent::Reference(type_ref) = &node.content {
-        assert!(
-            type_ref.namespace.is_none(),
-            "Expected local reference, got namespace {:?}",
-            type_ref.namespace
-        );
-        assert_eq!(
-            type_ref.name,
-            ident(expected_name),
-            "Expected reference to '{}', got '{:?}'",
-            expected_name,
-            type_ref.name
-        );
+        let expected_id = schema
+            .types
+            .get(&ident(expected_name))
+            .copied()
+            .expect("expected named type to exist");
+        assert_eq!(*type_ref, TypeReference::Resolved(expected_id));
     } else {
         panic!("Expected Reference type, got {:?}", node.content);
     }
 }
 
-/// Assert that a node is a Reference type (cross-schema reference)
-fn assert_reference_external(
-    schema: &SchemaDocument,
-    node_id: SchemaNodeId,
-    expected_namespace: &str,
-    expected_name: &str,
-) {
-    let node = schema.node(node_id);
-    if let SchemaNodeContent::Reference(type_ref) = &node.content {
-        assert_eq!(
-            type_ref.namespace.as_deref(),
-            Some(expected_namespace),
-            "Expected namespace '{}', got {:?}",
-            expected_namespace,
-            type_ref.namespace
-        );
-        assert_eq!(
-            type_ref.name,
-            ident(expected_name),
-            "Expected reference to '{}', got '{:?}'",
-            expected_name,
-            type_ref.name
-        );
-    } else {
-        panic!("Expected Reference type, got {:?}", node.content);
-    }
-}
+// `assert_reference_external` was removed alongside `test_external_type_reference`:
+// after the cross-schema rewrite, namespaced references require an explicit
+// import and are resolved to SchemaNodeId in a finished SchemaDocument.
 
 /// Assert node metadata
 fn assert_metadata<F>(schema: &SchemaDocument, node_id: SchemaNodeId, check: F)
@@ -1762,23 +1732,23 @@ fn test_type_reference() {
 }
 
 #[test]
-fn test_external_type_reference() {
-    // External type reference: `$types.namespace.typename`
+fn test_external_type_reference_without_import_is_rejected() {
+    // After v1, namespaced references like `$types.common.User` require a
+    // matching `$import.common = "..."` declaration. Without it, conversion
+    // errors out with `UnknownImportNamespace`.
     let doc = eure!({
         user = @code("$types.common.User"),
-        %types.common.User {
-            name = @code("text"),
-        },
     });
-    let schema = convert(&doc);
 
-    assert_record1(
-        &schema,
-        schema.root,
-        ("user", |s, id| {
-            assert_reference_external(s, id, "common", "User")
-        }),
-    );
+    let err = document_to_schema(&doc)
+        .expect_err("namespaced reference without $import must be rejected");
+    match err {
+        ConversionError::UnknownImportNamespace { namespace, name } => {
+            assert_eq!(namespace, "common");
+            assert_eq!(name, "User");
+        }
+        other => panic!("Expected UnknownImportNamespace, got {:?}", other),
+    }
 }
 
 #[test]

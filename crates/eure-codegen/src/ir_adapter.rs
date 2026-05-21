@@ -471,29 +471,41 @@ fn convert_schema_content(
             ))
         }
         SchemaNodeContent::Reference(reference) => {
-            validate_local_reference(schema, node_idx, reference)?;
-            SchemaNodeContentIr::Reference(QualifiedTypeName::new(
-                reference.namespace.clone(),
-                reference.name.to_string(),
-            ))
+            let qualified = reference_to_qualified_name(schema, node_idx, reference)?;
+            SchemaNodeContentIr::Reference(qualified)
         }
     };
 
     Ok(out)
 }
 
-fn validate_local_reference(
+fn reference_to_qualified_name(
     schema: &SchemaDocument,
     node_idx: usize,
     reference: &TypeReference,
-) -> Result<(), SchemaToIrError> {
-    if reference.namespace.is_none() && !schema.types.contains_key(&reference.name) {
+) -> Result<QualifiedTypeName, SchemaToIrError> {
+    if let TypeReference::Named {
+        namespace: None,
+        name,
+    } = reference
+        && !schema.types.contains_key(name)
+    {
         return Err(SchemaToIrError::UnknownLocalTypeReference {
             node: node_idx,
-            name: reference.name.to_string(),
+            name: name.to_string(),
         });
     }
-    Ok(())
+
+    let name = schema.reference_name(reference).ok_or_else(|| {
+        SchemaToIrError::UnknownLocalTypeReference {
+            node: node_idx,
+            name: schema.display_reference(reference),
+        }
+    })?;
+    Ok(QualifiedTypeName::new(
+        name.namespace.map(ToString::to_string),
+        name.name.to_string(),
+    ))
 }
 
 fn convert_variant_repr(repr: &eure_schema::interop::VariantRepr) -> VariantReprIr {
@@ -851,6 +863,8 @@ mod tests {
                 ext_types_type_prefix: Some("Ext".to_string()),
                 document_node_id_field: Some("node_id".to_string()),
             },
+            exports: Default::default(),
+            imports: Default::default(),
         };
 
         let module = schema_to_ir_module(&schema).expect("schema conversion should succeed");
@@ -972,6 +986,8 @@ mod tests {
             },
             root_codegen: RootCodegen::default(),
             codegen_defaults: CodegenDefaults::default(),
+            exports: Default::default(),
+            imports: Default::default(),
         };
 
         let module = schema_to_ir_module(&schema).expect("schema conversion should succeed");
@@ -1007,7 +1023,7 @@ mod tests {
 
         let schema = SchemaDocument {
             nodes: vec![SchemaNode {
-                content: SchemaNodeContent::Reference(TypeReference {
+                content: SchemaNodeContent::Reference(TypeReference::Named {
                     namespace: None,
                     name: "self".parse().unwrap(),
                 }),
@@ -1028,6 +1044,8 @@ mod tests {
             },
             root_codegen: RootCodegen::default(),
             codegen_defaults: CodegenDefaults::default(),
+            exports: Default::default(),
+            imports: Default::default(),
         };
 
         let err = schema_to_ir_module(&schema).expect_err("conversion should reject extensions");

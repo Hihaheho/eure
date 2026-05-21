@@ -219,7 +219,7 @@ impl<'a, 'doc, 's> RecordValidator<'a, 'doc, 's> {
             SchemaNodeContent::Map(_) => true,
             SchemaNodeContent::Reference(type_ref) => {
                 // Resolve the reference and recurse
-                if let Some(resolved_id) = self.ctx.schema.get_type(&type_ref.name) {
+                if let Some(resolved_id) = self.ctx.schema.resolve_reference(type_ref) {
                     self.flatten_target_is_map(resolved_id)
                 } else {
                     false
@@ -254,13 +254,13 @@ impl<'a, 'doc, 's> RecordValidator<'a, 'doc, 's> {
             ),
             SchemaNodeContent::Reference(type_ref) => {
                 // Resolve the reference and recurse
-                if let Some(resolved_id) = self.ctx.schema.get_type(&type_ref.name) {
+                if let Some(resolved_id) = self.ctx.schema.resolve_reference(type_ref) {
                     self.validate_flatten_target(flatten_ctx, resolved_id, parent_node_id)
                 } else {
                     // Record error for undefined type reference
                     self.ctx
                         .record_error(ValidationError::UndefinedTypeReference {
-                            name: type_ref.name.to_string(),
+                            name: self.ctx.schema.display_reference(type_ref),
                             path: self.ctx.path(),
                             node_id: parent_node_id,
                             schema_node_id: flatten_schema_id,
@@ -463,7 +463,7 @@ impl<'a, 'doc, 's> RecordValidator<'a, 'doc, 's> {
                 }
             }
             SchemaNodeContent::Reference(type_ref) => {
-                if let Some(resolved_id) = self.ctx.schema.get_type(&type_ref.name) {
+                if let Some(resolved_id) = self.ctx.schema.resolve_reference(type_ref) {
                     self.collect_owned_field_names(resolved_id, field_names, visited);
                 }
             }

@@ -56,7 +56,14 @@ fn assert_reference(schema: &SchemaDocument, id: SchemaNodeId, type_name: &str) 
     let SchemaNodeContent::Reference(r) = &schema.node(id).content else {
         panic!("Expected Reference, got {:?}", schema.node(id).content);
     };
-    assert_eq!(r.name.as_ref(), type_name);
+    let type_name: eure_document::identifier::Identifier =
+        type_name.parse().expect("valid type name");
+    let expected = schema
+        .types
+        .get(&type_name)
+        .copied()
+        .expect("type should exist");
+    assert_eq!(*r, eure_schema::TypeReference::Resolved(expected));
 }
 
 // ============================================================================

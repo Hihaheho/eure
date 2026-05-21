@@ -167,7 +167,7 @@ fn write_schema_content(
         SchemaNodeContent::Record(schema) => write_record_schema(schema_doc, schema, c),
         SchemaNodeContent::Tuple(schema) => write_tuple_schema(schema_doc, schema, c),
         SchemaNodeContent::Union(schema) => write_union_schema(schema_doc, schema, c),
-        SchemaNodeContent::Reference(reference) => reference.write(c),
+        SchemaNodeContent::Reference(reference) => write_type_reference(schema_doc, reference, c),
         SchemaNodeContent::Literal(doc) => write_literal(doc, c),
     }
 }
@@ -468,17 +468,25 @@ fn write_union_schema(
     })
 }
 
-impl TypeReference {
-    pub fn write(&self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        let mut path = String::from("$types.");
-        if let Some(namespace) = &self.namespace {
-            path.push_str(namespace);
-            path.push('.');
-        }
-        path.push_str(self.name.as_ref());
-
-        c.write(Text::inline_implicit(path))
+fn write_type_reference(
+    schema: &SchemaDocument,
+    reference: &TypeReference,
+    c: &mut DocumentConstructor,
+) -> Result<(), WriteError> {
+    let mut path = String::from("$types.");
+    let Some(name) = schema.reference_name(reference) else {
+        return Err(WriteError::InvalidIdentifier(format!(
+            "unnameable schema reference {}",
+            schema.display_reference(reference)
+        )));
+    };
+    if let Some(namespace) = name.namespace {
+        path.push_str(namespace.as_ref());
+        path.push('.');
     }
+    path.push_str(name.name.as_ref());
+
+    c.write(Text::inline_implicit(path))
 }
 
 fn write_literal(

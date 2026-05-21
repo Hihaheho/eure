@@ -107,6 +107,11 @@ $types {
     scenario_errors.$optional = true
     scenarios_expected = [`text`]
     scenarios_expected.$optional = true
+    @ files
+    $variant = "map"
+    $optional = true
+    key = `text`
+    value = `text`
     @ input_eure
     $variant = "union"
     $optional = true

@@ -5,7 +5,7 @@ use eure_document::document::node::NodeValue;
 use eure_document::value::{ObjectKey, PrimitiveValue};
 use num_bigint::BigInt;
 
-use crate::{Bound, IntegerSchema, SchemaNodeContent, SchemaNodeId, TextSchema, TypeReference};
+use crate::{Bound, IntegerSchema, SchemaNodeContent, SchemaNodeId, TextSchema};
 
 use super::context::ValidationContext;
 
@@ -48,7 +48,9 @@ fn key_matches_schema_inner(
                     .copied()
                     .any(|variant_id| key_matches_schema_inner(ctx, key, variant_id, depth + 1))
         }
-        SchemaNodeContent::Reference(type_ref) => resolve_local_reference(ctx, type_ref)
+        SchemaNodeContent::Reference(type_ref) => ctx
+            .schema
+            .resolve_reference(type_ref)
             .is_some_and(|resolved_id| key_matches_schema_inner(ctx, key, resolved_id, depth + 1)),
         SchemaNodeContent::Float(_)
         | SchemaNodeContent::Null
@@ -56,17 +58,6 @@ fn key_matches_schema_inner(
         | SchemaNodeContent::Map(_)
         | SchemaNodeContent::Record(_) => false,
     }
-}
-
-fn resolve_local_reference(
-    ctx: &ValidationContext<'_>,
-    type_ref: &TypeReference,
-) -> Option<SchemaNodeId> {
-    if type_ref.namespace.is_some() {
-        return None;
-    }
-
-    ctx.schema.types.get(&type_ref.name).copied()
 }
 
 fn matches_text_key(key: &ObjectKey, schema: &TextSchema) -> bool {

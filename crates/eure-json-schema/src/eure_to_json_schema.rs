@@ -12,7 +12,7 @@ use eure_schema::{
     ArraySchema as EureArraySchema, Bound, Description, FloatSchema,
     IntegerSchema as EureIntegerSchema, MapSchema, RecordSchema, SchemaDocument,
     SchemaMetadata as EureMetadata, SchemaNode, SchemaNodeContent, SchemaNodeId, TextSchema,
-    TupleSchema, UnionSchema, UnknownFieldsPolicy,
+    TupleSchema, TypeReference, UnionSchema, UnknownFieldsPolicy,
 };
 use indexmap::IndexMap;
 use num_traits::ToPrimitive;
@@ -118,12 +118,18 @@ pub fn eure_to_json_schema(doc: &SchemaDocument) -> Result<JsonSchema, Conversio
     let root_schema = convert_node(&mut ctx, doc.root)?;
 
     // If there are named types, we need to wrap in a GenericSchema with $defs
-    if !doc.types.is_empty() {
+    if !doc.types.is_empty() || !doc.imports.is_empty() {
         let mut defs = IndexMap::new();
 
         for (name, node_id) in &doc.types {
             let converted = convert_node(&mut ctx, *node_id)?;
             defs.insert(name.to_string(), converted);
+        }
+        for (alias, import) in &doc.imports {
+            for (name, node_id) in &import.all_types {
+                let converted = convert_node(&mut ctx, *node_id)?;
+                defs.insert(format!("{}.{}", alias, name), converted);
+            }
         }
 
         // Wrap the root schema with definitions
@@ -210,8 +216,9 @@ fn convert_schema_content(
 
         SchemaNodeContent::Reference(ref_type) => {
             // Convert to JSON Schema $ref
+            let reference = reference_definition_name(ctx.document, ref_type)?;
             Ok(JsonSchema::Reference(ReferenceSchema {
-                reference: format!("#/$defs/{}", ref_type.name),
+                reference: format!("#/$defs/{}", reference),
                 metadata: json_metadata,
             }))
         }
@@ -221,6 +228,19 @@ fn convert_schema_content(
             metadata: json_metadata,
         })),
     }
+}
+
+fn reference_definition_name(
+    schema: &SchemaDocument,
+    reference: &TypeReference,
+) -> Result<String, ConversionError> {
+    schema
+        .reference_name(reference)
+        .map(|name| name.to_string())
+        .ok_or_else(|| match reference {
+            TypeReference::Resolved(target) => ConversionError::InvalidNodeReference(target.0),
+            TypeReference::Named { .. } => unreachable!("named references are always nameable"),
+        })
 }
 
 /// Convert Eure metadata to JSON Schema metadata

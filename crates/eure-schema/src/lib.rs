@@ -34,6 +34,7 @@ pub mod convert;
 pub mod identifiers;
 pub mod interop;
 pub mod parse;
+pub mod resolver;
 pub mod synth;
 pub mod type_path_trace;
 pub mod validate;
@@ -56,6 +57,7 @@ use num_bigint::BigInt;
 use regex::Regex;
 
 use crate::interop::UnionInterop;
+use crate::resolver::ResolvedSchemaUri;
 
 // ============================================================================
 // Schema Document
@@ -68,12 +70,26 @@ pub struct SchemaDocument {
     pub nodes: Vec<SchemaNode>,
     /// Root node reference
     pub root: SchemaNodeId,
-    /// Named type definitions ($types)
+    /// Named type definitions declared by this document's own `$types`.
     pub types: IndexMap<Identifier, SchemaNodeId>,
+    /// Names exposed to importers via `$types.<alias>.<name>`. Always a subset
+    /// of `types.keys()`. When the source omits `$export`, this is identical to
+    /// `types.keys()`.
+    pub exports: IndexSet<Identifier>,
+    /// Imported schemas keyed by the alias declared in `$import`.
+    pub imports: IndexMap<Identifier, SchemaImport>,
     /// Root-level codegen settings from `$codegen`.
     pub root_codegen: RootCodegen,
     /// Root-level default codegen settings from `$codegen-defaults`.
     pub codegen_defaults: CodegenDefaults,
+}
+
+/// Types imported from one schema under a single alias.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SchemaImport {
+    pub uri: ResolvedSchemaUri,
+    pub all_types: IndexMap<Identifier, SchemaNodeId>,
+    pub exports: IndexSet<Identifier>,
 }
 
 /// Extension type definition with optionality
@@ -589,16 +605,36 @@ pub type ArrayBindingStyle = ArrayForm;
 // Type Reference
 // ============================================================================
 
-/// Type reference (local or cross-schema)
+/// Type reference (local, cross-schema, or resolved to a schema node).
 ///
 /// - Local reference: `$types.my-type`
 /// - Cross-schema reference: `$types.namespace.type-name`
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TypeReference {
-    /// Namespace for cross-schema references (None for local refs)
-    pub namespace: Option<String>,
-    /// Type name
-    pub name: Identifier,
+pub enum TypeReference {
+    Named {
+        /// Namespace for cross-schema references (None for local refs).
+        namespace: Option<Identifier>,
+        /// Type name.
+        name: Identifier,
+    },
+    Resolved(SchemaNodeId),
+}
+
+/// A displayable type reference name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TypeReferenceName<'a> {
+    pub namespace: Option<&'a Identifier>,
+    pub name: &'a Identifier,
+}
+
+impl std::fmt::Display for TypeReferenceName<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(namespace) = self.namespace {
+            write!(f, "{}.{}", namespace, self.name)
+        } else {
+            write!(f, "{}", self.name)
+        }
+    }
 }
 
 // ============================================================================
@@ -658,6 +694,8 @@ impl SchemaDocument {
             }],
             root: SchemaNodeId(0),
             types: IndexMap::new(),
+            exports: IndexSet::new(),
+            imports: IndexMap::new(),
             root_codegen: RootCodegen::default(),
             codegen_defaults: CodegenDefaults::default(),
         }
@@ -693,6 +731,71 @@ impl SchemaDocument {
     /// Look up a named type
     pub fn get_type(&self, name: &Identifier) -> Option<SchemaNodeId> {
         self.types.get(name).copied()
+    }
+
+    /// Resolve a type reference to an arena node ID.
+    pub fn resolve_reference(&self, reference: &TypeReference) -> Option<SchemaNodeId> {
+        match reference {
+            TypeReference::Resolved(id) => Some(*id),
+            TypeReference::Named {
+                namespace: None,
+                name,
+            } => self.types.get(name).copied(),
+            TypeReference::Named {
+                namespace: Some(namespace),
+                name,
+            } => self
+                .imports
+                .get(namespace)
+                .and_then(|import| import.all_types.get(name).copied()),
+        }
+    }
+
+    /// Return the user-facing name for a type reference when it is nameable.
+    pub fn reference_name<'a>(
+        &'a self,
+        reference: &'a TypeReference,
+    ) -> Option<TypeReferenceName<'a>> {
+        match reference {
+            TypeReference::Named { namespace, name } => Some(TypeReferenceName {
+                namespace: namespace.as_ref(),
+                name,
+            }),
+            TypeReference::Resolved(target) => {
+                if let Some((name, _)) = self.types.iter().find(|(_, id)| **id == *target) {
+                    return Some(TypeReferenceName {
+                        namespace: None,
+                        name,
+                    });
+                }
+                self.imports.iter().find_map(|(alias, import)| {
+                    import
+                        .all_types
+                        .iter()
+                        .find(|(_, id)| **id == *target)
+                        .map(|(name, _)| TypeReferenceName {
+                            namespace: Some(alias),
+                            name,
+                        })
+                })
+            }
+        }
+    }
+
+    /// Best-effort display name for diagnostics.
+    pub fn display_reference(&self, reference: &TypeReference) -> String {
+        self.reference_name(reference)
+            .map(|name| name.to_string())
+            .unwrap_or_else(|| match reference {
+                TypeReference::Resolved(id) => format!("node#{}", id.0),
+                TypeReference::Named { namespace, name } => {
+                    if let Some(namespace) = namespace {
+                        format!("{}.{}", namespace, name)
+                    } else {
+                        name.to_string()
+                    }
+                }
+            })
     }
 }
 

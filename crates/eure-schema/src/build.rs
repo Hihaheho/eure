@@ -113,6 +113,8 @@ impl SchemaBuilder {
                 nodes: Vec::new(),
                 root: SchemaNodeId(0), // Will be set in finish()
                 types: Default::default(),
+                exports: Default::default(),
+                imports: Default::default(),
                 root_codegen: RootCodegen::default(),
                 codegen_defaults: CodegenDefaults::default(),
             },
@@ -154,10 +156,9 @@ impl SchemaBuilder {
             }
 
             // Create a Reference node that points to this type
-            let ref_id = self.create_node(SchemaNodeContent::Reference(crate::TypeReference {
-                namespace: None,
-                name: name.parse().expect("valid type name"),
-            }));
+            let ref_id = self.create_node(SchemaNodeContent::Reference(
+                crate::TypeReference::Resolved(content_id),
+            ));
 
             // Cache the reference ID so subsequent calls return the reference
             self.cache.insert(type_id, ref_id);
@@ -236,7 +237,7 @@ impl SchemaBuilder {
 
     /// Register a named type in the `$types` namespace.
     pub fn register_type(&mut self, name: &str, id: SchemaNodeId) {
-        if let Ok(ident) = name.parse() {
+        if let Ok(ident) = name.parse::<eure_document::identifier::Identifier>() {
             self.doc.types.insert(ident, id);
         }
     }
@@ -244,6 +245,9 @@ impl SchemaBuilder {
     /// Consume the builder and produce the final schema document.
     pub fn finish(mut self, root: SchemaNodeId) -> SchemaDocument {
         self.doc.root = root;
+        // Builder-derived schemas have no `$export` filter: every declared type
+        // is considered exported.
+        self.doc.exports = self.doc.types.keys().cloned().collect();
         self.doc
     }
 }

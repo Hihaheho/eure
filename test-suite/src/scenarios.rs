@@ -215,6 +215,10 @@ pub enum ScenarioError {
         file: TextFile,
         error: String,
     },
+    InvalidFixturePath {
+        path: String,
+        reason: String,
+    },
 }
 
 impl From<QueryError> for ScenarioError {
@@ -551,6 +555,9 @@ impl std::fmt::Display for ScenarioError {
             }
             ScenarioError::FileReadError { file, error } => {
                 write!(f, "File read error: {}: {}", file, error)
+            }
+            ScenarioError::InvalidFixturePath { path, reason } => {
+                write!(f, "Invalid fixture path {}: {}", path, reason)
             }
         }
     }

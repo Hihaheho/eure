@@ -1225,14 +1225,11 @@ fn resolve_schema_node_id(
     for _ in 0..schema.nodes.len() {
         match &schema.node(schema_node_id).content {
             SchemaNodeContent::Reference(type_ref) => {
-                if let Some(namespace) = &type_ref.namespace {
-                    return Err(SerError::Custom(format!(
-                        "cross-schema references are unsupported: {namespace}.{}",
-                        type_ref.name
-                    )));
-                }
-                schema_node_id = schema.types.get(&type_ref.name).copied().ok_or_else(|| {
-                    SerError::Custom(format!("undefined type reference: {}", type_ref.name))
+                schema_node_id = schema.resolve_reference(type_ref).ok_or_else(|| {
+                    SerError::Custom(format!(
+                        "undefined type reference: {}",
+                        schema.display_reference(type_ref)
+                    ))
                 })?;
             }
             _ => return Ok(schema_node_id),

@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
 
 use eure::query::error::EureQueryError;
 use eure::query::{
@@ -123,6 +123,34 @@ const META_SCHEMA: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../assets/schemas/eure-schema.schema.eure"
 ));
+
+fn resolve_inline_fixture_path(relative_path: &str) -> Result<PathBuf, ScenarioError> {
+    let path = Path::new(relative_path);
+    if path.is_absolute() {
+        return Err(ScenarioError::InvalidFixturePath {
+            path: relative_path.to_string(),
+            reason: "inline fixture paths must be relative".to_string(),
+        });
+    }
+    if path.components().any(|component| {
+        matches!(
+            component,
+            Component::ParentDir | Component::RootDir | Component::Prefix(_)
+        )
+    }) {
+        return Err(ScenarioError::InvalidFixturePath {
+            path: relative_path.to_string(),
+            reason: "inline fixture paths must stay inside the case fixture directory".to_string(),
+        });
+    }
+    let mut resolved = PathBuf::new();
+    for component in path.components() {
+        if let Component::Normal(part) = component {
+            resolved.push(part);
+        }
+    }
+    Ok(resolved)
+}
 
 // ============================================================================
 // Scenario enum
@@ -260,6 +288,10 @@ impl Case {
         }
     }
 
+    fn has_inline_files(&self) -> bool {
+        !self.data.files.is_empty()
+    }
+
     pub fn resolve_path(text: &Text, default_path: &str) -> TextFile {
         if text.language.is_other("path") {
             TextFile::from_path(PathBuf::from(text.as_str()))
@@ -292,8 +324,34 @@ impl Case {
         Ok(())
     }
 
+    fn resolve_inline_files(&self, runtime: &QueryRuntime) -> Result<(), ScenarioError> {
+        if !self.has_inline_files() {
+            return Ok(());
+        }
+
+        for (relative_path, text) in &self.data.files {
+            let content = text.as_str().to_string();
+            let path = resolve_inline_fixture_path(relative_path)?;
+            runtime.resolve_asset(
+                TextFile::from_path(path.clone()),
+                TextFileContent(content.clone()),
+                DurabilityLevel::Static,
+            );
+            if self.uses_implicit_schema() {
+                runtime.resolve_asset(
+                    TextFile::from_path(PathBuf::from(WORKSPACE_PATH).join(path)),
+                    TextFileContent(content),
+                    DurabilityLevel::Static,
+                );
+            }
+        }
+        Ok(())
+    }
+
     /// Resolve all assets for this case into the runtime
     pub fn resolve_assets(&self, runtime: &query_flow::QueryRuntime) -> Result<(), ScenarioError> {
+        self.resolve_inline_files(runtime)?;
+
         // input_eure → "input.eure"
         if let Some(input_eure) = &self.data.input_eure {
             Self::resolve_asset(runtime, INPUT_EURE_PATH, input_eure)?;
@@ -753,7 +811,7 @@ impl Case {
             for pending_asset in pending {
                 if let Some(file) = pending_asset.key::<TextFile>() {
                     if config.trace {
-                        eprintln!("Resolving missing file: {}", file);
+                        eprintln!("Resolving pending file: {}", file);
                     }
                     runtime.resolve_asset_error::<TextFile>(
                         file.clone(),

@@ -223,6 +223,8 @@ pub struct EditCommandFixture {
 #[eure(type_name = "case-data")]
 pub struct CaseData {
     #[eure(default)]
+    pub files: BTreeMap<String, Text>,
+    #[eure(default)]
     pub input_eure: Option<Text>,
     #[eure(default)]
     pub input_toml: Option<Text>,
@@ -289,7 +291,8 @@ pub struct CaseData {
 impl CaseData {
     /// Check if this case has any meaningful content
     pub fn is_empty(&self) -> bool {
-        self.input_eure.is_none()
+        self.files.is_empty()
+            && self.input_eure.is_none()
             && self.input_toml.is_none()
             && self.json.is_empty()
             && self.normalized.is_none()

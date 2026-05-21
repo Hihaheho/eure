@@ -619,13 +619,13 @@ fn add_variant_context_note(
 ) -> Result<ErrorReport, QueryError> {
     let schema = db.query(DocumentToSchemaQuery::new(schema_file.clone()))?;
 
-    // Collect all existing schema spans from the report to avoid duplicates
-    let existing_spans: Vec<InputSpan> = report
+    // Collect all existing schema origins from the report to avoid duplicates.
+    let existing_origins: Vec<(TextFile, InputSpan)> = report
         .elements
         .iter()
         .filter_map(|e| {
             if let Element::Annotation { origin, .. } = e {
-                Some(origin.span)
+                Some((origin.file.clone(), origin.span))
             } else {
                 None
             }
@@ -637,29 +637,26 @@ fn add_variant_context_note(
     // Get variant schema IDs from the error chain (much simpler than walking schema hierarchy)
     let variant_schema_ids = collect_variant_schema_ids(error);
 
-    // Collect spans for each variant, filtering duplicates
-    let variant_spans: Vec<(InputSpan, SchemaNodeId)> = variant_schema_ids
+    // Collect origins for each variant, filtering duplicates
+    let variant_origins: Vec<(Origin, SchemaNodeId)> = variant_schema_ids
         .iter()
         .filter_map(|&schema_id| {
-            resolve_schema_definition_span(db, schema_id, schema_file.clone(), &schema)
-                .filter(|span| !existing_spans.contains(span))
-                .map(|span| (span, schema_id))
+            resolve_schema_definition_origin(db, schema_id, schema_file.clone(), &schema)
+                .filter(|origin| !existing_origins.contains(&(origin.file.clone(), origin.span)))
+                .map(|origin| (origin, schema_id))
         })
         .collect();
 
     // Only add note and annotations if we have variant spans to show
-    if !variant_spans.is_empty() {
+    if !variant_origins.is_empty() {
         // Add concise note with first variant's span
         let note_message = format!(
             "based on nearest variant '{}' for union at path {}",
             variant_name, path
         );
-        let (first_span, first_schema_id) = variant_spans[0];
-        let origin = Origin::with_hints(
-            schema_file.clone(),
-            first_span,
-            OriginHints::default().with_schema(first_schema_id),
-        );
+        let (first_origin, first_schema_id) = &variant_origins[0];
+        let mut origin = first_origin.clone();
+        origin.hints = OriginHints::default().with_schema(*first_schema_id);
         report = report.with_element(Element::Annotation {
             origin,
             kind: AnnotationKind::Secondary,
@@ -667,12 +664,8 @@ fn add_variant_context_note(
         });
 
         // Add "selected variant" annotations for remaining levels
-        for (span, schema_id) in variant_spans.into_iter().skip(1) {
-            let origin = Origin::with_hints(
-                schema_file.clone(),
-                span,
-                OriginHints::default().with_schema(schema_id),
-            );
+        for (mut origin, schema_id) in variant_origins.into_iter().skip(1) {
+            origin.hints = OriginHints::default().with_schema(schema_id);
             report = report.with_element(Element::Annotation {
                 origin,
                 kind: AnnotationKind::Secondary,
@@ -769,14 +762,9 @@ fn report_validation_error(
     let mut report = ErrorReport::error(message, doc_origin);
 
     // Add schema location as secondary annotation
-    if let Some(schema_span) = resolve_schema_span(db, schema_node_id, schema_file.clone(), &schema)
+    if let Some(schema_origin) =
+        resolve_schema_origin(db, schema_node_id, schema_file.clone(), &schema)
     {
-        let schema_origin = Origin::with_hints(
-            schema_file.clone(),
-            schema_span,
-            OriginHints::default().with_schema(schema_node_id),
-        );
-
         report = report.with_element(Element::Annotation {
             origin: schema_origin,
             kind: AnnotationKind::Secondary,
@@ -790,37 +778,55 @@ fn report_validation_error(
     Ok(report)
 }
 
-fn resolve_schema_span(
+fn resolve_schema_origin(
     db: &impl Db,
     schema_id: SchemaNodeId,
     schema_file: TextFile,
     schema: &crate::query::ValidatedSchema,
-) -> Option<InputSpan> {
-    // SchemaNodeId -> NodeId (from schema source map)
-    let doc_node_id = schema.source_map.get(&schema_id)?;
-    // Query CST for span resolution
-    let cst = db.query(ParseCst::new(schema_file)).ok()?;
-    // Use OriginMap for span resolution
-    schema.parsed.origins.get_value_span(*doc_node_id, &cst.cst)
+) -> Option<Origin> {
+    resolve_schema_origin_inner(db, schema_id, schema_file, schema, false)
 }
 
 /// Resolve schema definition span (where the key is, not the value).
 /// Used for variant context notes to point to the variant NAME rather than value.
-fn resolve_schema_definition_span(
+fn resolve_schema_definition_origin(
     db: &impl Db,
     schema_id: SchemaNodeId,
     schema_file: TextFile,
     schema: &crate::query::ValidatedSchema,
-) -> Option<InputSpan> {
-    // SchemaNodeId -> NodeId (from schema source map)
-    let doc_node_id = schema.source_map.get(&schema_id)?;
-    // Query CST for span resolution
-    let cst = db.query(ParseCst::new(schema_file)).ok()?;
-    // Use definition span (key location) instead of value span
-    schema
-        .parsed
-        .origins
-        .get_definition_span(*doc_node_id, &cst.cst)
+) -> Option<Origin> {
+    resolve_schema_origin_inner(db, schema_id, schema_file, schema, true)
+}
+
+fn resolve_schema_origin_inner(
+    db: &impl Db,
+    schema_id: SchemaNodeId,
+    fallback_schema_file: TextFile,
+    schema: &crate::query::ValidatedSchema,
+    definition: bool,
+) -> Option<Origin> {
+    let source = schema.source_map.get(&schema_id)?;
+    let file = schema
+        .source_files
+        .get(&source.uri)
+        .cloned()
+        .unwrap_or(fallback_schema_file);
+    let parsed = schema
+        .parsed_by_uri
+        .get(&source.uri)
+        .unwrap_or(&schema.parsed);
+    let cst = db.query(ParseCst::new(file.clone())).ok()?;
+    let span = if definition {
+        parsed.origins.get_definition_span(source.node_id, &cst.cst)
+    } else {
+        parsed.origins.get_value_span(source.node_id, &cst.cst)
+    }?;
+
+    Some(Origin::with_hints(
+        file,
+        span,
+        OriginHints::default().with_schema(schema_id),
+    ))
 }
 
 /// Convert a schema conversion error to an ErrorReport.

@@ -69,17 +69,7 @@ impl<'a> TraceResolver<'a> {
         let schema_node = self.schema.node(schema_id);
         match &schema_node.content {
             SchemaNodeContent::Reference(type_ref) => {
-                if let Some(namespace) = &type_ref.namespace {
-                    self.set_trace(
-                        node_id,
-                        ResolvedTypeTrace::Unresolved(
-                            TypeTraceUnresolvedReason::CrossSchemaReference {
-                                namespace: namespace.clone(),
-                                name: type_ref.name.to_string(),
-                            },
-                        ),
-                    );
-                } else if let Some(target_id) = self.schema.get_type(&type_ref.name) {
+                if let Some(target_id) = self.schema.resolve_reference(type_ref) {
                     let next_trace = trace.with_hop(schema_path(self.schema_node_paths, target_id));
                     self.resolve_node(node_id, target_id, next_trace, forced_variant);
                 } else {
@@ -87,7 +77,7 @@ impl<'a> TraceResolver<'a> {
                         node_id,
                         ResolvedTypeTrace::Unresolved(
                             TypeTraceUnresolvedReason::UndefinedTypeReference {
-                                name: type_ref.name.to_string(),
+                                name: self.schema.display_reference(type_ref),
                             },
                         ),
                     );

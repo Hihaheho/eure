@@ -31,20 +31,7 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for ReferenceValidator<'a, 'doc, 's> {
     fn parse(&mut self, parse_ctx: &ParseContext<'doc>) -> Result<(), ValidatorError> {
         let node_id = parse_ctx.node_id();
 
-        // Cross-schema references not supported
-        if let Some(namespace) = &self.type_ref.namespace {
-            self.ctx
-                .record_error(ValidationError::UndefinedTypeReference {
-                    name: format!("{}.{}", namespace, self.type_ref.name),
-                    path: self.ctx.path(),
-                    node_id,
-                    schema_node_id: self.schema_node_id,
-                });
-            return Ok(());
-        }
-
-        // Look up the type in schema.types
-        if let Some(&resolved_id) = self.ctx.schema.types.get(&self.type_ref.name) {
+        if let Some(resolved_id) = self.ctx.schema.resolve_reference(self.type_ref) {
             // Delegate to SchemaValidator with resolved type
             let child_validator = SchemaValidator {
                 ctx: self.ctx,
@@ -54,7 +41,7 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for ReferenceValidator<'a, 'doc, 's> {
         } else {
             self.ctx
                 .record_error(ValidationError::UndefinedTypeReference {
-                    name: self.type_ref.name.to_string(),
+                    name: self.ctx.schema.display_reference(self.type_ref),
                     path: self.ctx.path(),
                     node_id,
                     schema_node_id: self.schema_node_id,

@@ -1,0 +1,89 @@
+@ cases.imported-type-validation {
+  files.'common.schema.eure' = ```eure
+$types.User {
+  name = `text`
+  email = `text.email`
+}
+
+$types.Username {
+  $variant = "text"
+  pattern = `^[a-z]+$`
+}
+```
+
+  input_eure = ```eure
+user {
+  name = "Ada"
+  email = email`ada@example.com`
+}
+tag = `ada`
+```
+
+  schema = ```eure
+= `$types.Profile`
+
+$import = { common => "./common.schema.eure" }
+
+$types.Profile {
+  user = `$types.common.User`
+  tag = `$types.common.Username`
+}
+```
+}
+
+@ cases.imported-type-name-does-not-collide-with-local-name {
+  files.'common-collision.schema.eure' = ```eure
+$types.User = `text`
+```
+
+  input_eure = ```eure
+imported = "Ada"
+local = 42
+```
+
+  schema = ```eure
+$import = { common => "./common-collision.schema.eure" }
+
+$types.common__User = `integer`
+
+imported = `$types.common.User`
+local = `$types.common__User`
+```
+}
+
+@ cases.non-exported-imported-type-is-rejected {
+  files.'common-private.schema.eure' = ```eure
+$types.Public = `text`
+$types.Private = `integer`
+
+$export = ["Public"]
+```
+
+  schema = ```eure
+$import = { common => "./common-private.schema.eure" }
+
+value = `$types.common.Private`
+```
+
+  schema_conversion_error = ```
+error: type `Private` is not exported by `common` (declared in $import)
+ --> schema.eure:3:33
+  |
+3 | value = `$types.common.Private`
+  |                                ^ type `Private` is not exported by `common` (declared in $import)
+```
+}
+
+@ cases.remote-import-is-rejected {
+  schema = ```eure
+= `text`
+
+$import = { common => "https://example.com/common.schema.eure" }
+```
+
+  @ scenario_errors[]
+  scenario = "schema_conversion_error"
+  output = ```
+Query error: user error: Remote host not allowed: example.com (URL: https://example.com/common.schema.eure). If you trust this host, add it to security.allowed-hosts in Eure.eure
+```
+}

@@ -381,6 +381,8 @@ mod tests {
             nodes: Vec::new(),
             root: SchemaNodeId(0),
             types: IndexMap::new(),
+            exports: IndexSet::new(),
+            imports: IndexMap::new(),
             root_codegen: RootCodegen::default(),
             codegen_defaults: CodegenDefaults::default(),
         };
@@ -551,10 +553,11 @@ mod tests {
         }));
         schema.register_type(Identifier::new_unchecked("key"), union_key_schema_id);
 
-        let key_ref_schema_id = schema.create_node(SchemaNodeContent::Reference(TypeReference {
-            namespace: None,
-            name: Identifier::new_unchecked("key"),
-        }));
+        let key_ref_schema_id =
+            schema.create_node(SchemaNodeContent::Reference(TypeReference::Named {
+                namespace: None,
+                name: Identifier::new_unchecked("key"),
+            }));
 
         schema.node_mut(schema.root).content = SchemaNodeContent::Map(MapSchema {
             key: key_ref_schema_id,

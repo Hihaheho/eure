@@ -68,7 +68,6 @@ pub enum TypeTraceUnresolvedReason {
     UnknownField { field: String },
     UnknownExtension { extension: String },
     UndefinedTypeReference { name: String },
-    CrossSchemaReference { namespace: String, name: String },
     AmbiguousUnion { candidates: Vec<TypePathTrace> },
     NoMatchingUnionVariant { candidates: Vec<TypePathTrace> },
     InvalidVariantTag { tag: String },

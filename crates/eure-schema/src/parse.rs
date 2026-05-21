@@ -54,18 +54,22 @@ impl FromEure<'_> for TypeReference {
                     node_id: ctx.node_id(),
                     kind: ParseErrorKind::InvalidIdentifier(e),
                 })?;
-                Ok(TypeReference {
+                Ok(TypeReference::Named {
                     namespace: None,
                     name,
                 })
             }
             [namespace, name] => {
+                let namespace: Identifier = namespace.parse().map_err(|e| ParseError {
+                    node_id: ctx.node_id(),
+                    kind: ParseErrorKind::InvalidIdentifier(e),
+                })?;
                 let name: Identifier = name.parse().map_err(|e| ParseError {
                     node_id: ctx.node_id(),
                     kind: ParseErrorKind::InvalidIdentifier(e),
                 })?;
-                Ok(TypeReference {
-                    namespace: Some((*namespace).to_string()),
+                Ok(TypeReference::Named {
+                    namespace: Some(namespace),
                     name,
                 })
             }
@@ -94,6 +98,90 @@ impl FromEure<'_> for crate::SchemaRef {
             path,
             node_id: schema_ctx.node_id(),
         })
+    }
+}
+
+// ============================================================================
+// $import / $export parsing (root-level extensions)
+// ============================================================================
+
+/// Single entry in the `$import` map: alias → raw path string.
+#[derive(Debug, Clone)]
+pub struct ParsedImportEntry {
+    /// The string written in the source (e.g. "./common.schema.eure").
+    pub raw_path: String,
+}
+
+/// Parsed representation of the root-level `$import` extension.
+#[derive(Debug, Clone, Default)]
+pub struct ParsedImports {
+    /// Insertion-ordered map: alias → import entry.
+    pub entries: IndexMap<Identifier, ParsedImportEntry>,
+}
+
+/// Parsed representation of the root-level `$export` extension.
+#[derive(Debug, Clone)]
+pub enum ParsedExports {
+    /// `$export = ["a", "b", ...]` — explicit allowlist of names.
+    Explicit { names: Vec<Identifier> },
+}
+
+/// Read the root-level `$import` extension if present.
+pub fn parse_root_imports(ctx: &ParseContext<'_>) -> Result<ParsedImports, ParseError> {
+    let Some(import_ctx) = ctx.ext_optional("import") else {
+        return Ok(ParsedImports::default());
+    };
+
+    let rec = import_ctx.parse_record()?;
+    let mut entries: IndexMap<Identifier, ParsedImportEntry> = IndexMap::new();
+
+    for result in rec.unknown_fields() {
+        let (alias, alias_ctx) = result.map_err(|(key, ctx)| ParseError {
+            node_id: ctx.node_id(),
+            kind: ParseErrorKind::InvalidKeyType(key.clone()),
+        })?;
+        let alias_ident: Identifier = alias.parse().map_err(|e| ParseError {
+            node_id: alias_ctx.node_id(),
+            kind: ParseErrorKind::InvalidIdentifier(e),
+        })?;
+        let raw_path: String = alias_ctx.parse()?;
+        entries.insert(alias_ident, ParsedImportEntry { raw_path });
+    }
+    rec.allow_unknown_fields()?;
+
+    Ok(ParsedImports { entries })
+}
+
+/// Read the root-level `$export` extension if present. Returns `Ok(None)` when
+/// `$export` is omitted (callers default to "all locally-declared types").
+pub fn parse_root_exports(ctx: &ParseContext<'_>) -> Result<Option<ParsedExports>, ParseError> {
+    let Some(export_ctx) = ctx.ext_optional("export") else {
+        return Ok(None);
+    };
+    let origin = export_ctx.node_id();
+    let node = export_ctx.node();
+
+    use eure_document::document::node::NodeValue;
+    match &node.content {
+        NodeValue::Array(_) => {
+            let raw: Vec<String> = export_ctx.parse()?;
+            let mut names = Vec::with_capacity(raw.len());
+            for entry in raw {
+                let id: Identifier = entry.parse().map_err(|e| ParseError {
+                    node_id: origin,
+                    kind: ParseErrorKind::InvalidIdentifier(e),
+                })?;
+                names.push(id);
+            }
+            Ok(Some(ParsedExports::Explicit { names }))
+        }
+        other => Err(ParseError {
+            node_id: origin,
+            kind: ParseErrorKind::InvalidPattern {
+                kind: "$export value".to_string(),
+                reason: format!("expected [\"name\", ...] array, got {}", other.value_kind()),
+            },
+        }),
     }
 }
 
@@ -519,7 +607,7 @@ fn parse_type_reference_string(
                 node_id,
                 kind: ParseErrorKind::InvalidIdentifier(e),
             })?;
-            Ok(ParsedSchemaNodeContent::Reference(TypeReference {
+            Ok(ParsedSchemaNodeContent::Reference(TypeReference::Named {
                 namespace: None,
                 name,
             }))
@@ -531,8 +619,12 @@ fn parse_type_reference_string(
                 node_id,
                 kind: ParseErrorKind::InvalidIdentifier(e),
             })?;
-            Ok(ParsedSchemaNodeContent::Reference(TypeReference {
-                namespace: Some((*namespace).to_string()),
+            let namespace: Identifier = namespace.parse().map_err(|e| ParseError {
+                node_id,
+                kind: ParseErrorKind::InvalidIdentifier(e),
+            })?;
+            Ok(ParsedSchemaNodeContent::Reference(TypeReference::Named {
+                namespace: Some(namespace),
                 name,
             }))
         }

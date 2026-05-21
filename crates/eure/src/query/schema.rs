@@ -1,16 +1,23 @@
 //! Schema conversion and validation queries.
 
-use std::path::{Path, PathBuf};
+use std::ffi::OsString;
+use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
 use eure_document::value::ObjectKey;
 use eure_schema::SchemaDocument;
-use eure_schema::convert::{SchemaSourceMap, document_to_schema_with_layout};
+use eure_schema::convert::{
+    ConversionError, SchemaSourceMap, loaded_schema_set_to_schema_with_layout,
+};
+use eure_schema::parse::{ParsedImports, parse_root_imports};
+use eure_schema::resolver::{LoadedSchemaSet, ResolvedSchemaUri, ResolverError};
 use eure_schema::type_path_trace::LayoutStrategies;
 use eure_schema::validate::{ValidationError, validate};
 use eure_tree::prelude::Cst;
 use eure_tree::tree::InputSpan;
+use indexmap::IndexMap;
 use query_flow::{Db, QueryError, query};
+use url::Url;
 
 use crate::document::OriginMap;
 
@@ -30,6 +37,8 @@ pub struct ValidatedSchema {
     pub layout: Arc<LayoutStrategies>,
     pub source_map: Arc<SchemaSourceMap>,
     pub parsed: ParsedDocument,
+    pub source_files: Arc<IndexMap<ResolvedSchemaUri, TextFile>>,
+    pub parsed_by_uri: Arc<IndexMap<ResolvedSchemaUri, ParsedDocument>>,
 }
 
 /// Resolved $schema extension value with origin for error reporting.
@@ -50,6 +59,234 @@ pub struct ResolvedSchema {
     pub origin: Option<Origin>,
 }
 
+fn schema_base_uri(file: &TextFile) -> ResolvedSchemaUri {
+    match file.as_local_path() {
+        Some(path) => ResolvedSchemaUri::Local(normalize_path_lexically(path)),
+        None => ResolvedSchemaUri::Inline(file.to_string()),
+    }
+}
+
+fn normalize_path_lexically(path: &Path) -> PathBuf {
+    let mut prefix: Option<OsString> = None;
+    let mut has_root = false;
+    let mut parts: Vec<OsString> = Vec::new();
+
+    for component in path.components() {
+        match component {
+            Component::Prefix(value) => {
+                prefix = Some(value.as_os_str().to_os_string());
+                parts.clear();
+            }
+            Component::RootDir => {
+                has_root = true;
+                parts.clear();
+            }
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if parts.pop().is_none() && !has_root {
+                    parts.push(OsString::from(".."));
+                }
+            }
+            Component::Normal(value) => parts.push(value.to_os_string()),
+        }
+    }
+
+    let mut normalized = PathBuf::new();
+    if let Some(prefix) = prefix {
+        normalized.push(prefix);
+    }
+    if has_root {
+        normalized.push(std::path::MAIN_SEPARATOR.to_string());
+    }
+    for part in parts {
+        normalized.push(part);
+    }
+    normalized
+}
+
+fn resolve_schema_import_text_file(
+    importer: &TextFile,
+    raw_path: &str,
+    boundary: Option<&Path>,
+) -> Result<TextFile, ResolverError> {
+    if raw_path.starts_with("https://") {
+        let url = Url::parse(raw_path).map_err(|error| ResolverError::InvalidUrl {
+            raw_url: raw_path.to_string(),
+            reason: error.to_string(),
+        })?;
+        return Ok(TextFile::from_url(url));
+    }
+
+    if let Some((scheme, _)) = raw_path.split_once("://") {
+        return Err(ResolverError::UnsupportedScheme {
+            scheme: scheme.to_string(),
+        });
+    }
+
+    let raw = Path::new(raw_path);
+    if raw.is_absolute() {
+        return Err(ResolverError::AbsolutePathUnsupported {
+            raw_path: raw_path.to_string(),
+        });
+    }
+
+    let Some(base_path) = importer.as_local_path() else {
+        return Err(ResolverError::NonLocalBase {
+            raw_path: raw_path.to_string(),
+            base: ResolvedSchemaUri::Inline(importer.to_string()),
+        });
+    };
+
+    let base_dir = base_path.parent().unwrap_or(Path::new(""));
+    let target = normalize_path_lexically(&base_dir.join(raw));
+
+    if let Some(boundary) = boundary {
+        let boundary = normalize_path_lexically(boundary);
+        if !boundary.as_os_str().is_empty() && !target.starts_with(&boundary) {
+            return Err(ResolverError::EscapesWorkspaceRoot {
+                resolved: target,
+                workspace_root: boundary,
+            });
+        }
+    }
+
+    Ok(TextFile::from_path(target))
+}
+
+struct QueryLoadedSchemaSet {
+    loaded: LoadedSchemaSet,
+    source_files: IndexMap<ResolvedSchemaUri, TextFile>,
+    parsed_by_uri: IndexMap<ResolvedSchemaUri, ParsedDocument>,
+    import_boundary: Option<PathBuf>,
+}
+
+fn collect_schema_import_graph(
+    db: &impl Db,
+    root_file: TextFile,
+    root_parsed: ParsedDocument,
+) -> Result<QueryLoadedSchemaSet, QueryError> {
+    let root_uri = schema_base_uri(&root_file);
+    let import_boundary = import_boundary(db, &root_file)?;
+    let mut graph = QueryLoadedSchemaSet {
+        loaded: LoadedSchemaSet::new(root_uri.clone(), root_parsed.doc.as_ref().clone()),
+        source_files: IndexMap::new(),
+        parsed_by_uri: IndexMap::new(),
+        import_boundary,
+    };
+    let mut stack = Vec::new();
+    collect_schema_import_graph_inner(
+        db,
+        root_uri,
+        root_file,
+        root_parsed,
+        &mut graph,
+        &mut stack,
+    )?;
+    Ok(graph)
+}
+
+fn collect_schema_import_graph_inner(
+    db: &impl Db,
+    uri: ResolvedSchemaUri,
+    file: TextFile,
+    parsed: ParsedDocument,
+    graph: &mut QueryLoadedSchemaSet,
+    stack: &mut Vec<ResolvedSchemaUri>,
+) -> Result<(), QueryError> {
+    if let Some(start) = stack.iter().position(|existing| existing == &uri) {
+        return Err(FileError {
+            file,
+            kind: ConversionError::ImportCycle {
+                cycle: stack[start..].to_vec(),
+                attempted: uri,
+            },
+        }
+        .into());
+    }
+
+    if graph.parsed_by_uri.contains_key(&uri) {
+        return Ok(());
+    }
+
+    graph
+        .loaded
+        .insert_document(uri.clone(), parsed.doc.as_ref().clone());
+    graph.source_files.insert(uri.clone(), file.clone());
+    graph.parsed_by_uri.insert(uri.clone(), parsed.clone());
+    stack.push(uri.clone());
+
+    let root_ctx = parsed.doc.parse_context(parsed.doc.get_root_id());
+    let imports: ParsedImports = parse_root_imports(&root_ctx).map_err(|kind| FileError {
+        file: file.clone(),
+        kind: ConversionError::ParseError(kind),
+    })?;
+
+    for (alias, entry) in imports.entries {
+        let target_file = resolve_schema_import_text_file(
+            &file,
+            &entry.raw_path,
+            graph.import_boundary.as_deref(),
+        )
+        .map_err(|source| FileError {
+            file: file.clone(),
+            kind: ConversionError::ImportResolverFailed {
+                alias: alias.to_string(),
+                raw_path: entry.raw_path.clone(),
+                source,
+            },
+        })?;
+        let target_uri = schema_base_uri(&target_file);
+
+        graph
+            .loaded
+            .insert_import(uri.clone(), alias, target_uri.clone());
+
+        if let Some(start) = stack.iter().position(|existing| existing == &target_uri) {
+            return Err(FileError {
+                file: file.clone(),
+                kind: ConversionError::ImportCycle {
+                    cycle: stack[start..].to_vec(),
+                    attempted: target_uri,
+                },
+            }
+            .into());
+        }
+
+        let target_parsed = db.query(ParseDocument::new(target_file.clone()))?;
+        collect_schema_import_graph_inner(
+            db,
+            target_uri,
+            target_file,
+            target_parsed.as_ref().clone(),
+            graph,
+            stack,
+        )?;
+    }
+
+    stack.pop();
+    Ok(())
+}
+
+fn import_boundary(db: &impl Db, root_file: &TextFile) -> Result<Option<PathBuf>, QueryError> {
+    let Some(root_path) = root_file.as_local_path() else {
+        return Ok(None);
+    };
+    let root_path = normalize_path_lexically(root_path);
+
+    for workspace_id in db.list_asset_keys::<super::assets::WorkspaceId>() {
+        let workspace = db.asset(workspace_id)?;
+        let workspace_path = normalize_path_lexically(&workspace.path);
+        if root_path.starts_with(&workspace_path) {
+            return Ok(Some(workspace_path));
+        }
+    }
+
+    Ok(root_path.parent().and_then(|path| {
+        let path = normalize_path_lexically(path);
+        (!path.as_os_str().is_empty()).then_some(path)
+    }))
+}
+
 /// Convert document to SchemaDocument.
 ///
 /// Returns `None` if parsing failed.
@@ -61,9 +298,10 @@ pub fn document_to_schema_query(
     file: TextFile,
 ) -> Result<ValidatedSchema, QueryError> {
     let parsed = db.query(ParseDocument::new(file.clone()))?;
+    let loaded = collect_schema_import_graph(db, file.clone(), parsed.as_ref().clone())?;
 
-    let (schema, layout, source_map) =
-        document_to_schema_with_layout(&parsed.doc).map_err(|kind| FileError {
+    let (schema, layout, source_map) = loaded_schema_set_to_schema_with_layout(&loaded.loaded)
+        .map_err(|kind| FileError {
             file: file.clone(),
             kind,
         })?;
@@ -72,6 +310,8 @@ pub fn document_to_schema_query(
         layout: Arc::new(layout),
         source_map: Arc::new(source_map),
         parsed: parsed.as_ref().clone(),
+        source_files: Arc::new(loaded.source_files),
+        parsed_by_uri: Arc::new(loaded.parsed_by_uri),
     })
 }
 
