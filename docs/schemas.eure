@@ -571,37 +571,107 @@ contact = `$types.user`
   "##": Cross-Schema Type References
 
   "body" = ```markdown
-Schemas can import and reference types from other schemas for modularity and reuse.
+Schemas can import and reference types from other schema files. Use this to keep shared primitives, common records, and organization-wide conventions in one place while each application schema stays focused on its own document shape.
+
+Schema imports affect the schema graph only. A data document still points at one root schema with `$schema`; that root schema may then load other schema files through `$import`.
 ```
 
   @ "import" {
     "###": $import
 
     "body" = ```markdown
-Declare schema imports with namespace aliases:
+Declare imports at the root of a schema as a map from alias to schema path. The alias becomes the namespace used in type references.
 ```
 
     "eure-snippet" = ```eure
-// my-app.schema.eure
+// profile.schema.eure
 $import = {
-  common => "common.schema.eure"
-  auth => "./auth/types.schema.eure"
+  common => "./common.schema.eure"
+  auth => "./auth.schema.eure"
 }
 
-// Reference imported types using: .$types.<namespace>.<type-name>
-@ user
-name = `$types.common.username`      // from common.schema.eure
-email = `$types.common.email`        // from common.schema.eure
-token = `$types.auth.jwt-token`      // from auth/types.schema.eure
-local-field = `$types.my-local-type` // local type (no namespace)
+@ $types.profile {
+  name = `$types.common.username`
+  email = `$types.common.email`
+  token = `$types.auth.jwt-token`
+}
+
+= `$types.profile`
 ```
 
     "body-2" = ```markdown
-**Resolution rules:**
-- Path length 2 (`$types.T`): Local type reference
-- Path length 3 (`$types.N.T`): External type reference (N must be in `$import`)
+Imported types are referenced as `` `$types.<alias>.<type-name>` ``.
 
-**Important:** Imports are resolved at schema bundling/validation time, not at runtime. Distributed schemas should be self-contained with all imports inlined. This follows Eure's design principle that documents should be self-contained.
+| Reference form | Meaning |
+|----------------|---------|
+| `` `$types.user` `` | Local type declared in the same schema |
+| `` `$types.common.user` `` | Type `user` exported by the schema imported as `common` |
+
+Type references have exactly one optional import namespace. A schema can import another schema that imports more schemas, but callers cannot chain namespaces like `$types.common.base.user`. If you want to expose a transitive dependency, declare a local alias type in the imported schema and export that local type.
+```
+
+    "eure-snippet-2" = ```eure
+// common.schema.eure
+$import = {
+  base => "./base.schema.eure"
+}
+
+// Re-export a dependency under common's own public API.
+$types.username = `$types.base.username`
+$export = ["username"]
+```
+
+    "body-3" = ```markdown
+Only `$types` are imported. The imported schema's own root type is not automatically used by the importer; declare the reusable pieces under `$types` and reference those names explicitly.
+```
+
+  }
+
+  @ "path-resolution" {
+    "###": Import Path Resolution
+
+    "body" = ```markdown
+Local import paths are resolved relative to the schema file that contains the `$import` entry.
+```
+
+    "eure-snippet" = ```eure
+// schemas/app/profile.schema.eure
+$import = {
+  common => "../common/common.schema.eure"
+  auth => "./auth.schema.eure"
+}
+```
+
+    "body-2" = ```markdown
+Security rules keep imports predictable:
+
+- Relative local paths are normalized before loading.
+- Absolute local paths are rejected.
+- Without a workspace config, imports cannot escape the root schema's directory.
+- Inside a workspace, imports cannot escape the workspace root.
+- `https://` imports are allowed only when the host is listed in `security.allowed-hosts` in `Eure.eure`.
+- Other URL schemes are rejected.
+- Import cycles are reported as schema conversion errors.
+```
+
+    "eure-snippet-2" = ```eure
+// Eure.eure
+security.allowed-hosts = ["schemas.example.com"]
+
+@ targets.config
+globs = ["config/**/*.eure"]
+schema = "schemas/app.schema.eure"
+```
+
+    "eure-snippet-3" = ```eure
+// schemas/app.schema.eure
+$import = {
+  shared => "https://schemas.example.com/shared.schema.eure"
+}
+```
+
+    "body-3" = ```markdown
+Remote imports use the same schema cache and cache-control flags as other remote schema loads. See [Project Configuration](/docs/project-configuration) and [CLI Reference](/docs/cli) for `--offline`, `--refresh`, and `--max-age`.
 ```
 
   }
@@ -610,74 +680,148 @@ local-field = `$types.my-local-type` // local type (no namespace)
     "###": $export
 
     "body" = ```markdown
-Optionally declare which types are exported (public):
+`$export` defines the public type names that other schemas may reference. If `$export` is omitted, all locally declared `$types` are exported.
 ```
 
     "eure-snippet" = ```eure
 // common.schema.eure
 
-// Export all types (default if $export is omitted)
-$export = "*"
+@ $types.username {
+  $variant: text
+  pattern = `^[a-z0-9_]+$`
+}
 
-// Or export only specific types
-$export = ["username", "email", "timestamp"]
+@ $types.email = `text.email`
 
-@ $types.username { ... }
-@ $types.email { ... }
-@ $types.timestamp { ... }
-@ $types.internal-helper { ... }  // Not exported, cannot be imported
+@ $types.internal-id = `text`
+
+// Only username and email are part of this schema's public API.
+$export = ["username", "email"]
+```
+
+    "body-2" = ```markdown
+Schemas that import `common.schema.eure` can reference `$types.common.username` and `$types.common.email`, but `$types.common.internal-id` is rejected.
+
+The export list must name types declared in the same schema's own `$types`. Imported names are not exported directly. To expose an imported type, define a local type reference and export the local name.
+```
+
+    "eure-snippet-2" = ```eure
+// api.schema.eure
+$import = {
+  common => "./common.schema.eure"
+}
+
+$types.public-username = `$types.common.username`
+$export = ["public-username"]
 ```
 
   }
 
-  @ "example-modular-schema-design" {
-    "###": Example: Modular Schema Design
+  @ "complete-import-example" {
+    "###": Complete Import Example
 
     "body" = ```markdown
-**common.schema.eure:**
+**common.schema.eure** defines reusable public types:
 ```
 
     "eure-snippet" = ```eure
+$schema = "https://eure.dev/schemas/eure-schema/v1"
+
 $export = ["username", "email"]
 
 @ $types.username {
   $variant: text
   min-length = 3
   max-length = 20
-  pattern = "^[a-z0-9_]+$"
+  pattern = `^[a-z0-9_]+$`
 }
 
 @ $types.email = `text.email`
 ```
 
     "body-2" = ```markdown
-**user.schema.eure:**
+**profile.schema.eure** imports those public names and combines them with local fields:
 ```
 
     "eure-snippet-2" = ```eure
+$schema = "https://eure.dev/schemas/eure-schema/v1"
+
 $import = {
-  common => "common.schema.eure"
+  common => "./common.schema.eure"
 }
 
-@ $types.user {
+@ $types.profile {
   username = `$types.common.username`
   email = `$types.common.email`
-  bio = `text`
-  bio.$optional = true
+  display-name = `text`
+  display-name.$optional = true
 }
 
-$root-type = `$types.user`
+= `$types.profile`
+```
+
+    "body-3" = ```markdown
+**profile.eure** validates against the root schema only:
+```
+
+    "eure-snippet-3" = ```eure
+$schema = "./profile.schema.eure"
+
+username = `ada_lovelace`
+email = email`ada@example.com`
+display-name = "Ada Lovelace"
+```
+
+    "body-4" = ```markdown
+Then run:
+```
+
+    "text-snippet" = ```text
+$ eure check profile.eure
+```
+
+    "body-5" = ```markdown
+`eure check` loads `profile.schema.eure`, follows its `$import` to `common.schema.eure`, verifies the export rules, and validates the data document through the resolved type references.
+```
+
+  }
+
+  @ "errors-and-diagnostics" {
+    "###": Errors and Diagnostics
+
+    "body" = ```markdown
+Import and export errors are reported while the schema is loaded:
+
+| Situation | Result |
+|-----------|--------|
+| `$types.missing.user` with no `missing` import | Unknown import namespace |
+| `$types.common.internal-id` when `internal-id` is not exported | Type is not exported by `common` |
+| `$export = ["missing"]` | Exported name is not declared locally |
+| `a.schema.eure` imports `b.schema.eure` and `b` imports `a` | Import cycle |
+| Import path leaves the workspace boundary | Import resolver error |
+
+When validation fails through an imported type, diagnostics point at both the data value and the schema definition that caused the failure, even when that definition lives in the imported schema file.
+```
+
+    "eure-snippet" = ```eure
+// profile.schema.eure
+$import = { common => "./common.schema.eure" }
+name = `$types.common.username`
+```
+
+    "body-2" = ```markdown
+If `common.schema.eure` defines `username` with a pattern constraint, an invalid `name` value reports the data location in `profile.eure` and a secondary schema location in `common.schema.eure`.
 ```
 
   }
 
   @ "bundling" {
-    "###": Bundling
+    "###": Distribution and Bundling
 
     "body" = ```markdown
-> **Not Yet Implemented**
->
-> A schema bundler (`eure-schema bundle`) that inlines all imports into a single self-contained file is planned but not yet available. The CLI currently supports: `check`, `fmt`, `from_json`, `from_toml`, `to_json`, `inspect`, and other commands.
+The CLI and language tooling resolve schema imports directly when they load a schema. This applies to validation (`eure check`) and schema-aware format conversion (`eure to-json --schema ...`, `eure from-json --schema ...`).
+
+A separate schema bundle command that writes a single self-contained schema file is not available yet. If you need to distribute schemas to an environment that cannot load local or remote imports, publish the imported schema files together and keep their relative paths unchanged.
 
 ---
 ```
