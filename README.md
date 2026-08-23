@@ -4,6 +4,12 @@
   <img alt="Eure" src="https://raw.githubusercontent.com/Hihaheho/eure/main/assets/eure-logo.svg" height="100px" >
 </picture>
 
+[![GitHub](https://img.shields.io/badge/GitHub-Hihaheho%2Feure-222222)](https://github.com/Hihaheho/eure)
+![MIT/Apache 2.0](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)
+[![Crates.io](https://img.shields.io/crates/v/eure)](https://crates.io/crates/eure)
+[![docs.rs](https://img.shields.io/docsrs/eure)](https://docs.rs/eure)
+![GitHub Repo stars](https://img.shields.io/github/stars/Hihaheho/eure?style=social)
+
 Web Playground: <https://eure.dev>
 
 Release Blog: [Eure: filling the gap between TOML and YAML with arbitrary nesting and tagged unions](https://blog.eure.dev/articles/000-alpha-release)
