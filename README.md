@@ -16,7 +16,7 @@ Release Blog: [Eure: filling the gap between TOML and YAML with arbitrary nestin
 
 ## Name
 
-Eure (not "EURE"), pronounced "your." Not an acronym, but think: Eureka, Extensible Universal Representation, "your" data, "your" way.
+Eure (not "EURE"), pronounced /jʊr/ ("yoor"). Not an acronym, but think: Eureka, Extensible Universal Representation, "your" data, "your" way.
 
 ## Focus
 
