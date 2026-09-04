@@ -51,7 +51,7 @@ impl<F: CstFacade> CstVisitor<F> for InspectVisitor<'_, '_> {
                 self.f,
                 "{}{} ({:?})",
                 " ".repeat(self.indent),
-                &self.input[input_span.start as usize..input_span.end as usize]
+                self.input[input_span.start as usize..input_span.end as usize]
                     .replace("\n", "\\n")
                     .replace("\t", "\\t")
                     .replace(" ", "_"),

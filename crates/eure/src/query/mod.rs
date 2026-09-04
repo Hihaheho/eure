@@ -11,6 +11,7 @@ pub mod diagnostics;
 pub mod error;
 #[cfg(feature = "http")]
 pub mod http;
+pub mod lint;
 pub mod parse;
 pub mod report;
 pub mod schema;
@@ -51,6 +52,7 @@ pub use diagnostics::{
 pub use http::fetch_url;
 #[cfg(feature = "native")]
 pub use http::{CacheOptions, base_cache_dir, fetch_url_cached, https_cache_dir, parse_duration};
+pub use lint::GetLintReports;
 pub use parse::{ParseCst, ParseDocument, ParseEure, ParsedCst, ParsedDocument, ValidCst};
 pub use report::{GetFileErrorReports, WithErrorReports, WithFormattedError};
 #[cfg(feature = "http")]

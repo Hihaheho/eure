@@ -504,7 +504,7 @@ impl<'a> EventReceiver for TomlParserConverter<'a> {
         let trivia_before = std::mem::take(&mut self.pending_trivia);
 
         // Collect keys first to avoid borrow issues
-        let keys: Vec<_> = self.current_keys.drain(..).collect();
+        let keys = std::mem::take(&mut self.current_keys);
 
         // Build the path from collected keys
         let path: Vec<SourcePathSegment> = keys
@@ -564,7 +564,7 @@ impl<'a> EventReceiver for TomlParserConverter<'a> {
         let trivia_before = std::mem::take(&mut self.pending_trivia);
 
         // Build the path from collected keys with array marker
-        let keys: Vec<_> = self.current_keys.drain(..).collect();
+        let keys = std::mem::take(&mut self.current_keys);
         let mut path: Vec<SourcePathSegment> = Vec::new();
 
         for (i, (key, _)) in keys.iter().enumerate() {

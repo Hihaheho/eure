@@ -1971,6 +1971,7 @@ dependencies = [
  "eure-document",
  "eure-env",
  "eure-fmt",
+ "eure-lint",
  "eure-macros",
  "eure-parol",
  "eure-schema",
@@ -2179,6 +2180,11 @@ dependencies = [
 [[package]]
 name = "eure-lint"
 version = "0.1.9"
+dependencies = [
+ "eure-parol",
+ "eure-tree",
+ "thiserror 2.0.18",
+]
 
 [[package]]
 name = "eure-ls"

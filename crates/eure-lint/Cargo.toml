@@ -10,3 +10,8 @@ license.workspace = true
 keywords = ["eure", "lint", "linter", "static-analysis"]
 
 [dependencies]
+eure-tree = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+eure-parol = { workspace = true }

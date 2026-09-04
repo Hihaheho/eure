@@ -21,6 +21,7 @@ eros = { workspace = true }
 eure-env = { workspace = true }
 eure-document = { workspace = true }
 eure-fmt = { workspace = true }
+eure-lint = { workspace = true }
 eure-macros = { workspace = true }
 eure-parol = { workspace = true }
 eure-schema = { workspace = true }

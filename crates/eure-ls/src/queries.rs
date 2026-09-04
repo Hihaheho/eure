@@ -5,7 +5,7 @@ use eure::query::{
     TextFile,
 };
 use lsp_types::{
-    Diagnostic, DiagnosticSeverity as LspSeverity, Position, Range,
+    Diagnostic, DiagnosticSeverity as LspSeverity, NumberOrString, Position, Range,
     SemanticToken as LspSemanticToken, SemanticTokens,
 };
 use query_flow::{Db, QueryError, query};
@@ -136,7 +136,7 @@ fn convert_diagnostic(msg: &DiagnosticMessage, source: &str, line_offsets: &[usi
     Diagnostic {
         range: Range { start, end },
         severity: Some(convert_severity(msg.severity)),
-        code: None,
+        code: msg.code.clone().map(NumberOrString::String),
         code_description: None,
         source: Some("eure".to_string()),
         message: msg.message.clone(),
