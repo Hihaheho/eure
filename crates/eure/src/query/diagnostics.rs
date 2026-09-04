@@ -37,6 +37,8 @@ pub struct DiagnosticMessage {
     pub end: usize,
     /// The diagnostic message.
     pub message: String,
+    /// Optional stable diagnostic or lint rule code.
+    pub code: Option<String>,
     /// Severity of the diagnostic.
     pub severity: DiagnosticSeverity,
 }
@@ -162,6 +164,7 @@ fn error_report_to_diagnostic(report: &ErrorReport) -> DiagnosticMessage {
         start: report.primary_origin.span.start as usize,
         end: report.primary_origin.span.end as usize,
         message: report.title.to_string(),
+        code: report.code.as_ref().map(ToString::to_string),
         severity: match report.severity {
             Severity::Error => DiagnosticSeverity::Error,
             Severity::Warning => DiagnosticSeverity::Warning,

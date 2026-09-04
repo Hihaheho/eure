@@ -7,6 +7,7 @@ use query_flow::{Cachable, Db, Query, QueryError, QueryResultExt as _, query};
 
 use super::assets::{OpenDocuments, OpenDocumentsList, TextFile};
 use super::error::{EureQueryError, FileError};
+use super::lint::GetLintReports;
 use super::parse::{ParseCst, ParseDocument};
 use super::schema::{
     DocumentToSchemaQuery, GetSchemaExtension, GetSchemaExtensionDiagnostics, ResolveSchema,
@@ -137,14 +138,21 @@ pub fn get_file_error_reports(db: &impl Db, file: TextFile) -> Result<ErrorRepor
         return Ok(reports); // Stop here if doc construction failed
     }
 
-    // 3. Schema extension errors ($schema wrong type)
+    // 3. Lint diagnostics
+    reports.extend(
+        db.query(GetLintReports::new(file.clone()))?
+            .iter()
+            .cloned(),
+    );
+
+    // 4. Schema extension errors ($schema wrong type)
     reports.extend(
         db.query(GetSchemaExtensionDiagnostics::new(file.clone()))?
             .iter()
             .cloned(),
     );
 
-    // 4. Validation errors - check schema validity first, then validate
+    // 5. Validation errors - check schema validity first, then validate
     let resolved = match db.query(ResolveSchema::new(file.clone())) {
         Ok(r) => r,
         Err(QueryError::UserError(e)) => {
@@ -193,7 +201,7 @@ pub fn get_file_error_reports(db: &impl Db, file: TextFile) -> Result<ErrorRepor
         }
     }
 
-    // 5. Schema conversion errors (only if this file is a schema)
+    // 6. Schema conversion errors (only if this file is a schema)
     let schema_files = collect_schema_files(db)?;
     if schema_files.contains(&file)
         && let Err(e) = db.query(WithErrorReports::new(DocumentToSchemaQuery::new(
@@ -327,5 +335,32 @@ mod tests {
 
         // Should have no reports
         assert_eq!(reports.len(), 0);
+    }
+
+    #[test]
+    fn test_file_error_reports_include_lints() {
+        let runtime = build_runtime();
+        let file = TextFile::from_path(PathBuf::from("test.eure"));
+
+        runtime.resolve_asset(
+            OpenDocuments,
+            OpenDocumentsList(vec![file.clone()]),
+            DurabilityLevel::Volatile,
+        );
+        runtime.resolve_asset(
+            file.clone(),
+            TextFileContent("loop: pingpong // modes".to_owned()),
+            DurabilityLevel::Volatile,
+        );
+
+        let reports = runtime
+            .query(GetFileErrorReports::new(file))
+            .expect("lint query should succeed");
+
+        assert_eq!(reports.len(), 1);
+        assert_eq!(
+            reports[0].code.as_deref(),
+            Some("no-comment-in-text-binding")
+        );
     }
 }
