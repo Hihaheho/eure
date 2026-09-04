@@ -11,10 +11,9 @@ use eure_tree::nodes::{
     RootTextBindingHandle, RootTextBindingView, SectionHandle, SectionView, TextBindingHandle,
     TextBindingView,
 };
-use eure_tree::prelude::{
-    Cst, CstFacade, CstNodeId, CstVisitor, CstVisitorSuper as _, InputSpan, NonTerminalHandle as _,
-    TerminalData,
-};
+use eure_tree::prelude::{Cst, CstFacade, CstNodeId, CstVisitor, InputSpan, TerminalData};
+use eure_tree::tree::NonTerminalHandle as _;
+use eure_tree::visitor::CstVisitorSuper as _;
 use thiserror::Error;
 
 /// Stable identifier for a built-in lint rule.
