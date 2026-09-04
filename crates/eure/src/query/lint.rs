@@ -3,7 +3,7 @@
 use eure_lint::{Diagnostic, Severity as LintSeverity, lint_default};
 use query_flow::{Db, QueryError, query};
 
-use crate::report::{Element, ErrorReport, ErrorReports, Origin, Severity};
+use crate::report::{Element, ErrorReport, ErrorReports, Origin};
 
 use super::{ParseCst, TextFile};
 
