@@ -139,11 +139,7 @@ pub fn get_file_error_reports(db: &impl Db, file: TextFile) -> Result<ErrorRepor
     }
 
     // 3. Lint diagnostics
-    reports.extend(
-        db.query(GetLintReports::new(file.clone()))?
-            .iter()
-            .cloned(),
-    );
+    reports.extend(db.query(GetLintReports::new(file.clone()))?.iter().cloned());
 
     // 4. Schema extension errors ($schema wrong type)
     reports.extend(

@@ -12,8 +12,8 @@ use eure_tree::nodes::{
     TextBindingView,
 };
 use eure_tree::prelude::{
-    Cst, CstFacade, CstNodeId, CstVisitor, CstVisitorSuper as _, InputSpan,
-    NonTerminalHandle as _, TerminalData,
+    Cst, CstFacade, CstNodeId, CstVisitor, CstVisitorSuper as _, InputSpan, NonTerminalHandle as _,
+    TerminalData,
 };
 use thiserror::Error;
 
@@ -154,8 +154,7 @@ pub fn apply_fixes(
         .iter()
         .filter_map(|diagnostic| diagnostic.fix.as_ref())
         .filter(|fix| {
-            fix.applicability == Applicability::Always
-                || mode == FixMode::IncludeMaybeIncorrect
+            fix.applicability == Applicability::Always || mode == FixMode::IncludeMaybeIncorrect
         })
         .flat_map(|fix| fix.edits.iter())
         .collect();
@@ -227,10 +226,7 @@ impl<'a> Collector<'a> {
     }
 
     fn finish(mut self) -> Vec<Diagnostic> {
-        if self
-            .config
-            .is_enabled(RuleId::NestedAtInsideBracelessAt)
-        {
+        if self.config.is_enabled(RuleId::NestedAtInsideBracelessAt) {
             self.check_indented_sections();
         }
         self.diagnostics.sort_by_key(|diagnostic| {
@@ -308,12 +304,7 @@ impl<'a> Collector<'a> {
         });
     }
 
-    fn check_section<F: CstFacade>(
-        &mut self,
-        handle: SectionHandle,
-        view: SectionView,
-        tree: &F,
-    ) {
+    fn check_section<F: CstFacade>(&mut self, handle: SectionHandle, view: SectionView, tree: &F) {
         let node = handle.node_id();
         let Some(at_span) = tree.span(view.at.node_id()) else {
             return;
@@ -326,11 +317,8 @@ impl<'a> Collector<'a> {
             view.section_body.node_id(),
             NonTerminalKind::BlockBody,
         );
-        let has_array_marker = has_descendant_non_terminal(
-            tree,
-            view.keys.node_id(),
-            NonTerminalKind::ArrayMarker,
-        );
+        let has_array_marker =
+            has_descendant_non_terminal(tree, view.keys.node_id(), NonTerminalKind::ArrayMarker);
         let scope = nearest_ancestor(tree, node, NonTerminalKind::Eure)
             .unwrap_or_else(|| tree.root_handle().node_id());
 
@@ -341,9 +329,7 @@ impl<'a> Collector<'a> {
             braceless,
         });
 
-        if self.config.is_enabled(RuleId::RedundantAtWithBraces)
-            && !braceless
-            && !has_array_marker
+        if self.config.is_enabled(RuleId::RedundantAtWithBraces) && !braceless && !has_array_marker
         {
             let after_at = at_span.end as usize;
             let whitespace_end = self.source[after_at..keys_span.start as usize]
@@ -382,10 +368,7 @@ impl<F: CstFacade> CstVisitor<F> for Collector<'_> {
         view: TextBindingView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        if self
-            .config
-            .is_enabled(RuleId::NoCommentInTextBinding)
-        {
+        if self.config.is_enabled(RuleId::NoCommentInTextBinding) {
             self.check_text_binding(handle.node_id(), TerminalKind::TextStart, tree);
         }
         self.visit_text_binding_super(handle, view, tree)
@@ -397,10 +380,7 @@ impl<F: CstFacade> CstVisitor<F> for Collector<'_> {
         view: RootTextBindingView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        if self
-            .config
-            .is_enabled(RuleId::NoCommentInTextBinding)
-        {
+        if self.config.is_enabled(RuleId::NoCommentInTextBinding) {
             self.check_text_binding(handle.node_id(), TerminalKind::NewlineTextStart, tree);
         }
         self.visit_root_text_binding_super(handle, view, tree)
@@ -588,10 +568,7 @@ mod tests {
         let source = "@ nodes[] {\n  @ animation.library.clips.wave\n  length = 2.0\n    @ tracks[]\n    target: A\n}\n";
         let diagnostics = lint_source(source);
         assert_eq!(diagnostics.len(), 1);
-        assert_eq!(
-            diagnostics[0].rule,
-            RuleId::NestedAtInsideBracelessAt
-        );
+        assert_eq!(diagnostics[0].rule, RuleId::NestedAtInsideBracelessAt);
     }
 
     #[test]
