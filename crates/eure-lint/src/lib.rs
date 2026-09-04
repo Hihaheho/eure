@@ -283,7 +283,7 @@ impl<'a> Collector<'a> {
             return;
         };
         let colon_start = colon_span.end - 1;
-        let value = text[..comment_offset].trim_end();
+        let value = text[..comment_offset].trim();
         let replacement = format!(" = {} ", quote_eure_string(value));
 
         self.diagnostics.push(Diagnostic {
