@@ -65,6 +65,13 @@ editor = ```eure
 }
 ```
 
+// Warning: The outer section's braces already create the scope
+@ cases.nested-field-typo.diagnostics[]
+severity = "warning"
+source = "/test-workspace/editor.eure"
+message = "`@` is redundant on a non-array section with braces"
+span = `@`
+
 // Error: Missing required field 'name' at nested path
 @ cases.nested-field-typo.diagnostics[]
 severity = "error"
