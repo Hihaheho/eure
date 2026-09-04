@@ -758,3 +758,320 @@ impl<'a> EventReceiver for TomlParserConverter<'a> {
 
         if let Some(ValueContext::Array {
             scope,
+            binding_path,
+            element_sources,
+            is_multiline,
+            ..
+        }) = self.context_stack.pop()
+        {
+            let node_id = self.constructor.current_node_id();
+            self.constructor.end_scope(scope).expect("scope mismatch");
+
+            // Track multiline arrays for formatting (even when inside inline contexts)
+            if is_multiline {
+                self.multiline_arrays.insert(node_id);
+            }
+
+            // Add binding if we have a path
+            if !binding_path.is_empty() {
+                // Use array binding if multiline or has element trivia to preserve formatting
+                let has_element_trivia = element_sources
+                    .iter()
+                    .any(|e| !e.trivia_before.is_empty() || e.trailing_comment.is_some());
+
+                if is_multiline || has_element_trivia {
+                    self.add_array_binding(binding_path, node_id, element_sources);
+                } else {
+                    self.add_binding(binding_path, node_id);
+                }
+            }
+        }
+    }
+
+    fn simple_key(&mut self, span: Span, kind: Option<Encoding>, _error: &mut dyn ErrorSink) {
+        let key = self.decode_key(span, kind);
+        self.current_keys.push((key, kind));
+    }
+
+    fn key_sep(&mut self, _span: Span, _error: &mut dyn ErrorSink) {
+        // Dot separator between keys - keys are already being collected
+    }
+
+    fn key_val_sep(&mut self, _span: Span, _error: &mut dyn ErrorSink) {
+        // Reset newline tracking when we see new content (key = value)
+        self.saw_newline = false;
+
+        // = separator - now we'll receive the value
+        self.parsing_key = false;
+    }
+
+    fn scalar(&mut self, span: Span, kind: Option<Encoding>, _error: &mut dyn ErrorSink) {
+        let (scalar_kind, value) = self.decode_scalar(span, kind);
+        let primitive = self.scalar_to_primitive(scalar_kind, &value, kind);
+
+        // Build path from current_keys
+        let path: Vec<SourcePathSegment> = self
+            .current_keys
+            .iter()
+            .map(|(key, _)| {
+                let (source_key, _) = self.parse_key(key);
+                self.source_path_segment(source_key)
+            })
+            .collect();
+
+        // Navigate to the path
+        let scope = self.constructor.begin_scope();
+        for (key, _) in &self.current_keys {
+            let (_, path_seg) = self.parse_key(key);
+            self.constructor
+                .navigate(path_seg)
+                .expect("navigation should succeed");
+        }
+
+        // Check if we're in an array context
+        if let Some(ValueContext::Array {
+            element_index,
+            element_pending_trivia,
+            element_sources,
+            ..
+        }) = self.context_stack.last_mut()
+        {
+            // Navigate to array index
+            self.constructor
+                .navigate(PathSegment::ArrayIndex(ArrayIndexKind::Push))
+                .expect("array navigation should succeed");
+
+            // Capture pending trivia for this element
+            let trivia = std::mem::take(element_pending_trivia);
+            let idx = *element_index;
+            element_sources.push(ArrayElementSource {
+                trivia_before: trivia,
+                index: idx,
+                trailing_comment: None,
+            });
+
+            *element_index += 1;
+            // Reset newline tracking - element newline shouldn't count as blank line
+            self.saw_newline = false;
+        }
+
+        // Set span end for trailing comment detection
+        if let Some(ValueContext::Array {
+            last_element_span_end,
+            ..
+        }) = self.context_stack.last_mut()
+        {
+            *last_element_span_end = Some(span.end());
+        }
+
+        let node_id = self.constructor.current_node_id();
+        self.bind_value(primitive);
+        self.constructor.end_scope(scope).expect("scope mismatch");
+
+        // Only add binding if we have a path (not in array context without keys)
+        if !path.is_empty() {
+            self.add_binding(path, node_id);
+            self.current_keys.clear();
+        }
+    }
+
+    fn value_sep(&mut self, _span: Span, _error: &mut dyn ErrorSink) {
+        // Comma separator - clear keys for next item in inline table
+        if matches!(self.current_context(), ValueContext::InlineTable { .. }) {
+            self.current_keys.clear();
+        }
+    }
+
+    fn comment(&mut self, span: Span, _error: &mut dyn ErrorSink) {
+        // Decode the comment text
+        if let Some(raw) = self.source.get(span) {
+            let text = raw.as_str();
+            // Strip the leading # character
+            let content = text
+                .strip_prefix('#')
+                .map(|s| s.trim_start().to_string())
+                .unwrap_or_else(|| text.to_string());
+            let comment = Comment::Line(content);
+
+            // Check if we're in array context and if this is a trailing comment
+            let is_trailing_comment = if let Some(ValueContext::Array {
+                last_element_span_end: Some(elem_end),
+                element_sources,
+                ..
+            }) = self.context_stack.last()
+            {
+                !element_sources.is_empty() && !self.has_newline_between(*elem_end, span.start())
+            } else {
+                false
+            };
+
+            if is_trailing_comment
+                // Set as trailing comment on the last array element
+                && let Some(ValueContext::Array {
+                    element_sources,
+                    last_element_span_end,
+                    ..
+                }) = self.context_stack.last_mut()
+                    && let Some(last_elem) = element_sources.last_mut()
+            {
+                last_elem.trailing_comment = Some(comment);
+                *last_element_span_end = None; // Clear to prevent double assignment
+                self.saw_newline = false;
+                return;
+            }
+
+            // Route to element trivia if in array context
+            if let Some(ValueContext::Array {
+                element_pending_trivia,
+                ..
+            }) = self.context_stack.last_mut()
+            {
+                element_pending_trivia.push(Trivia::Comment(comment));
+            } else {
+                self.pending_trivia.push(Trivia::Comment(comment));
+            }
+        }
+        self.saw_newline = false;
+    }
+
+    fn whitespace(&mut self, _span: Span, _error: &mut dyn ErrorSink) {
+        // Ignore whitespace (but don't reset saw_newline)
+    }
+
+    fn newline(&mut self, _span: Span, _error: &mut dyn ErrorSink) {
+        // Track blank lines (consecutive newlines)
+        if self.saw_newline {
+            let trivia = Trivia::BlankLine;
+
+            // Route to element trivia if in array context
+            if let Some(ValueContext::Array {
+                element_pending_trivia,
+                ..
+            }) = self.context_stack.last_mut()
+            {
+                element_pending_trivia.push(trivia);
+            } else {
+                self.pending_trivia.push(trivia);
+            }
+        }
+
+        // Mark array as multiline when we see a newline inside it
+        if let Some(ValueContext::Array { is_multiline, .. }) = self.context_stack.last_mut() {
+            *is_multiline = true;
+        }
+
+        self.saw_newline = true;
+    }
+
+    fn error(&mut self, _span: Span, _error: &mut dyn ErrorSink) {
+        // Errors are collected by ErrorCollector
+    }
+}
+
+// Re-export formatting functions from eure-fmt
+pub use eure_fmt::{build_source_doc, format_source_document};
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_simple_key_value() {
+        let toml = r#"key = "value""#;
+        let result = to_source_document(toml);
+        assert!(result.is_ok());
+
+        let source = result.expect("conversion should succeed");
+        assert_eq!(source.root_source().bindings.len(), 1);
+    }
+
+    #[test]
+    fn test_section() {
+        let toml = r#"
+[server]
+host = "localhost"
+port = 8080
+"#;
+        let result = to_source_document(toml);
+        assert!(result.is_ok());
+
+        let source = result.expect("conversion should succeed");
+        // Should have one section
+        assert_eq!(source.root_source().sections.len(), 1);
+    }
+
+    #[test]
+    fn test_array_of_tables() {
+        let toml = r#"
+[[items]]
+name = "first"
+
+[[items]]
+name = "second"
+"#;
+        let result = to_source_document(toml);
+        assert!(result.is_ok());
+
+        let source = result.expect("conversion should succeed");
+        // Should have two sections (one for each [[items]])
+        assert_eq!(source.root_source().sections.len(), 2);
+    }
+
+    #[test]
+    fn test_interleaved_sections() {
+        // With toml_parser, we should preserve the source order!
+        let toml = r#"
+[[example]]
+name = "first"
+
+[metadata.first]
+description = "First example"
+
+[[example]]
+name = "second"
+
+[metadata.second]
+description = "Second example"
+"#;
+        let result = to_source_document(toml);
+        assert!(result.is_ok());
+
+        let source = result.expect("conversion should succeed");
+        // toml_parser preserves order: [[example]], [metadata.first], [[example]], [metadata.second]
+        assert_eq!(source.root_source().sections.len(), 4);
+    }
+
+    #[test]
+    fn test_quoted_string_key() {
+        // Keys that are not valid identifiers should be converted to quoted strings
+        let toml = r#""invalid key with spaces" = "value""#;
+        let result = to_source_document(toml);
+        assert!(result.is_ok());
+
+        // Verify the source document uses a quoted string key
+        let source_doc = result.unwrap();
+        let formatted = format_source_document(&source_doc);
+        assert!(
+            formatted.contains(r#""invalid key with spaces""#),
+            "Expected quoted key in output: {}",
+            formatted
+        );
+    }
+
+    #[test]
+    fn test_numeric_key() {
+        // Keys starting with numbers should be converted to quoted strings
+        let toml = r#"[features]
+2d = ["value"]"#;
+        let result = to_source_document(toml);
+        assert!(result.is_ok());
+
+        let source_doc = result.unwrap();
+        let formatted = format_source_document(&source_doc);
+        assert!(
+            formatted.contains(r#""2d""#),
+            "Expected quoted key in output: {}",
+            formatted
+        );
+    }
+}
