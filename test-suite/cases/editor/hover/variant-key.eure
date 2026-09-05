@@ -28,6 +28,12 @@ speaker = "Alice"
 scenarios_expected = ["hover"]
 
 hover = ````markdown
+**Error**
+
+Missing required field 'lines' at path actions\[0\]
+
+---
+
 ```eure
 actions[].$variant
 ```

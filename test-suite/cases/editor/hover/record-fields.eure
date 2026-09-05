@@ -20,6 +20,12 @@ name = "Alice"
 scenarios_expected = ["hover"]
 
 hover = ````markdown
+**Error**
+
+Missing required field 'tags' at path user
+
+---
+
 ```eure
 user: $types.Person
 ```

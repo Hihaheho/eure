@@ -1,0 +1,11 @@
+// Construction errors remain visible on whitespace with no normal hover.
+editor = ```eure
+name = "Alice"
+name |_|= "Bob"
+```
+scenarios_expected = ["hover"]
+hover = ````markdown
+**Error**
+
+Document insert error: Insert error: Binding target already has a value at name
+````

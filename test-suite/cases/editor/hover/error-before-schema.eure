@@ -1,0 +1,25 @@
+// A value error is shown before its expected type and documentation.
+schema = ```eure
+port = `integer`
+port.$description = "Port to listen on."
+```
+
+editor = ```eure
+port = "in|_|valid"
+```
+
+scenarios_expected = ["hover"]
+
+hover = ````markdown
+**Error**
+
+Type mismatch: expected integer, got text at path port
+
+---
+
+```eure
+port: integer
+```
+
+Port to listen on.
+````

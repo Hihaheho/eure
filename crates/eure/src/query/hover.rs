@@ -7,6 +7,8 @@
 //!
 //! What is shown, in order:
 //!
+//! Diagnostics at the cursor are shown first, followed by schema information:
+//!
 //! 1. A signature line: the document path and its type summary, with
 //!    `(optional)` for optional record fields and extensions.
 //! 2. Deprecation, the `$description`, the `$default` and `$examples`.
@@ -32,6 +34,7 @@ use query_flow::{Db, QueryError};
 
 use super::assets::TextFile;
 use super::completion::{Anchor, AnchorKind, ValueStyle, find_site, load_schema};
+use super::diagnostics::{DiagnosticSeverity, GetFileDiagnostics};
 use super::parse::ParseCst;
 use super::summary::{description_text, render_literal, type_summary};
 
@@ -40,33 +43,86 @@ use super::summary::{description_text, render_literal, type_summary};
 pub struct Hover {
     /// Markdown content.
     pub contents: String,
-    /// Span of the key or value the hover describes.
+    /// Range where the diagnostic and/or schema information applies.
     pub span: InputSpan,
 }
 
 /// Hover information for `file` at byte offset `offset`.
 ///
-/// Works on documents that do not parse. Returns `None` when the cursor is
-/// not on a key or a value.
+/// Diagnostics at the cursor precede schema information. Works on documents
+/// that do not parse, including positions with only a diagnostic to show.
 ///
 /// Like `get_completions`, this is a plain function over `Db` rather than a
 /// query so that per-cursor results are not memoized.
 pub fn get_hover(db: &impl Db, file: &TextFile, offset: u32) -> Result<Option<Hover>, QueryError> {
+    let diagnostics = db.query(GetFileDiagnostics::new(file.clone()))?;
+    let mut diagnostics: Vec<_> = diagnostics
+        .iter()
+        .filter(|d| {
+            &d.file == file
+                && d.start <= offset as usize
+                && ((offset as usize) < d.end || d.start == d.end && d.start == offset as usize)
+        })
+        .collect();
+    diagnostics.sort_by_key(|d| match d.severity {
+        DiagnosticSeverity::Error => 0,
+        DiagnosticSeverity::Warning => 1,
+        DiagnosticSeverity::Info => 2,
+        DiagnosticSeverity::Hint => 3,
+    });
+    let mut sections = Vec::new();
+    let mut span: Option<InputSpan> = None;
+    for diagnostic in diagnostics {
+        let severity = match diagnostic.severity {
+            DiagnosticSeverity::Error => "Error",
+            DiagnosticSeverity::Warning => "Warning",
+            DiagnosticSeverity::Info => "Information",
+            DiagnosticSeverity::Hint => "Hint",
+        };
+        // Diagnostic messages are plain text, not schema-authored Markdown.
+        let message: String = diagnostic.message.chars().fold(String::new(), |mut s, c| {
+            if matches!(
+                c,
+                '\\' | '`' | '*' | '_' | '[' | ']' | '<' | '>' | '#' | '~'
+            ) {
+                s.push('\\');
+            }
+            s.push(c);
+            s
+        });
+        sections.push(format!("**{severity}**\n\n{message}"));
+        let diagnostic_span = InputSpan {
+            start: diagnostic.start as u32,
+            end: diagnostic.end as u32,
+        };
+        span = Some(intersect_span(span, diagnostic_span));
+    }
+
     let parsed = db.query(ParseCst::new(file.clone()))?;
     let source = db.asset(file.clone())?;
-
-    let Some(site) = find_site(source.get(), &parsed.cst, offset) else {
-        return Ok(None);
-    };
-    let Some(anchor) = site.anchor else {
-        return Ok(None);
-    };
-
-    let schema = load_schema(db, file)?;
-    Ok(Some(Hover {
-        contents: hover_markdown(&anchor, &site.hints, schema.as_deref()),
-        span: anchor.span,
+    if let Some(site) = find_site(source.get(), &parsed.cst, offset)
+        && let Some(anchor) = site.anchor
+    {
+        let schema = load_schema(db, file)?;
+        sections.push(hover_markdown(&anchor, &site.hints, schema.as_deref()));
+        span = Some(intersect_span(span, anchor.span));
+    }
+    Ok(span.map(|span| Hover {
+        contents: sections.join("\n\n---\n\n"),
+        span,
     }))
+}
+
+// Keep the returned range inside every contributing range so clients do not
+// reuse diagnostic content when moving outside the diagnostic's location.
+fn intersect_span(previous: Option<InputSpan>, next: InputSpan) -> InputSpan {
+    match previous {
+        Some(previous) => InputSpan {
+            start: previous.start.max(next.start),
+            end: previous.end.min(next.end),
+        },
+        None => next,
+    }
 }
 
 /// Markdown describing `anchor` under `schema`.

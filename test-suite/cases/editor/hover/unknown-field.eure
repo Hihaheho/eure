@@ -11,6 +11,18 @@ nick|_|name = "Al"
 scenarios_expected = ["hover"]
 
 hover = ````markdown
+**Error**
+
+Missing required field 'name' at path (root)
+
+---
+
+**Error**
+
+Unknown field 'nickname' at path (root)
+
+---
+
 ```eure
 nickname
 ```

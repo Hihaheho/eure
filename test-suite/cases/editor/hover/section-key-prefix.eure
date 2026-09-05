@@ -14,6 +14,18 @@ editor = ```eure
 scenarios_expected = ["hover"]
 
 hover = ````markdown
+**Error**
+
+Type mismatch: expected text, got map at path server.tls.cert
+
+---
+
+**Error**
+
+Missing required field 'key' at path server.tls
+
+---
+
 ```eure
 server.tls: record
 ```

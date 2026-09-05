@@ -1,0 +1,13 @@
+// The end of a diagnostic range does not include adjacent whitespace.
+schema = ```eure
+port = `integer`
+```
+editor = ```eure
+port = "invalid"|_| 
+```
+scenarios_expected = ["hover"]
+hover = ````markdown
+```eure
+port: integer
+```
+````
