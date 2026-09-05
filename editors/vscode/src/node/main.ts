@@ -6,7 +6,7 @@ let activation: ActivationResult | undefined;
 let nativeClient: LanguageClient | undefined;
 
 export async function activate(context: ExtensionContext) {
-  const channel = window.createOutputChannel('Eure Language Server');
+  const channel = window.createOutputChannel('Eure Language Server', { log: true });
   context.subscriptions.push(channel);
 
   const config = workspace.getConfiguration('eure');

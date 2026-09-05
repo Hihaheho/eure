@@ -1,10 +1,10 @@
-import type { ExtensionContext, OutputChannel } from 'vscode';
+import type { ExtensionContext, LogOutputChannel } from 'vscode';
 import type { LanguageClient, LanguageClientOptions, MessageTransports } from 'vscode-languageclient';
 import { WasmEventLoop } from './wasm-event-loop';
 import { createWasmTransports } from './wasm-transport';
 
 // Global channel for debug logging
-let debugChannel: OutputChannel | null = null;
+let debugChannel: LogOutputChannel | null = null;
 export function debugLog(msg: string): void {
   debugChannel?.appendLine(msg);
 }
@@ -23,7 +23,7 @@ export interface ActivationResult {
 
 export async function activateCommon(
   context: ExtensionContext,
-  channel: OutputChannel,
+  channel: LogOutputChannel,
   ClientCtor: LanguageClientConstructor
 ): Promise<ActivationResult> {
   debugChannel = channel;

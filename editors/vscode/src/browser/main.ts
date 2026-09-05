@@ -5,7 +5,7 @@ import { activateCommon, type ActivationResult, type LanguageClientConstructor }
 let activation: ActivationResult | undefined;
 
 export async function activate(context: ExtensionContext) {
-  const channel = window.createOutputChannel('Eure Language Server');
+  const channel = window.createOutputChannel('Eure Language Server', { log: true });
   context.subscriptions.push(channel);
 
   try {
