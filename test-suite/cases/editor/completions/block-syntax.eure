@@ -1,25 +1,16 @@
-unimplemented = true
-
 // Test: completion in block syntax
 // From: crates/eure-editor-support/tests/completions_test.rs:test_completion_in_block_syntax
 // Completions inside block syntax { ... }
 
 schema = ```eure
-@ user {
-    @ name
-    $type = .text
-
-    @ email
-    $type = .text
-
-    @ profile {
-        @ bio
-        $type = .text
-
-        @ avatar_url
-        $type = .text
-        $optional = true
-    }
+user {
+  name = `text`
+  email = `text`
+  profile {
+    bio = `text`
+    avatar_url = `text`
+    avatar_url.$optional = true
+  }
 }
 ```
 

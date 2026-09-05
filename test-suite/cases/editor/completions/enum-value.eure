@@ -1,25 +1,24 @@
-unimplemented = true
-
 // Test: enum value completion
 // From: crates/eure-editor-support/tests/completions_test.rs:test_enum_value_completion
-// Completion of enum values for fields with $enum constraint
-// TODO: enum completions not yet implemented
+// Completion of literal values for a union of literals
 
 schema = ```eure
-@ config {
-    @ environment {
-        $type = .text
-        $enum = ["development", "staging", "production"]
-    }
-
-    @ log_level {
-        $type = .text
-        $enum = ["debug", "info", "warn", "error", "fatal"]
-    }
-
-    @ port {
-        $type = .number
-    }
+config {
+  environment {
+    $variant: union
+    variants.development = "development"
+    variants.staging = "staging"
+    variants.production = "production"
+  }
+  log_level {
+    $variant: union
+    variants.debug = "debug"
+    variants.info = "info"
+    variants.warn = "warn"
+    variants.error = "error"
+    variants.fatal = "fatal"
+  }
+  port = `integer`
 }
 ```
 

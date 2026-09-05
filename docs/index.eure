@@ -49,8 +49,8 @@ If you need API-level details, see [docs.rs/eure](https://docs.rs/eure/latest/eu
   "body" = ```markdown
 - [EureDocument vs Value](/docs/euredocument-vs-value)
 - [CST and Visitor](/docs/cst-and-visitor)
-- [Completion Architecture](/docs/completion_architecture) *(design proposal)*
-- [Completion with Error Recovery](/docs/completion_with_error_recovery) *(design proposal)*
+- [Completion Architecture](/docs/completion_architecture)
+- [Completion with Error Recovery](/docs/completion_with_error_recovery) *(design notes)*
 - [Codegen IR Design Draft](/docs/codegen-ir-design) *(partially implemented)*
 ```
 }

@@ -1,14 +1,17 @@
 $frontmatter {
   title: Eure Completion System Architecture
-  description: Design proposal for the Eure LSP completion system using CST traversal instead of string-based parsing. The described types are not yet implemented.
+  description: Design notes for the Eure LSP completion system using CST traversal instead of string-based parsing. Implemented in crates/eure/src/query/completion with different type names.
 }
 
 "#": Eure Completion System Architecture
 
 "body" = ```markdown
-> **Design Proposal — Not Yet Implemented**
+> **Status: implemented, with different names**
 >
-> This document describes a planned redesign of the Eure LSP completion system. The types and structs described here (`CompletionVisitor`, `CompletionContext`, `PositionMapper`, `CompletionPosition`) do not currently exist in the codebase. This document records the intended architecture for future implementation.
+> The approach below (single-pass CST traversal, position-aware, error-tolerant, type-aware) is implemented in `crates/eure/src/query/completion/`:
+> `site.rs` locates the cursor (`CompletionSite` / `SiteKind`, the `CompletionContext` / `CompletionPosition` of this document),
+> `eure_schema::navigate::SchemaNavigator` resolves the document path against the schema, and `items.rs` produces editor-agnostic items.
+> The LSP layer (`crates/eure-ls`) only converts positions and item shapes. The type names used in the snippets below are the original proposal's.
 ```
 
 "toc".$toc = true

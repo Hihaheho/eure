@@ -1,20 +1,14 @@
-unimplemented = true
-
 // Test: completion with types
 // From: crates/eure-editor-support/tests/completions_test.rs:test_completion_with_types
-// Schema with $types definitions
+// Schema with $types definitions; only the document fields are offered
 
 schema = ```eure
 $types.Person {
-    @ name
-    $type = .text
-
-    @ age
-    $type = .number
+  name = `text`
+  age = `integer`
 }
 
-@ user
-$type = .$types.Person
+user = `$types.Person`
 ```
 
 editor = ```eure
@@ -25,8 +19,4 @@ trigger = "@"
 
 @ completions[]
 label = "user"
-kind = "field"
-
-@ completions[]
-label = "$types"
 kind = "field"

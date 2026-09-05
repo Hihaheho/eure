@@ -1,28 +1,17 @@
-unimplemented = true
-
 // Test: array element completion
 // From: crates/eure-editor-support/tests/completions_test.rs:test_array_element_completion
 // Completion for array elements like items[].
 
 schema = ```eure
 $types.Item {
-    @ id
-    $type = .number
-
-    @ name
-    $type = .text
-
-    @ description
-    $type = .text
-    $optional = true
-
-    @ price
-    $type = .number
+  id = `integer`
+  name = `text`
+  description = `text`
+  description.$optional = true
+  price = `integer`
 }
 
-@ items {
-    $array = .$types.Item
-}
+items = [`$types.Item`]
 ```
 
 editor = ```eure

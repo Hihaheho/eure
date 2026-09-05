@@ -453,7 +453,15 @@ pub fn get_schema_extension(
     db: &impl Db,
     file: TextFile,
 ) -> Result<Option<ResolvedSchemaExtension>, QueryError> {
-    let parsed = db.query(ParseDocument::new(file.clone()))?;
+    let parsed = match db.query(ParseDocument::new(file.clone())) {
+        Ok(parsed) => parsed,
+        // The document itself is broken (typically: it is being edited).
+        // Its parse error is reported separately; here we still want the
+        // schema reference so editor features keep working, so read the
+        // `$schema` binding syntactically from the partial CST.
+        Err(QueryError::UserError(_)) => return schema_extension_from_cst(db, file),
+        Err(error) => return Err(error),
+    };
 
     let root_id = parsed.doc.get_root_id();
     let root_ctx = parsed.doc.parse_context(root_id);
@@ -482,6 +490,66 @@ pub fn get_schema_extension(
         path: schema_path,
         origin,
     }))
+}
+
+/// Read a root-level `$schema = "..."` (or `$schema: ...`) binding from the
+/// tolerant CST of a document that does not parse.
+fn schema_extension_from_cst(
+    db: &impl Db,
+    file: TextFile,
+) -> Result<Option<ResolvedSchemaExtension>, QueryError> {
+    use crate::tree::scan;
+    use eure_document::path::PathSegment;
+    use eure_tree::prelude::NonTerminalKind;
+    use eure_tree::tree::CstFacade as _;
+
+    let parsed = db.query(ParseCst::new(file.clone()))?;
+    let source = db.asset(file.clone())?;
+    let input = source.get();
+    let cst = &parsed.cst;
+
+    let Some(eure) = scan::child_of_kind(cst, cst.root(), NonTerminalKind::Eure) else {
+        return Ok(None);
+    };
+    let bindings = scan::list_items(
+        cst,
+        scan::child_of_kind(cst, eure, NonTerminalKind::EureList),
+        NonTerminalKind::Binding,
+    );
+    for binding in bindings {
+        let Some(keys) = scan::child_of_kind(cst, binding, NonTerminalKind::Keys) else {
+            continue;
+        };
+        let keys = scan::parse_keys(input, cst, keys);
+        let is_schema_key = matches!(
+            keys.segments.as_slice(),
+            [only] if matches!(&only.segment, Some(PathSegment::Extension(ext)) if ext.as_ref() == "schema")
+        );
+        if !is_schema_key {
+            continue;
+        }
+        let Some(rhs) = scan::child_of_kind(cst, binding, NonTerminalKind::BindingRhs) else {
+            continue;
+        };
+        let Some((node, kind)) = scan::child_of_kinds(
+            cst,
+            rhs,
+            &[NonTerminalKind::ValueBinding, NonTerminalKind::TextBinding],
+        ) else {
+            continue;
+        };
+        let resolved = match kind {
+            NonTerminalKind::ValueBinding => scan::child_of_kind(cst, node, NonTerminalKind::Value)
+                .and_then(|value| Some((scan::value_string(input, cst, value)?, cst.span(value)?))),
+            _ => scan::text_binding_content(input, cst, node)
+                .and_then(|path| Some((path, cst.span(node)?))),
+        };
+        return Ok(resolved.map(|(path, span)| ResolvedSchemaExtension {
+            path,
+            origin: Origin::new(file, span),
+        }));
+    }
+    Ok(None)
 }
 
 /// Check for schema extension errors (e.g., wrong type).

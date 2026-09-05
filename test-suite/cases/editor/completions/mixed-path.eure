@@ -1,30 +1,24 @@
-unimplemented = true
-
 // Test: mixed path completion
 // From: crates/eure-editor-support/tests/completions_test.rs:test_mixed_path_completion
 // Completion for complex paths like config.servers[].
 
 schema = ```eure
 $types.Server {
-    @ host
-    $type = .text
-
-    @ port
-    $type = .number
-
-    @ protocol
-    $type = .text
-    $enum = ["http", "https", "ws", "wss"]
-
-    @ enabled
-    $type = .boolean
-    $default = true
+  host = `text`
+  port = `integer`
+  protocol {
+    $variant: union
+    variants.http = "http"
+    variants.https = "https"
+    variants.ws = "ws"
+    variants.wss = "wss"
+  }
+  enabled = `boolean`
+  enabled.$default = true
 }
 
-@ config {
-    @ servers {
-        $array = .$types.Server
-    }
+config {
+  servers = [`$types.Server`]
 }
 ```
 

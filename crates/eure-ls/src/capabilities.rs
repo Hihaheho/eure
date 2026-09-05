@@ -1,16 +1,30 @@
 //! Server capabilities definition.
 
 use lsp_types::{
-    SemanticTokenModifier as LspModifier, SemanticTokenType as LspTokenType,
+    CompletionOptions, SemanticTokenModifier as LspModifier, SemanticTokenType as LspTokenType,
     SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions,
     SemanticTokensServerCapabilities, ServerCapabilities, TextDocumentSyncCapability,
     TextDocumentSyncKind,
 };
 
+/// Characters that start a new completable position in Eure syntax:
+/// section marker, key separator, extension marker, and the two binding
+/// operators.
+const COMPLETION_TRIGGER_CHARACTERS: [&str; 5] = ["@", ".", "$", "=", ":"];
+
 /// Build the server capabilities to advertise to the client.
 pub fn server_capabilities() -> ServerCapabilities {
     ServerCapabilities {
         text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
+        completion_provider: Some(CompletionOptions {
+            trigger_characters: Some(
+                COMPLETION_TRIGGER_CHARACTERS
+                    .iter()
+                    .map(|c| c.to_string())
+                    .collect(),
+            ),
+            ..Default::default()
+        }),
         semantic_tokens_provider: Some(SemanticTokensServerCapabilities::SemanticTokensOptions(
             SemanticTokensOptions {
                 work_done_progress_options: Default::default(),

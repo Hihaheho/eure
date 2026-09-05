@@ -1,12 +1,8 @@
 // Test that completions scenario can detect failures
-// Note: completions scenario is currently unimplemented
 
 editor = ```eure
-value = 42
+value = |_|
 ```
-
-// trigger makes completions scenario run
-trigger = "="
 
 @ completions[]
 label = "some_completion"
@@ -14,5 +10,13 @@ label = "some_completion"
 @ scenario_errors[]
 scenario = "completions"
 output = ```
-Scenario 'completions' is not yet implemented
+Completions mismatch.
+
+--- Expected (1) ---
+some_completion
+
+--- Actual (3) ---
+true (value)
+false (value)
+null (value)
 ```

@@ -1,38 +1,25 @@
-unimplemented = true
-
 // Test: completion in deeply nested array element
 // From: crates/eure-editor-support/tests/completion_nested_context_test.rs:test_completion_in_deeply_nested_array_element
 
 schema = ```eure
-@ users
-$array {
-    @ name
-    $type = .text
-
-    @ email
-    $type = .text
-
-    @ roles
-    $array {
-        @ role_name
-        $type = .text
-
-        @ permissions
-        $array = .text
-
-        @ metadata {
-            @ created_at
-            $type = .text
-
-            @ expires_at
-            $type = .text
-        }
-    }
+$types.Role {
+  role_name = `text`
+  permissions = [`text`]
+  metadata {
+    created_at = `text`
+    expires_at = `text`
+  }
 }
 
-@ settings {
-    @ theme
-    $type = .text
+$types.User {
+  name = `text`
+  email = `text`
+  roles = [`$types.Role`]
+}
+
+users = [`$types.User`]
+settings {
+  theme = `text`
 }
 ```
 
@@ -48,9 +35,7 @@ created_at = "2024-01-01"
 |_|
 ```
 
-// SHOULD suggest fields from roles[].metadata context
+// SHOULD suggest the remaining field from roles[].metadata context only
 @ completions[]
 label = "expires_at"
 kind = "field"
-
-// SHOULD NOT suggest fields from other contexts

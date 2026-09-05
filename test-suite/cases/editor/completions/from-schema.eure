@@ -1,15 +1,10 @@
-unimplemented = true
-
 // Test: completions come from schema
 // From: crates/eure-editor-support/tests/no_hardcoded_completions_test.rs:test_completions_come_from_schema
 
 schema = ```eure
-@ myfield {
-    @ subfield1
-    $type = .text
-
-    @ subfield2
-    $type = .number
+myfield {
+  subfield1 = `text`
+  subfield2 = `integer`
 }
 ```
 
@@ -28,5 +23,3 @@ kind = "field"
 @ completions[]
 label = "subfield2"
 kind = "field"
-
-// Should not have any hardcoded values

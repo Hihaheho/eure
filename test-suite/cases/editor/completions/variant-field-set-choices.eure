@@ -1,37 +1,26 @@
-unimplemented = true
-
 // Test: variant field completion (set-choices)
 // From: crates/eure-editor-support/tests/completions_test.rs:test_variant_field_completion_different_variant
 // Different variant shows different fields
 
 schema = ```eure
 $types.Action {
-    @ $variants.set-text {
-        @ speaker
-        $type = .text
-
-        @ lines {
-            $array = .text
-        }
-    }
-
-    @ $variants.set-choices {
-        @ description
-        $type = .text
-
-        @ choices.$array {
-            @ text
-            $type = .text
-
-            @ value
-            $type = .text
-        }
-    }
+  $variant: union
+  variants.set-text {
+    speaker = `text`
+    lines = [`text`]
+  }
+  variants.set-choices {
+    description = `text`
+    choices = [`$types.Choice`]
+  }
 }
 
-@ actions {
-    $array = .$types.Action
+$types.Choice {
+  text = `text`
+  value = `text`
 }
+
+actions = [`$types.Action`]
 ```
 
 editor = ```eure
@@ -50,4 +39,3 @@ kind = "field"
 @ completions[]
 label = "choices"
 kind = "field"
-

@@ -4,15 +4,14 @@
 // After "=" should suggest booleans/null
 
 @ cases.after-colon
-unimplemented = true
 editor = ```eure
 name: |_|
 ```
 trigger = ":"
 // Should NOT have boolean/null values after ":"
+completions = []
 
 @ cases.after-equals
-unimplemented = true
 editor = ```eure
 active = |_|
 ```

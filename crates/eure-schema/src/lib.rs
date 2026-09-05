@@ -33,6 +33,7 @@ pub mod codegen;
 pub mod convert;
 pub mod identifiers;
 pub mod interop;
+pub mod navigate;
 pub mod parse;
 pub mod resolver;
 pub mod synth;

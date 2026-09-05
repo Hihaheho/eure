@@ -1,4 +1,5 @@
 mod inspect_visitor;
+pub mod scan;
 mod write_visitor;
 
 pub use eure_tree::prelude::*;

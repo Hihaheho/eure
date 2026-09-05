@@ -10,7 +10,7 @@ use eure::query::{Glob, TextFile};
 use query_flow::RevisionCounter;
 use serde_json::Value;
 
-use crate::queries::{LspDiagnostics, LspFileDiagnostics, LspSemanticTokens};
+use crate::queries::{LspCompletion, LspDiagnostics, LspFileDiagnostics, LspSemanticTokens};
 
 /// Platform-agnostic request ID.
 ///
@@ -127,11 +127,31 @@ pub enum LspOutput {
 #[derive(Clone)]
 pub enum CommandQuery {
     SemanticTokensFull(LspSemanticTokens),
+    Completion(LspCompletion),
+}
+
+impl CommandQuery {
+    /// The document this command operates on.
+    pub fn file(&self) -> &TextFile {
+        match self {
+            CommandQuery::SemanticTokensFull(q) => &q.file,
+            CommandQuery::Completion(q) => &q.file,
+        }
+    }
+
+    /// Name used in log messages.
+    pub fn name(&self) -> &'static str {
+        match self {
+            CommandQuery::SemanticTokensFull(_) => "SemanticTokens",
+            CommandQuery::Completion(_) => "Completion",
+        }
+    }
 }
 
 /// Result of executing a command query.
 pub enum CommandResult {
     SemanticTokens(Option<lsp_types::SemanticTokens>),
+    Completion(Vec<lsp_types::CompletionItem>),
 }
 
 /// A pending LSP request waiting for assets to be resolved.
