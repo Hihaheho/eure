@@ -1,0 +1,17 @@
+// A field resolves through the implicit workspace schema association.
+
+schema = ```eure
+name = `text`
+```
+
+editor = ```eure
+na|_|me = "Ada"
+```
+
+scenarios_expected = ["definition"]
+
+@ definitions[]
+file = "/test-workspace/schema.eure"
+target = ```eure
+|_|name = `text`
+```

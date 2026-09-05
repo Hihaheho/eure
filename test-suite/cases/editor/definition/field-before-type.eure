@@ -1,0 +1,19 @@
+// A field points to its declaration before following the named type.
+
+schema = ```eure
+name = `$types.username`
+@ $types.username = `text`
+```
+
+editor = ```eure
+na|_|me = "Ada"
+```
+
+scenarios_expected = ["definition"]
+
+@ definitions[]
+file = "/test-workspace/schema.eure"
+target = ```eure
+|_|name = `$types.username`
+@ $types.username = `text`
+```

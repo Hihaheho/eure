@@ -1,0 +1,8 @@
+// Explicit empty definition expectation; must not enable completions.
+
+editor = ```eure
+na|_|me = "Ada"
+```
+
+scenarios_expected = ["definition"]
+definitions = []

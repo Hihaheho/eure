@@ -1,0 +1,27 @@
+// HTTPS schema imports resolve relatively using offline source fixtures.
+
+remote_files."https://eure.dev/schemas/root.eure?version=1" = ```eure
+$import = { common => "common.eure" }
+user = `$types.common.user`
+```
+
+remote_files."https://eure.dev/schemas/common.eure" = ```eure
+@ $types.user {
+  name = `text`
+}
+```
+
+editor = ```eure
+$schema = "https://eure.dev/schemas/root.eure?version=1"
+user.na|_|me = "Ada"
+```
+
+scenarios_expected = ["definition"]
+
+@ definitions[]
+file = "https://eure.dev/schemas/common.eure"
+target = ```eure
+@ $types.user {
+  |_|name = `text`
+}
+```

@@ -1,0 +1,18 @@
+// An incomplete document can still navigate an existing key.
+
+schema = ```eure
+name = `text`
+```
+
+editor = ```eure
+na|_|me =
+@ 
+```
+
+scenarios_expected = ["definition"]
+
+@ definitions[]
+file = "/test-workspace/schema.eure"
+target = ```eure
+|_|name = `text`
+```

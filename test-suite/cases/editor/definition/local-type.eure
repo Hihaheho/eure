@@ -1,0 +1,21 @@
+// A schema type reference resolves within the schema itself.
+
+files."schema.eure" = ```eure
+= `any`
+```
+
+editor = ```eure
+$schema = "schema.eure"
+name = `$types.user|_|name`
+@ $types.username = `text`
+```
+
+scenarios_expected = ["definition"]
+
+@ definitions[]
+file = "editor.eure"
+target = ```eure
+$schema = "schema.eure"
+name = `$types.username`
+@ $types.|_|username = `text`
+```

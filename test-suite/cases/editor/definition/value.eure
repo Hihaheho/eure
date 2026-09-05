@@ -1,0 +1,17 @@
+// A value points to the schema field declaration.
+
+schema = ```eure
+name = `text`
+```
+
+editor = ```eure
+name = "A|_|da"
+```
+
+scenarios_expected = ["definition"]
+
+@ definitions[]
+file = "/test-workspace/schema.eure"
+target = ```eure
+|_|name = `text`
+```

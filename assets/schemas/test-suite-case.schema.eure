@@ -11,6 +11,10 @@ $types {
     $optional = true
     variants = { some => `text`, none => `null` }
   }
+  definition-item {
+    file = `text`
+    target = `text`
+  }
   diagnostic-item {
     @ severity
     $variant = "union"
@@ -112,6 +116,11 @@ $types {
     $optional = true
     key = `text`
     value = `text`
+    @ remote_files
+    $variant = "map"
+    $optional = true
+    key = `text`
+    value = `text`
     @ input_eure
     $variant = "union"
     $optional = true
@@ -160,6 +169,13 @@ $types {
     $variant = "union"
     $optional = true
     variants = { some => `text`, none => `null` }
+    @ definitions
+    $variant = "union"
+    $optional = true
+    variants {
+      some = [`$types.definition-item`]
+      none = `null`
+    }
     @ rust
     $variant = "union"
     $optional = true

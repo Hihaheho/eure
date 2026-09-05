@@ -21,6 +21,14 @@ pub struct CompletionItem {
     pub kind: Option<String>,
 }
 
+/// Expected destination in result order, with the jump position marked by `|_|`.
+#[derive(Debug, Clone, FromEure, BuildSchema)]
+#[eure(type_name = "definition-item")]
+pub struct DefinitionItem {
+    pub file: String,
+    pub target: Text,
+}
+
 // ============================================================================
 // Diagnostics Scenario Types
 // ============================================================================
@@ -224,6 +232,9 @@ pub struct EditCommandFixture {
 pub struct CaseData {
     #[eure(default)]
     pub files: BTreeMap<String, Text>,
+    /// In-memory HTTPS sources. These fixtures never perform network requests.
+    #[eure(default)]
+    pub remote_files: BTreeMap<String, Text>,
     #[eure(default)]
     pub input_eure: Option<Text>,
     #[eure(default)]
@@ -267,6 +278,9 @@ pub struct CaseData {
     /// Expected hover markdown at the cursor; an empty text expects no hover.
     #[eure(default)]
     pub hover: Option<Text>,
+    /// Marked destination sources; [] explicitly expects no destination.
+    #[eure(default)]
+    pub definitions: Option<Vec<DefinitionItem>>,
     #[eure(default)]
     pub diagnostics: Vec<DiagnosticItem>,
     // JSON conversion errors (for testing eure-to-json error messages with spans)
@@ -295,6 +309,7 @@ impl CaseData {
     /// Check if this case has any meaningful content
     pub fn is_empty(&self) -> bool {
         self.files.is_empty()
+            && self.remote_files.is_empty()
             && self.input_eure.is_none()
             && self.input_toml.is_none()
             && self.json.is_empty()
@@ -311,6 +326,7 @@ impl CaseData {
             && self.euremark_errors.is_empty()
             && self.editor.is_none()
             && self.hover.is_none()
+            && self.definitions.is_none()
             && self.json_errors.is_empty()
             && self.semantic_tokens.is_empty()
             && self.rust.is_none()

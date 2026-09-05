@@ -1,0 +1,18 @@
+// A schema string opens its referenced file.
+
+files."schema.eure" = ```eure
+name = `text`
+```
+
+editor = ```eure
+$schema = "sch|_|ema.eure"
+name = "Ada"
+```
+
+scenarios_expected = ["definition"]
+
+@ definitions[]
+file = "schema.eure"
+target = ```eure
+|_|name = `text`
+```

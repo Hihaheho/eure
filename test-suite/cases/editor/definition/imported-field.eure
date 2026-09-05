@@ -1,0 +1,26 @@
+// Nested fields retain their imported source file.
+
+files."common.eure" = ```eure
+@ $types.user {
+  name = `text`
+}
+```
+
+schema = ```eure
+$import = { common => "common.eure" }
+user = `$types.common.user`
+```
+
+editor = ```eure
+user.na|_|me = "Ada"
+```
+
+scenarios_expected = ["definition"]
+
+@ definitions[]
+file = "/test-workspace/common.eure"
+target = ```eure
+@ $types.user {
+  |_|name = `text`
+}
+```

@@ -1,0 +1,18 @@
+// Unicode in the document and filename preserves the definition position.
+
+files."日本語 😀#?.eure" = ```eure
+"😀" = `text` name = `text`
+```
+
+editor = ```eure
+$schema = "日本語 😀#?.eure"
+"😀" = "x" na|_|me = "Ada"
+```
+
+scenarios_expected = ["definition"]
+
+@ definitions[]
+file = "日本語 😀#?.eure"
+target = ```eure
+"😀" = `text` |_|name = `text`
+```

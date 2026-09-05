@@ -1,0 +1,13 @@
+// Explicit empty definition expectation; must not enable completions.
+
+schema = ```eure
+name = `text`
+```
+
+editor = ```eure
+// na|_|me
+name = "Ada"
+```
+
+scenarios_expected = ["definition"]
+definitions = []

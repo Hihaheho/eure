@@ -1,0 +1,22 @@
+// Named type references follow imports.
+
+files."common.eure" = ```eure
+@ $types.user {
+  name = `text`
+}
+```
+
+editor = ```eure
+$import = { common => "common.eure" }
+user = `$types.common.us|_|er`
+```
+
+scenarios_expected = ["definition"]
+
+@ definitions[]
+file = "common.eure"
+target = ```eure
+@ $types.|_|user {
+  name = `text`
+}
+```

@@ -1,0 +1,30 @@
+// An explicit variant narrows field definitions inside an array.
+
+schema = ```eure
+$types.action {
+  $variant: union
+  variants.say { line = `text` }
+  variants.shout { line = `text` }
+}
+actions = [`$types.action`]
+```
+
+editor = ```eure
+@ actions[] {
+  $variant: say
+  li|_|ne = "hi"
+}
+```
+
+scenarios_expected = ["definition"]
+
+@ definitions[]
+file = "/test-workspace/schema.eure"
+target = ```eure
+$types.action {
+  $variant: union
+  variants.say { |_|line = `text` }
+  variants.shout { line = `text` }
+}
+actions = [`$types.action`]
+```

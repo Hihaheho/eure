@@ -5,6 +5,7 @@ use eure_document::plan::PlanError;
 use query_flow::{Db, QueryError};
 
 pub mod completions;
+pub mod definition;
 pub mod diagnostics;
 pub mod editing;
 pub mod eumd_error_validation;
@@ -204,6 +205,11 @@ pub enum ScenarioError {
     CompletionsMismatch {
         expected: Vec<String>,
         actual: Vec<String>,
+    },
+    /// Definition destinations differ.
+    DefinitionsMismatch {
+        expected: Vec<crate::parser::DefinitionItem>,
+        actual: Vec<crate::parser::DefinitionItem>,
     },
     /// Hover mismatch (expected vs actual); `None` means no hover
     HoverMismatch {
@@ -552,6 +558,16 @@ impl std::fmt::Display for ScenarioError {
                 writeln!(f, "\n--- Actual ({}) ---", actual.len())?;
                 for item in actual {
                     writeln!(f, "{}", item)?;
+                }
+                Ok(())
+            }
+            ScenarioError::DefinitionsMismatch { expected, actual } => {
+                writeln!(f, "Definitions mismatch.")?;
+                for (label, links) in [("Expected", expected), ("Actual", actual)] {
+                    writeln!(f, "\n--- {label} ({}) ---", links.len())?;
+                    for link in links {
+                        writeln!(f, "{}:\n{}", link.file, link.target.as_str())?;
+                    }
                 }
                 Ok(())
             }

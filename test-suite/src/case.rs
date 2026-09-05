@@ -11,6 +11,7 @@ use query_flow::{Db, DurabilityLevel, QueryRuntime};
 
 use crate::parser::CaseData;
 use crate::scenarios::completions::CompletionsScenario;
+use crate::scenarios::definition::DefinitionScenario;
 use crate::scenarios::diagnostics::DiagnosticsScenario;
 use crate::scenarios::editing::EditingScenario;
 use crate::scenarios::eumd_error_validation::EumdErrorValidationScenario;
@@ -208,6 +209,7 @@ pub enum Scenario {
     EumdErrorValidation(EumdErrorValidationScenario),
     Completions(CompletionsScenario),
     Hover(HoverScenario),
+    Definition(DefinitionScenario),
     Diagnostics(DiagnosticsScenario),
     SemanticTokens(SemanticTokensScenario),
     RustCodegen(RustCodegenScenario),
@@ -237,6 +239,7 @@ impl Scenario {
             Scenario::EumdErrorValidation(_) => "eumd_error_validation".to_string(),
             Scenario::Completions(_) => "completions".to_string(),
             Scenario::Hover(_) => "hover".to_string(),
+            Scenario::Definition(_) => "definition".to_string(),
             Scenario::Diagnostics(_) => "diagnostics".to_string(),
             Scenario::SemanticTokens(_) => "semantic_tokens".to_string(),
             Scenario::RustCodegen(_) => "rust_codegen".to_string(),
@@ -264,6 +267,7 @@ impl Scenario {
             Scenario::EumdErrorValidation(s) => s.run(db),
             Scenario::Completions(s) => s.run(db),
             Scenario::Hover(s) => s.run(db),
+            Scenario::Definition(s) => s.run(db),
             Scenario::Diagnostics(s) => s.run(db),
             Scenario::SemanticTokens(s) => s.run(db),
             Scenario::RustCodegen(s) => s.run(db),
@@ -385,6 +389,21 @@ impl Case {
     /// Resolve all assets for this case into the runtime
     pub fn resolve_assets(&self, runtime: &query_flow::QueryRuntime) -> Result<(), ScenarioError> {
         self.resolve_inline_files(runtime)?;
+        for (uri, text) in &self.data.remote_files {
+            if !uri.starts_with("https://") {
+                return Err(ScenarioError::InvalidFixturePath {
+                    path: uri.clone(),
+                    reason: "remote fixtures require an HTTPS URL".to_string(),
+                });
+            }
+            let file =
+                TextFile::parse(uri).map_err(|error| ScenarioError::QueryError(error.into()))?;
+            runtime.resolve_asset(
+                file,
+                TextFileContent(text.as_str().to_string()),
+                DurabilityLevel::Static,
+            );
+        }
 
         // input_eure → "input.eure"
         if let Some(input_eure) = &self.data.input_eure {
@@ -760,15 +779,15 @@ impl Case {
             }));
         }
 
-        // Editor scenarios (completions, hover, diagnostics)
+        // Editor scenarios (completions, hover, definition, diagnostics)
         // When 'editor' is present, we create:
         // - Diagnostics scenario: when the editor has no cursor marker, or when
         //   diagnostics are explicitly expected (an editor with a cursor is a
         //   document being typed, so it is usually not free of syntax errors)
         // - Completions scenario: when the editor has a cursor marker or a
-        //   trigger is specified, unless the cursor is there for a hover
+        //   trigger is specified, unless the cursor is there for a hover or definition
         //   expectation only
-        // - Hover scenario: when a hover expectation is given
+        // - Hover/definition scenarios: when their expectations are given
         if let Some(editor) = &self.data.editor {
             let content = EditorContent::from_text(editor);
             let cursor = content.cursor.unwrap_or(content.text.as_str().len() as u32);
@@ -787,10 +806,10 @@ impl Case {
                 }));
             }
 
-            let hover_only = self.data.hover.is_some()
+            let navigation_only = (self.data.hover.is_some() || self.data.definitions.is_some())
                 && self.data.trigger.is_none()
                 && self.data.completions.is_empty();
-            if (content.cursor.is_some() || self.data.trigger.is_some()) && !hover_only {
+            if (content.cursor.is_some() || self.data.trigger.is_some()) && !navigation_only {
                 scenarios.push(Scenario::Completions(CompletionsScenario {
                     editor: Self::resolve_path(editor, &self.editor_file_path()),
                     cursor,
@@ -803,6 +822,14 @@ impl Case {
                     editor: Self::resolve_path(editor, &self.editor_file_path()),
                     cursor,
                     hover: Some(hover.as_str().to_string()).filter(|s| !s.trim().is_empty()),
+                }));
+            }
+
+            if let Some(definitions) = &self.data.definitions {
+                scenarios.push(Scenario::Definition(DefinitionScenario {
+                    editor: Self::resolve_path(editor, &self.editor_file_path()),
+                    cursor,
+                    definitions: definitions.clone(),
                 }));
             }
 

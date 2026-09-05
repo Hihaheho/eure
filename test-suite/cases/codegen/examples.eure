@@ -941,6 +941,13 @@ pub enum CaseDataHover {
     None,
 }
 
+pub enum CaseDataDefinitions {
+    #[eure(rename = "some")]
+    Some(Vec<DefinitionItem>),
+    #[eure(rename = "none")]
+    None,
+}
+
 pub enum CaseDataRust {
     #[eure(rename = "some")]
     Some(String),
@@ -975,6 +982,7 @@ pub struct CaseData {
     pub scenario_errors: Option<Vec<ScenarioErrorItem>>,
     pub scenarios_expected: Option<Vec<String>>,
     pub files: Option<::std::collections::BTreeMap<String, String>>,
+    pub remote_files: Option<::std::collections::BTreeMap<String, String>>,
     pub input_eure: Option<CaseDataInputEure>,
     pub input_toml: Option<CaseDataInputToml>,
     pub normalized: Option<CaseDataNormalized>,
@@ -987,6 +995,7 @@ pub struct CaseData {
     pub editor: Option<CaseDataEditor>,
     pub trigger: Option<CaseDataTrigger>,
     pub hover: Option<CaseDataHover>,
+    pub definitions: Option<CaseDataDefinitions>,
     pub rust: Option<CaseDataRust>,
     pub edited: Option<CaseDataEdited>,
 }
@@ -1103,6 +1112,13 @@ pub enum CaseFileHover {
     None,
 }
 
+pub enum CaseFileDefinitions {
+    #[eure(rename = "some")]
+    Some(Vec<DefinitionItem>),
+    #[eure(rename = "none")]
+    None,
+}
+
 pub enum CaseFileRust {
     #[eure(rename = "some")]
     Some(String),
@@ -1137,6 +1153,7 @@ pub struct CaseFile {
     pub scenario_errors: Option<Vec<ScenarioErrorItem>>,
     pub scenarios_expected: Option<Vec<String>>,
     pub files: Option<::std::collections::BTreeMap<String, String>>,
+    pub remote_files: Option<::std::collections::BTreeMap<String, String>>,
     pub input_eure: Option<CaseFileInputEure>,
     pub input_toml: Option<CaseFileInputToml>,
     pub normalized: Option<CaseFileNormalized>,
@@ -1149,6 +1166,7 @@ pub struct CaseFile {
     pub editor: Option<CaseFileEditor>,
     pub trigger: Option<CaseFileTrigger>,
     pub hover: Option<CaseFileHover>,
+    pub definitions: Option<CaseFileDefinitions>,
     pub rust: Option<CaseFileRust>,
     pub edited: Option<CaseFileEdited>,
     pub cases: Option<::std::collections::BTreeMap<String, CaseData>>,
@@ -1165,6 +1183,12 @@ pub enum CompletionItemKind {
 pub struct CompletionItem {
     pub label: String,
     pub kind: Option<CompletionItemKind>,
+}
+
+#[eure(type_name = "definition-item")]
+pub struct DefinitionItem {
+    pub file: String,
+    pub target: String,
 }
 
 pub enum DiagnosticItemSeverity {

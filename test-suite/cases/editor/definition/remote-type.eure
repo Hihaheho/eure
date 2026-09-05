@@ -1,0 +1,22 @@
+// Imported HTTPS type definitions preserve their canonical URL.
+
+remote_files."https://eure.dev/common.eure" = ```eure
+@ $types.user {
+  name = `text`
+}
+```
+
+editor = ```eure
+$import = { common => "https://eure.dev/common.eure" }
+user = `$types.common.us|_|er`
+```
+
+scenarios_expected = ["definition"]
+
+@ definitions[]
+file = "https://eure.dev/common.eure"
+target = ```eure
+@ $types.|_|user {
+  name = `text`
+}
+```
