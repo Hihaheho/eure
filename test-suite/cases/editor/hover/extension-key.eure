@@ -1,0 +1,23 @@
+// Test: hovering an extension key declared with `$ext-type` shows its type
+
+schema = ```eure
+name = `text`
+name.$ext-type.note = `text`
+name.$ext-type.note.$optional = true
+name.$ext-type.note.$description = "Free-form note for editors."
+```
+
+editor = ```eure
+name = "Alice"
+name.$no|_|te = "preferred name"
+```
+
+scenarios_expected = ["hover"]
+
+hover = ````markdown
+```eure
+name.$note: text (optional)
+```
+
+Free-form note for editors.
+````

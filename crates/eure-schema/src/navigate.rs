@@ -281,7 +281,9 @@ impl<'a> SchemaNavigator<'a> {
     }
 }
 
-fn hint_at(hints: &[VariantHint], prefix_len: usize) -> Option<&VariantPath> {
+/// The variant selected for the union reached after `prefix_len` path
+/// segments, if a hint declares one.
+pub fn hint_at(hints: &[VariantHint], prefix_len: usize) -> Option<&VariantPath> {
     hints
         .iter()
         .find(|hint| hint.prefix_len == prefix_len)

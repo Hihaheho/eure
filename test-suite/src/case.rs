@@ -19,6 +19,7 @@ use crate::scenarios::eure_schema_to_json_schema_error::EureSchemaToJsonSchemaEr
 use crate::scenarios::eure_to_json::EureToJsonScenario;
 use crate::scenarios::eure_to_json_error::EureToJsonErrorScenario;
 use crate::scenarios::formatting::FormattingScenario;
+use crate::scenarios::hover::HoverScenario;
 use crate::scenarios::json_to_eure::JsonToEureScenario;
 use crate::scenarios::meta_schema::MetaSchemaScenario;
 use crate::scenarios::normalization::NormalizationScenario;
@@ -206,6 +207,7 @@ pub enum Scenario {
     EureSchemaToJsonSchemaError(EureSchemaToJsonSchemaErrorScenario),
     EumdErrorValidation(EumdErrorValidationScenario),
     Completions(CompletionsScenario),
+    Hover(HoverScenario),
     Diagnostics(DiagnosticsScenario),
     SemanticTokens(SemanticTokensScenario),
     RustCodegen(RustCodegenScenario),
@@ -234,6 +236,7 @@ impl Scenario {
             }
             Scenario::EumdErrorValidation(_) => "eumd_error_validation".to_string(),
             Scenario::Completions(_) => "completions".to_string(),
+            Scenario::Hover(_) => "hover".to_string(),
             Scenario::Diagnostics(_) => "diagnostics".to_string(),
             Scenario::SemanticTokens(_) => "semantic_tokens".to_string(),
             Scenario::RustCodegen(_) => "rust_codegen".to_string(),
@@ -260,6 +263,7 @@ impl Scenario {
             Scenario::EureSchemaToJsonSchemaError(s) => s.run(db),
             Scenario::EumdErrorValidation(s) => s.run(db),
             Scenario::Completions(s) => s.run(db),
+            Scenario::Hover(s) => s.run(db),
             Scenario::Diagnostics(s) => s.run(db),
             Scenario::SemanticTokens(s) => s.run(db),
             Scenario::RustCodegen(s) => s.run(db),
@@ -756,15 +760,18 @@ impl Case {
             }));
         }
 
-        // Editor scenarios (completions, diagnostics)
+        // Editor scenarios (completions, hover, diagnostics)
         // When 'editor' is present, we create:
         // - Diagnostics scenario: when the editor has no cursor marker, or when
         //   diagnostics are explicitly expected (an editor with a cursor is a
         //   document being typed, so it is usually not free of syntax errors)
         // - Completions scenario: when the editor has a cursor marker or a
-        //   trigger is specified
+        //   trigger is specified, unless the cursor is there for a hover
+        //   expectation only
+        // - Hover scenario: when a hover expectation is given
         if let Some(editor) = &self.data.editor {
             let content = EditorContent::from_text(editor);
+            let cursor = content.cursor.unwrap_or(content.text.as_str().len() as u32);
 
             if content.cursor.is_none() || !self.data.diagnostics.is_empty() {
                 // Include schema if present for validation tests
@@ -780,11 +787,22 @@ impl Case {
                 }));
             }
 
-            if content.cursor.is_some() || self.data.trigger.is_some() {
+            let hover_only = self.data.hover.is_some()
+                && self.data.trigger.is_none()
+                && self.data.completions.is_empty();
+            if (content.cursor.is_some() || self.data.trigger.is_some()) && !hover_only {
                 scenarios.push(Scenario::Completions(CompletionsScenario {
                     editor: Self::resolve_path(editor, &self.editor_file_path()),
-                    cursor: content.cursor.unwrap_or(content.text.as_str().len() as u32),
+                    cursor,
                     completions: self.data.completions.clone(),
+                }));
+            }
+
+            if let Some(hover) = &self.data.hover {
+                scenarios.push(Scenario::Hover(HoverScenario {
+                    editor: Self::resolve_path(editor, &self.editor_file_path()),
+                    cursor,
+                    hover: Some(hover.as_str().to_string()).filter(|s| !s.trim().is_empty()),
                 }));
             }
 

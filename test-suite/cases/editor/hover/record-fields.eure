@@ -1,0 +1,33 @@
+// Test: hovering a key typed by a named record lists the record's fields
+
+schema = ```eure
+$types.Person {
+  $description = "A person known to the system."
+  name = `text`
+  age = `integer`
+  age.$optional = true
+  tags = [`text`]
+}
+
+user = `$types.Person`
+```
+
+editor = ```eure
+@ us|_|er
+name = "Alice"
+```
+
+scenarios_expected = ["hover"]
+
+hover = ````markdown
+```eure
+user: $types.Person
+```
+
+A person known to the system.
+
+**Fields**
+- `name`: text
+- `age`: integer (optional)
+- `tags`: [text]
+````

@@ -1,0 +1,40 @@
+// Test: hovering the `$variant` key lists the variants of the union
+
+schema = ```eure
+$types.Action {
+  $variant: union
+  $description = "One step of a script."
+  variants.set-text {
+    $description = "Show a line of dialogue.
+Long descriptions are cut to their first line in the list."
+    speaker = `text`
+    lines = [`text`]
+  }
+  variants.set-choices {
+    description = `text`
+    choices = [`text`]
+  }
+}
+
+actions = [`$types.Action`]
+```
+
+editor = ```eure
+@ actions[]
+$vari|_|ant: set-text
+speaker = "Alice"
+```
+
+scenarios_expected = ["hover"]
+
+hover = ````markdown
+```eure
+actions[].$variant
+```
+
+One step of a script.
+
+**Variants**
+- `set-text`: record — Show a line of dialogue.
+- `set-choices`: record
+````

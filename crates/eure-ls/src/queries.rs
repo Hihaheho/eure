@@ -2,12 +2,13 @@
 
 use eure::query::{
     CompletionItem, CompletionKind, DiagnosticMessage, DiagnosticSeverity, GetFileDiagnostics,
-    GetSemanticTokens, SemanticToken, TextFile, get_completions,
+    GetSemanticTokens, SemanticToken, TextFile, get_completions, get_hover,
 };
 use lsp_types::{
     CompletionItem as LspCompletionItem, CompletionItemKind, CompletionTextEdit, Diagnostic,
-    DiagnosticSeverity as LspSeverity, Documentation, MarkupContent, MarkupKind, NumberOrString,
-    Position, Range, SemanticToken as LspSemanticToken, SemanticTokens, TextEdit,
+    DiagnosticSeverity as LspSeverity, Documentation, Hover, HoverContents, MarkupContent,
+    MarkupKind, NumberOrString, Position, Range, SemanticToken as LspSemanticToken, SemanticTokens,
+    TextEdit,
 };
 use query_flow::{Db, QueryError, query};
 
@@ -68,6 +69,32 @@ fn convert_completion_kind(kind: CompletionKind) -> CompletionItemKind {
         CompletionKind::Variant => CompletionItemKind::ENUM_MEMBER,
         CompletionKind::Value => CompletionItemKind::VALUE,
     }
+}
+
+/// LSP-formatted hover.
+///
+/// Wraps `get_hover` and converts to an LSP `Hover` with markdown contents
+/// and the range of the hovered key or value. `offset` is the cursor
+/// position as a byte offset (see [`position_to_offset`]).
+///
+/// Like `get_hover`, this is a plain function rather than a query so that
+/// per-cursor results are not memoized.
+pub fn lsp_hover(db: &impl Db, file: &TextFile, offset: u32) -> Result<Option<Hover>, QueryError> {
+    let Some(hover) = get_hover(db, file, offset)? else {
+        return Ok(None);
+    };
+    let source: std::sync::Arc<eure::query::TextFileContent> = db.asset(file.clone())?;
+    let line_offsets = compute_line_offsets(source.get());
+    Ok(Some(Hover {
+        contents: HoverContents::Markup(MarkupContent {
+            kind: MarkupKind::Markdown,
+            value: hover.contents,
+        }),
+        range: Some(Range {
+            start: offset_to_lsp_position(hover.span.start as usize, source.get(), &line_offsets),
+            end: offset_to_lsp_position(hover.span.end as usize, source.get(), &line_offsets),
+        }),
+    }))
 }
 
 /// Convert an LSP position (UTF-16 based) to a byte offset in `source`.

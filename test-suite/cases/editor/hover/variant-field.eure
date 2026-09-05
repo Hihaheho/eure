@@ -1,0 +1,32 @@
+// Test: a field inside a tagged union element resolves through the `$variant` hint
+
+schema = ```eure
+$types.Action {
+  $variant: union
+  variants.set-text {
+    speaker = `text`
+    speaker.$description = "Who says the line."
+  }
+  variants.set-choices {
+    speaker = `integer`
+  }
+}
+
+actions = [`$types.Action`]
+```
+
+editor = ```eure
+@ actions[]
+$variant: set-text
+spea|_|ker = "Alice"
+```
+
+scenarios_expected = ["hover"]
+
+hover = ````markdown
+```eure
+actions[].speaker: text
+```
+
+Who says the line.
+````

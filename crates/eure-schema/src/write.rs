@@ -179,6 +179,11 @@ impl IntegerSchema {
             && self.multiple_of.is_none()
     }
 
+    /// The `range` constraint in schema notation (`[1, 10)`), if any.
+    pub fn range_display(&self) -> Option<String> {
+        format_bound_range(&self.min, &self.max, format_bigint)
+    }
+
     pub fn shorthand(&self) -> Option<Text> {
         self.is_shorthand_compatible()
             .then(|| Text::inline_implicit("integer"))
@@ -207,6 +212,11 @@ impl FloatSchema {
             && matches!(self.max, Bound::Unbounded)
             && self.multiple_of.is_none()
             && matches!(self.precision, FloatPrecision::F64)
+    }
+
+    /// The `range` constraint in schema notation (`[0.0, 1.0]`), if any.
+    pub fn range_display(&self) -> Option<String> {
+        format_bound_range(&self.min, &self.max, format_f64)
     }
 
     pub fn shorthand(&self) -> Option<Text> {

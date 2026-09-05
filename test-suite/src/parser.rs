@@ -264,6 +264,9 @@ pub struct CaseData {
     pub completions: Vec<CompletionItem>,
     #[eure(default)]
     pub trigger: Option<String>,
+    /// Expected hover markdown at the cursor; an empty text expects no hover.
+    #[eure(default)]
+    pub hover: Option<Text>,
     #[eure(default)]
     pub diagnostics: Vec<DiagnosticItem>,
     // JSON conversion errors (for testing eure-to-json error messages with spans)
@@ -307,6 +310,7 @@ impl CaseData {
             && self.serialized.is_none()
             && self.euremark_errors.is_empty()
             && self.editor.is_none()
+            && self.hover.is_none()
             && self.json_errors.is_empty()
             && self.semantic_tokens.is_empty()
             && self.rust.is_none()

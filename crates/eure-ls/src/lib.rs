@@ -21,7 +21,8 @@ pub use wasm::WasmCore;
 // Public exports for shared functionality
 pub use capabilities::server_capabilities;
 pub use queries::{
-    LspDiagnostics, LspFileDiagnostics, LspSemanticTokens, lsp_completion, position_to_offset,
+    LspDiagnostics, LspFileDiagnostics, LspSemanticTokens, lsp_completion, lsp_hover,
+    position_to_offset,
 };
 pub use types::{CoreRequestId, Effect, LspError, LspOutput};
 
@@ -36,18 +37,23 @@ use lsp_types::InitializeParams;
 use query_flow::{DurabilityLevel, QueryRuntime};
 
 use crate::types::{
-    CommandQuery, CommandResult, CompletionRequest, FileDiagnosticsSubscription, PendingRequest,
+    CommandQuery, CommandResult, CompletionRequest, FileDiagnosticsSubscription, HoverRequest,
+    PendingRequest,
 };
 use crate::uri_utils::uri_to_text_file;
 
 use lsp_types::{
     CompletionParams, CompletionResponse, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
-    DidOpenTextDocumentParams, InitializeResult, PublishDiagnosticsParams, SemanticTokensParams,
+    DidOpenTextDocumentParams, HoverParams, InitializeResult, PublishDiagnosticsParams,
+    SemanticTokensParams,
     notification::{
         DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument,
         Notification as LspNotification, PublishDiagnostics,
     },
-    request::{Completion, Initialize, Request as LspRequest, SemanticTokensFullRequest, Shutdown},
+    request::{
+        Completion, HoverRequest as HoverLspRequest, Initialize, Request as LspRequest,
+        SemanticTokensFullRequest, Shutdown,
+    },
 };
 
 use crate::uri_utils::text_file_to_uri;
@@ -351,6 +357,38 @@ impl LspCore {
                 let offset = position_to_offset(&source, position.position) as u32;
 
                 let command = CommandQuery::Completion(CompletionRequest { file, offset });
+                let (cmd_outputs, cmd_effects) = self.run_command(id, command);
+                outputs.extend(cmd_outputs);
+                effects.extend(cmd_effects);
+            }
+            HoverLspRequest::METHOD => {
+                let params: HoverParams = match serde_json::from_value(params) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        outputs.push(LspOutput::Response {
+                            id,
+                            result: Err(LspError::invalid_params(format!("Invalid params: {}", e))),
+                        });
+                        return (outputs, effects);
+                    }
+                };
+
+                let position = params.text_document_position_params;
+                let uri_str = position.text_document.uri.as_str();
+                let file = match uri_to_text_file(uri_str) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        outputs.push(LspOutput::Response {
+                            id,
+                            result: Err(LspError::invalid_params(format!("Invalid URI: {}", e))),
+                        });
+                        return (outputs, effects);
+                    }
+                };
+                let source = self.documents.get(uri_str).cloned().unwrap_or_default();
+                let offset = position_to_offset(&source, position.position) as u32;
+
+                let command = CommandQuery::Hover(HoverRequest { file, offset });
                 let (cmd_outputs, cmd_effects) = self.run_command(id, command);
                 outputs.extend(cmd_outputs);
                 effects.extend(cmd_effects);
@@ -806,6 +844,10 @@ impl LspCore {
                 let items = lsp_completion(&self.runtime, &request.file, request.offset)?;
                 Ok(CommandResult::Completion(items))
             }
+            CommandQuery::Hover(request) => {
+                let hover = lsp_hover(&self.runtime, &request.file, request.offset)?;
+                Ok(CommandResult::Hover(hover))
+            }
         }
     }
 
@@ -818,6 +860,7 @@ impl LspCore {
             CommandResult::Completion(items) => {
                 serde_json::to_value(CompletionResponse::Array(items)).unwrap_or(Value::Null)
             }
+            CommandResult::Hover(hover) => serde_json::to_value(hover).unwrap_or(Value::Null),
         }
     }
 

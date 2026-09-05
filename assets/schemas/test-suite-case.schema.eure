@@ -156,6 +156,10 @@ $types {
     $variant = "union"
     $optional = true
     variants = { some => `text`, none => `null` }
+    @ hover
+    $variant = "union"
+    $optional = true
+    variants = { some => `text`, none => `null` }
     @ rust
     $variant = "union"
     $optional = true
