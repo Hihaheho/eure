@@ -934,6 +934,13 @@ pub enum CaseDataTrigger {
     None,
 }
 
+pub enum CaseDataHover {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
 pub enum CaseDataRust {
     #[eure(rename = "some")]
     Some(String),
@@ -979,6 +986,7 @@ pub struct CaseData {
     pub serialized: Option<CaseDataSerialized>,
     pub editor: Option<CaseDataEditor>,
     pub trigger: Option<CaseDataTrigger>,
+    pub hover: Option<CaseDataHover>,
     pub rust: Option<CaseDataRust>,
     pub edited: Option<CaseDataEdited>,
 }
@@ -1088,6 +1096,13 @@ pub enum CaseFileTrigger {
     None,
 }
 
+pub enum CaseFileHover {
+    #[eure(rename = "some")]
+    Some(String),
+    #[eure(rename = "none")]
+    None,
+}
+
 pub enum CaseFileRust {
     #[eure(rename = "some")]
     Some(String),
@@ -1133,6 +1148,7 @@ pub struct CaseFile {
     pub serialized: Option<CaseFileSerialized>,
     pub editor: Option<CaseFileEditor>,
     pub trigger: Option<CaseFileTrigger>,
+    pub hover: Option<CaseFileHover>,
     pub rust: Option<CaseFileRust>,
     pub edited: Option<CaseFileEdited>,
     pub cases: Option<::std::collections::BTreeMap<String, CaseData>>,

@@ -1,0 +1,40 @@
+// Test: without a `$variant`, every variant that has the field is described
+
+schema = ```eure
+$types.Shape {
+  $variant: union
+  variants.circle {
+    size = `float`
+    size.$description = "Radius."
+  }
+  variants.square {
+    size = `integer`
+    size.$description = "Side length."
+  }
+}
+
+shape = `$types.Shape`
+```
+
+editor = ```eure
+@ shape
+si|_|ze = 3
+```
+
+scenarios_expected = ["hover"]
+
+hover = ````markdown
+```eure
+shape.size: float
+```
+
+Radius.
+
+---
+
+```eure
+shape.size: integer
+```
+
+Side length.
+````

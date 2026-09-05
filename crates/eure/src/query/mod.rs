@@ -10,6 +10,7 @@ pub mod completion;
 pub mod config;
 pub mod diagnostics;
 pub mod error;
+pub mod hover;
 #[cfg(feature = "http")]
 pub mod http;
 pub mod lint;
@@ -17,6 +18,7 @@ pub mod parse;
 pub mod report;
 pub mod schema;
 pub mod semantic_token;
+pub mod summary;
 pub mod validation;
 
 pub use asset_locator::TextFileLocator;
@@ -45,13 +47,15 @@ pub fn build_runtime() -> QueryRuntime {
     runtime
 }
 pub use completion::{
-    CompletionItem, CompletionKind, CompletionSite, SiteKind, ValueStyle, get_completions,
+    Anchor, AnchorKind, CompletionItem, CompletionKind, CompletionSite, SiteKind, ValueStyle,
+    get_completions,
 };
 pub use config::{LoadConfigError, ParseConfig, ResolveConfig, ResolvedConfig, load_config};
 pub use diagnostics::{
     CollectDiagnosticTargets, CollectSchemaFiles, DiagnosticMessage, DiagnosticSeverity,
     GetAllDiagnostics, GetFileDiagnostics,
 };
+pub use hover::{Hover, get_hover, hover_markdown};
 #[cfg(feature = "http")]
 pub use http::fetch_url;
 #[cfg(feature = "native")]

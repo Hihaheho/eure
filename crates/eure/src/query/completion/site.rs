@@ -1,9 +1,13 @@
-//! Locate the completion site: what the cursor is positioned on, and the
+//! Locate the cursor site: what the cursor is positioned on, and the
 //! document path that position belongs to.
 //!
 //! The walk runs on the tolerant CST (`ParseCst`), so it works while the
 //! document is being typed and does not parse. It never consults the schema;
 //! everything it reports is purely syntactic.
+//!
+//! Completion reads [`CompletionSite::kind`] (what may be inserted here);
+//! hover reads [`CompletionSite::anchor`] (the existing key or value the
+//! cursor is on, if any).
 
 use eure_document::path::{ArrayIndexKind, EurePath, PathSegment};
 use eure_document::value::ObjectKey;
@@ -26,6 +30,26 @@ pub struct CompletionSite {
     /// `$variant` selections visible from the cursor, one per enclosing scope
     /// that declares one.
     pub hints: Vec<VariantHint>,
+    /// The existing key or value the cursor is on. `None` at free positions
+    /// (a blank line, after `=` with no value yet, a dangling `.`).
+    pub anchor: Option<Anchor>,
+}
+
+/// An existing key or value under the cursor.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Anchor {
+    pub kind: AnchorKind,
+    /// Full document path of the node the token belongs to: for a key, the
+    /// path ending in that key; for a value, the path it is bound to.
+    pub path: EurePath,
+    /// Span of the whole token (not only the part before the cursor).
+    pub span: InputSpan,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AnchorKind {
+    Key,
+    Value,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -404,6 +428,20 @@ impl<'a> Walker<'a> {
                     start: self.cursor - trimmed.len() as u32,
                     end: self.cursor,
                 };
+                // The whole text after `:`, trimmed, is the value under the cursor.
+                let line = &self.input[start.end as usize..line_end as usize];
+                let content = line.trim();
+                let anchor = (!content.is_empty()).then(|| {
+                    let content_start = start.end + (line.len() - line.trim_start().len()) as u32;
+                    Anchor {
+                        kind: AnchorKind::Value,
+                        path: EurePath(path.clone()),
+                        span: InputSpan {
+                            start: content_start,
+                            end: content_start + content.len() as u32,
+                        },
+                    }
+                });
                 Some(CompletionSite {
                     kind: SiteKind::Value {
                         path: EurePath(path),
@@ -412,6 +450,7 @@ impl<'a> Walker<'a> {
                     partial: trimmed.to_string(),
                     replace,
                     hints: self.hints.clone(),
+                    anchor,
                 })
             }
         }
@@ -437,12 +476,17 @@ impl<'a> Walker<'a> {
             let partial = text(self.input, span)[..(self.cursor - span.start) as usize].to_string();
             return Some(CompletionSite {
                 kind: SiteKind::Value {
-                    path: EurePath(path),
+                    path: EurePath(path.clone()),
                     style: ValueStyle::Bind,
                 },
                 partial,
                 replace: span,
                 hints: self.hints.clone(),
+                anchor: Some(Anchor {
+                    kind: AnchorKind::Value,
+                    path: EurePath(path),
+                    span,
+                }),
             });
         };
         match kind {
@@ -593,6 +637,15 @@ impl<'a> Walker<'a> {
             parent.extend(prefix.iter().cloned());
             let partial =
                 text(self.input, key.span)[..(self.cursor - key.span.start) as usize].to_string();
+            let anchor = key.segment.clone().map(|segment| {
+                let mut path = parent.clone();
+                path.push(segment);
+                Anchor {
+                    kind: AnchorKind::Key,
+                    path: EurePath(path),
+                    span: key.span,
+                }
+            });
             return Some(CompletionSite {
                 kind: SiteKind::Key {
                     parent: EurePath(parent),
@@ -601,6 +654,7 @@ impl<'a> Walker<'a> {
                 partial,
                 replace: key.span,
                 hints: self.hints.clone(),
+                anchor,
             });
         }
         if let Some(dot) = keys.trailing_dot
@@ -623,6 +677,7 @@ impl<'a> Walker<'a> {
                     end: self.cursor,
                 },
                 hints: self.hints.clone(),
+                anchor: None,
             });
         }
         None
@@ -639,6 +694,7 @@ impl<'a> Walker<'a> {
             partial,
             replace,
             hints: self.hints.clone(),
+            anchor: None,
         }
     }
 
@@ -652,6 +708,7 @@ impl<'a> Walker<'a> {
             partial,
             replace,
             hints: self.hints.clone(),
+            anchor: None,
         }
     }
 
@@ -902,5 +959,78 @@ mod tests {
         let (parent, used) = key(&s);
         assert_eq!(parent, &path(&[]));
         assert_eq!(used, &["key".to_string()]);
+        assert_eq!(s.anchor, None);
+    }
+
+    #[test]
+    fn anchor_on_section_key_covers_whole_key() {
+        let s = site("@ user.add|_|ress.city\nname = 1").unwrap();
+        assert_eq!(
+            s.anchor,
+            Some(Anchor {
+                kind: AnchorKind::Key,
+                path: path(&["user", "address"]),
+                span: InputSpan { start: 7, end: 14 },
+            })
+        );
+    }
+
+    #[test]
+    fn anchor_on_binding_key_in_flat_section() {
+        let s = site("@ user\nna|_|me = \"Alice\"").unwrap();
+        assert_eq!(
+            s.anchor,
+            Some(Anchor {
+                kind: AnchorKind::Key,
+                path: path(&["user", "name"]),
+                span: InputSpan { start: 7, end: 11 },
+            })
+        );
+    }
+
+    #[test]
+    fn anchor_on_primitive_value() {
+        let s = site("@ user\nname = \"Al|_|ice\"").unwrap();
+        assert_eq!(
+            s.anchor,
+            Some(Anchor {
+                kind: AnchorKind::Value,
+                path: path(&["user", "name"]),
+                span: InputSpan { start: 14, end: 21 },
+            })
+        );
+    }
+
+    #[test]
+    fn anchor_on_text_binding_value() {
+        let s = site("@ actions[]\n$variant:  set-t|_|ext  \nspeaker = \"a\"").unwrap();
+        assert_eq!(
+            s.anchor,
+            Some(Anchor {
+                kind: AnchorKind::Value,
+                path: path(&["actions", "[]", "$variant"]),
+                span: InputSpan { start: 23, end: 31 },
+            })
+        );
+    }
+
+    #[test]
+    fn anchor_on_object_entry_key() {
+        let s = site("user = { na|_|me => \"Alice\" }").unwrap();
+        assert_eq!(
+            s.anchor,
+            Some(Anchor {
+                kind: AnchorKind::Key,
+                path: path(&["user", "name"]),
+                span: InputSpan { start: 9, end: 13 },
+            })
+        );
+    }
+
+    #[test]
+    fn free_positions_have_no_anchor() {
+        assert_eq!(site("key = |_|").unwrap().anchor, None);
+        assert_eq!(site("@ myfield.|_|").unwrap().anchor, None);
+        assert_eq!(site("@ user {\n    |_|\n}").unwrap().anchor, None);
     }
 }

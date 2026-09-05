@@ -1,0 +1,34 @@
+// Test: hovering a binding key shows its type, metadata and constraints
+
+schema = ```eure
+@ database
+host = `text`
+host.$description = "Host name of the database server."
+@ database.port
+$variant: integer
+range = "[1, 65535]"
+$optional = true
+$description = "TCP port to connect to."
+$default = 5432
+```
+
+editor = ```eure
+@ database
+host = "localhost"
+po|_|rt = 5432
+```
+
+scenarios_expected = ["hover"]
+
+hover = ````markdown
+```eure
+database.port: integer (optional)
+```
+
+TCP port to connect to.
+
+Default: `5432`
+
+**Constraints**
+- range: `[1, 65535]`
+````

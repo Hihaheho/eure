@@ -1,0 +1,17 @@
+// Test: a key the schema does not know falls back to the path
+
+schema = ```eure
+name = `text`
+```
+
+editor = ```eure
+nick|_|name = "Al"
+```
+
+scenarios_expected = ["hover"]
+
+hover = ````markdown
+```eure
+nickname
+```
+````

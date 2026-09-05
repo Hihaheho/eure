@@ -1,0 +1,22 @@
+// Test: hovering a value describes the key it is bound to
+
+schema = ```eure
+@ database
+host = `text`
+host.$description = "Host name of the database server."
+```
+
+editor = ```eure
+@ database
+host = "local|_|host"
+```
+
+scenarios_expected = ["hover"]
+
+hover = ````markdown
+```eure
+database.host: text
+```
+
+Host name of the database server.
+````

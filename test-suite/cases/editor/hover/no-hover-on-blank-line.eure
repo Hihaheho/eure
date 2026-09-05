@@ -1,0 +1,14 @@
+// Test: a blank line has nothing to hover
+
+schema = ```eure
+name = `text`
+```
+
+editor = ```eure
+name = "Alice"
+|_|
+```
+
+scenarios_expected = ["hover"]
+
+hover = ""

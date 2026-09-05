@@ -1,0 +1,32 @@
+// Test: text constraints, examples and deprecation are shown
+
+schema = ```eure
+@ slug
+$variant: text
+min-length = 3
+max-length = 32
+pattern = "^[a-z-]+$"
+$deprecated = true
+$examples = ["hello-world", "eure"]
+```
+
+editor = ```eure
+sl|_|ug = "hello-world"
+```
+
+scenarios_expected = ["hover"]
+
+hover = ````markdown
+```eure
+slug: text
+```
+
+**Deprecated**
+
+Examples: `"hello-world"`, `"eure"`
+
+**Constraints**
+- min-length: `3`
+- max-length: `32`
+- pattern: `^[a-z-]+$`
+````

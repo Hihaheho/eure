@@ -78,7 +78,7 @@ require('lspconfig').eure_ls.setup({
 | Schema validation diagnostics | Implemented |
 | Document formatting | Planned (formatter not yet implemented) |
 | Schema-based completion | Implemented (fields, `$variant` names, literal values) |
-| Hover documentation | Planned |
+| Hover documentation | Implemented (type, `$description`, defaults, constraints, record fields, union variants) |
 | Go to definition | Planned |
 
 The language server uses the same query engine as `eure check`, so schema validation in the editor is always consistent with CLI validation.

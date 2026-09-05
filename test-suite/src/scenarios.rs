@@ -13,6 +13,7 @@ pub mod eure_schema_to_json_schema_error;
 pub mod eure_to_json;
 pub mod eure_to_json_error;
 pub mod formatting;
+pub mod hover;
 pub mod json_to_eure;
 pub mod meta_schema;
 pub mod normalization;
@@ -203,6 +204,11 @@ pub enum ScenarioError {
     CompletionsMismatch {
         expected: Vec<String>,
         actual: Vec<String>,
+    },
+    /// Hover mismatch (expected vs actual); `None` means no hover
+    HoverMismatch {
+        expected: Option<String>,
+        actual: Option<String>,
     },
     /// Rust codegen output mismatch (expected vs actual)
     RustCodegenMismatch {
@@ -548,6 +554,13 @@ impl std::fmt::Display for ScenarioError {
                     writeln!(f, "{}", item)?;
                 }
                 Ok(())
+            }
+            ScenarioError::HoverMismatch { expected, actual } => {
+                writeln!(f, "Hover mismatch.")?;
+                writeln!(f, "\n--- Expected ---")?;
+                writeln!(f, "{}", expected.as_deref().unwrap_or("(no hover)"))?;
+                writeln!(f, "\n--- Actual ---")?;
+                writeln!(f, "{}", actual.as_deref().unwrap_or("(no hover)"))
             }
             ScenarioError::RustCodegenMismatch { expected, actual } => {
                 use similar::{ChangeTag, TextDiff};

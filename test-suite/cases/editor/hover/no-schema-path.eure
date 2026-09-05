@@ -1,0 +1,14 @@
+// Test: without a schema, hover shows the full document path
+
+editor = ```eure
+@ config.servers[]
+ho|_|st = "example.com"
+```
+
+scenarios_expected = ["hover"]
+
+hover = ````markdown
+```eure
+config.servers[].host
+```
+````

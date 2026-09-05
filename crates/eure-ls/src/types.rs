@@ -132,12 +132,22 @@ pub struct CompletionRequest {
     pub offset: u32,
 }
 
+/// A hover request: document and cursor as a byte offset.
+///
+/// Not a query on purpose; see `eure::query::get_hover`.
+#[derive(Clone, Debug)]
+pub struct HoverRequest {
+    pub file: TextFile,
+    pub offset: u32,
+}
+
 /// LSP commands. Each variant carries what is needed to (re-)execute the
 /// request once the assets it suspended on are available.
 #[derive(Clone)]
 pub enum CommandQuery {
     SemanticTokensFull(LspSemanticTokens),
     Completion(CompletionRequest),
+    Hover(HoverRequest),
 }
 
 impl CommandQuery {
@@ -146,6 +156,7 @@ impl CommandQuery {
         match self {
             CommandQuery::SemanticTokensFull(q) => &q.file,
             CommandQuery::Completion(q) => &q.file,
+            CommandQuery::Hover(q) => &q.file,
         }
     }
 
@@ -154,6 +165,7 @@ impl CommandQuery {
         match self {
             CommandQuery::SemanticTokensFull(_) => "SemanticTokens",
             CommandQuery::Completion(_) => "Completion",
+            CommandQuery::Hover(_) => "Hover",
         }
     }
 }
@@ -162,6 +174,7 @@ impl CommandQuery {
 pub enum CommandResult {
     SemanticTokens(Option<lsp_types::SemanticTokens>),
     Completion(Vec<lsp_types::CompletionItem>),
+    Hover(Option<lsp_types::Hover>),
 }
 
 /// A pending LSP request waiting for assets to be resolved.

@@ -1,0 +1,38 @@
+// Test: hovering the `$variant` value describes the selected variant
+
+schema = ```eure
+$types.Action {
+  $variant: union
+  variants.set-text {
+    $description = "Show a line of dialogue."
+    speaker = `text`
+    lines = [`text`]
+  }
+  variants.set-choices {
+    description = `text`
+    choices = [`text`]
+  }
+}
+
+actions = [`$types.Action`]
+```
+
+editor = ```eure
+@ actions[]
+$variant: set-|_|text
+speaker = "Alice"
+```
+
+scenarios_expected = ["hover"]
+
+hover = ````markdown
+```eure
+actions[].$variant: set-text
+```
+
+Show a line of dialogue.
+
+**Fields**
+- `speaker`: text
+- `lines`: [text]
+````

@@ -1,0 +1,26 @@
+// Test: hovering a middle segment of a section header describes that prefix
+
+schema = ```eure
+@ server.tls
+cert = `text`
+key = `text`
+@ server.tls.$description = "TLS settings."
+```
+
+editor = ```eure
+@ server.t|_|ls.cert
+```
+
+scenarios_expected = ["hover"]
+
+hover = ````markdown
+```eure
+server.tls: record
+```
+
+TLS settings.
+
+**Fields**
+- `cert`: text
+- `key`: text
+````

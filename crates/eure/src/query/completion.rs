@@ -18,7 +18,7 @@ use eure_schema::SchemaDocument;
 use query_flow::{Db, QueryError};
 
 pub use items::{CompletionItem, CompletionKind, completion_items};
-pub use site::{CompletionSite, SiteKind, ValueStyle, find_site};
+pub use site::{Anchor, AnchorKind, CompletionSite, SiteKind, ValueStyle, find_site};
 
 use super::assets::TextFile;
 use super::parse::ParseCst;
@@ -53,9 +53,12 @@ pub fn get_completions(
 /// Load the schema that governs `file`, if any.
 ///
 /// A schema that cannot be resolved or converted yields `None`: the problem
-/// is reported through diagnostics, and completion degrades to
+/// is reported through diagnostics, and completion (or hover) degrades to
 /// schema-less behavior instead of failing the request.
-fn load_schema(db: &impl Db, file: &TextFile) -> Result<Option<Arc<SchemaDocument>>, QueryError> {
+pub(super) fn load_schema(
+    db: &impl Db,
+    file: &TextFile,
+) -> Result<Option<Arc<SchemaDocument>>, QueryError> {
     let resolved = match db.query(ResolveSchema::new(file.clone())) {
         Ok(resolved) => resolved.as_ref().clone(),
         Err(QueryError::UserError(_)) => return Ok(None),

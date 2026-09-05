@@ -1,10 +1,10 @@
 //! Server capabilities definition.
 
 use lsp_types::{
-    CompletionOptions, SemanticTokenModifier as LspModifier, SemanticTokenType as LspTokenType,
-    SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions,
-    SemanticTokensServerCapabilities, ServerCapabilities, TextDocumentSyncCapability,
-    TextDocumentSyncKind,
+    CompletionOptions, HoverProviderCapability, SemanticTokenModifier as LspModifier,
+    SemanticTokenType as LspTokenType, SemanticTokensFullOptions, SemanticTokensLegend,
+    SemanticTokensOptions, SemanticTokensServerCapabilities, ServerCapabilities,
+    TextDocumentSyncCapability, TextDocumentSyncKind,
 };
 
 /// Characters that start a new completable position in Eure syntax:
@@ -25,6 +25,7 @@ pub fn server_capabilities() -> ServerCapabilities {
             ),
             ..Default::default()
         }),
+        hover_provider: Some(HoverProviderCapability::Simple(true)),
         semantic_tokens_provider: Some(SemanticTokensServerCapabilities::SemanticTokensOptions(
             SemanticTokensOptions {
                 work_done_progress_options: Default::default(),
