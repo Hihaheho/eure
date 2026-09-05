@@ -1,4 +1,4 @@
-use eure::query::{GetCompletions, TextFile};
+use eure::query::{TextFile, get_completions};
 use query_flow::Db;
 
 use crate::parser::CompletionItem;
@@ -17,7 +17,7 @@ pub struct CompletionsScenario {
 
 impl Scenario for CompletionsScenario {
     fn run(self, db: &impl Db) -> Result<(), ScenarioError> {
-        let actual = db.query(GetCompletions::new(self.editor.clone(), self.cursor))?;
+        let actual = get_completions(db, &self.editor, self.cursor)?;
 
         let matches = actual.len() == self.completions.len()
             && actual

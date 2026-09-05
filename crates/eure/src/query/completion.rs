@@ -15,7 +15,7 @@ pub mod site;
 use std::sync::Arc;
 
 use eure_schema::SchemaDocument;
-use query_flow::{Db, QueryError, query};
+use query_flow::{Db, QueryError};
 
 pub use items::{CompletionItem, CompletionKind, completion_items};
 pub use site::{CompletionSite, SiteKind, ValueStyle, find_site};
@@ -29,10 +29,14 @@ use super::schema::{DocumentToSchemaQuery, ResolveSchema};
 /// Works on documents that do not parse. Returns an empty list when the
 /// cursor is not at a completable position, or when the document has no
 /// usable schema and the position is a key.
-#[query(debug = "{Self}({file}, {offset})")]
+///
+/// This is deliberately a plain function over `Db` rather than a query: the
+/// expensive inputs (parsing, schema resolution and conversion) are cached
+/// queries keyed by file, while the per-cursor work is cheap and would only
+/// leave one cache entry behind for every offset ever requested.
 pub fn get_completions(
     db: &impl Db,
-    file: TextFile,
+    file: &TextFile,
     offset: u32,
 ) -> Result<Vec<CompletionItem>, QueryError> {
     let parsed = db.query(ParseCst::new(file.clone()))?;
@@ -42,7 +46,7 @@ pub fn get_completions(
         return Ok(Vec::new());
     };
 
-    let schema = load_schema(db, &file)?;
+    let schema = load_schema(db, file)?;
     Ok(completion_items(&site, schema.as_deref()))
 }
 

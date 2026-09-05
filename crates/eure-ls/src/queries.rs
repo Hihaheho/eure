@@ -1,8 +1,8 @@
 //! LSP-specific queries that convert to LSP types.
 
 use eure::query::{
-    CompletionItem, CompletionKind, DiagnosticMessage, DiagnosticSeverity, GetCompletions,
-    GetFileDiagnostics, GetSemanticTokens, SemanticToken, TextFile,
+    CompletionItem, CompletionKind, DiagnosticMessage, DiagnosticSeverity, GetFileDiagnostics,
+    GetSemanticTokens, SemanticToken, TextFile, get_completions,
 };
 use lsp_types::{
     CompletionItem as LspCompletionItem, CompletionItemKind, CompletionTextEdit, Diagnostic,
@@ -11,18 +11,20 @@ use lsp_types::{
 };
 use query_flow::{Db, QueryError, query};
 
-/// LSP-formatted completion query.
+/// LSP-formatted completion.
 ///
-/// Wraps `GetCompletions` and converts to LSP `CompletionItem`s. `offset` is
+/// Wraps `get_completions` and converts to LSP `CompletionItem`s. `offset` is
 /// the cursor position as a byte offset (see [`position_to_offset`]).
-#[query]
+///
+/// Like `get_completions`, this is a plain function rather than a query so
+/// that per-cursor results are not memoized.
 pub fn lsp_completion(
     db: &impl Db,
-    file: TextFile,
+    file: &TextFile,
     offset: u32,
 ) -> Result<Vec<LspCompletionItem>, QueryError> {
-    let items = db.query(GetCompletions::new(file.clone(), offset))?;
-    let source: std::sync::Arc<eure::query::TextFileContent> = db.asset(file)?;
+    let items = get_completions(db, file, offset)?;
+    let source: std::sync::Arc<eure::query::TextFileContent> = db.asset(file.clone())?;
     let line_offsets = compute_line_offsets(source.get());
     Ok(items
         .iter()

@@ -21,7 +21,7 @@ pub use wasm::WasmCore;
 // Public exports for shared functionality
 pub use capabilities::server_capabilities;
 pub use queries::{
-    LspCompletion, LspDiagnostics, LspFileDiagnostics, LspSemanticTokens, position_to_offset,
+    LspDiagnostics, LspFileDiagnostics, LspSemanticTokens, lsp_completion, position_to_offset,
 };
 pub use types::{CoreRequestId, Effect, LspError, LspOutput};
 
@@ -35,7 +35,9 @@ use eure::query::{
 use lsp_types::InitializeParams;
 use query_flow::{DurabilityLevel, QueryRuntime};
 
-use crate::types::{CommandQuery, CommandResult, FileDiagnosticsSubscription, PendingRequest};
+use crate::types::{
+    CommandQuery, CommandResult, CompletionRequest, FileDiagnosticsSubscription, PendingRequest,
+};
 use crate::uri_utils::uri_to_text_file;
 
 use lsp_types::{
@@ -348,7 +350,7 @@ impl LspCore {
                 let source = self.documents.get(uri_str).cloned().unwrap_or_default();
                 let offset = position_to_offset(&source, position.position) as u32;
 
-                let command = CommandQuery::Completion(LspCompletion::new(file, offset));
+                let command = CommandQuery::Completion(CompletionRequest { file, offset });
                 let (cmd_outputs, cmd_effects) = self.run_command(id, command);
                 outputs.extend(cmd_outputs);
                 effects.extend(cmd_effects);
@@ -800,9 +802,9 @@ impl LspCore {
                 let result = self.runtime.query(query.clone())?;
                 Ok(CommandResult::SemanticTokens(Some((*result).clone())))
             }
-            CommandQuery::Completion(query) => {
-                let result = self.runtime.query(query.clone())?;
-                Ok(CommandResult::Completion((*result).clone()))
+            CommandQuery::Completion(request) => {
+                let items = lsp_completion(&self.runtime, &request.file, request.offset)?;
+                Ok(CommandResult::Completion(items))
             }
         }
     }

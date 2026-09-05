@@ -45,7 +45,7 @@ pub fn build_runtime() -> QueryRuntime {
     runtime
 }
 pub use completion::{
-    CompletionItem, CompletionKind, CompletionSite, GetCompletions, SiteKind, ValueStyle,
+    CompletionItem, CompletionKind, CompletionSite, SiteKind, ValueStyle, get_completions,
 };
 pub use config::{LoadConfigError, ParseConfig, ResolveConfig, ResolvedConfig, load_config};
 pub use diagnostics::{
