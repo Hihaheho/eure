@@ -1,14 +1,14 @@
 $frontmatter {
   title: Completion with Error Recovery Approach
-  description: Design proposal for error-recovery-based completion. The described types (ErrorBasedCompletion, PathExtractorVisitor) are not yet implemented.
+  description: Design notes for error-recovery-based completion. The implementation walks the tolerant CST directly; see crates/eure/src/query/completion/site.rs.
 }
 
 "#": Completion with Error Recovery Approach
 
 "body" = ```markdown
-> **Design Proposal — Not Yet Implemented**
+> **Status: superseded by the implementation**
 >
-> This document describes a planned approach for completion with error recovery. The types described here (`ErrorBasedCompletion`, `PathExtractorVisitor`, `ErrorContext`, `PathContext`) do not currently exist in the codebase. This document records the intended architecture for future implementation.
+> Completion now runs on the tolerant CST produced by `parse_tolerant` (`crates/eure/src/query/completion/site.rs`) without consulting the parser's error object: the partial tree already records how far each construct got (a dangling `.`, a `=` without a value, a `{` without `}`). The types named here (`ErrorBasedCompletion`, `PathExtractorVisitor`, `ErrorContext`, `PathContext`) do not exist; the document is kept for the analysis of the partial-CST shapes.
 ```
 
 "toc".$toc = true

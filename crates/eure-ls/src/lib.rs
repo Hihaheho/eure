@@ -20,7 +20,9 @@ pub use wasm::WasmCore;
 
 // Public exports for shared functionality
 pub use capabilities::server_capabilities;
-pub use queries::{LspDiagnostics, LspFileDiagnostics, LspSemanticTokens};
+pub use queries::{
+    LspDiagnostics, LspFileDiagnostics, LspSemanticTokens, lsp_completion, position_to_offset,
+};
 pub use types::{CoreRequestId, Effect, LspError, LspOutput};
 
 use std::collections::{HashMap, HashSet};
@@ -33,17 +35,19 @@ use eure::query::{
 use lsp_types::InitializeParams;
 use query_flow::{DurabilityLevel, QueryRuntime};
 
-use crate::types::{CommandQuery, CommandResult, FileDiagnosticsSubscription, PendingRequest};
+use crate::types::{
+    CommandQuery, CommandResult, CompletionRequest, FileDiagnosticsSubscription, PendingRequest,
+};
 use crate::uri_utils::uri_to_text_file;
 
 use lsp_types::{
-    DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
-    InitializeResult, PublishDiagnosticsParams, SemanticTokensParams,
+    CompletionParams, CompletionResponse, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
+    DidOpenTextDocumentParams, InitializeResult, PublishDiagnosticsParams, SemanticTokensParams,
     notification::{
         DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument,
         Notification as LspNotification, PublishDiagnostics,
     },
-    request::{Initialize, Request as LspRequest, SemanticTokensFullRequest, Shutdown},
+    request::{Completion, Initialize, Request as LspRequest, SemanticTokensFullRequest, Shutdown},
 };
 
 use crate::uri_utils::text_file_to_uri;
@@ -313,44 +317,94 @@ impl LspCore {
 
                 let query = LspSemanticTokens::new(file, source.clone());
                 let command = CommandQuery::SemanticTokensFull(query);
-
-                match self.try_execute(&command) {
-                    Ok(result) => {
-                        let json = self.result_to_value(result);
+                let (cmd_outputs, cmd_effects) = self.run_command(id, command);
+                outputs.extend(cmd_outputs);
+                effects.extend(cmd_effects);
+            }
+            Completion::METHOD => {
+                let params: CompletionParams = match serde_json::from_value(params) {
+                    Ok(p) => p,
+                    Err(e) => {
                         outputs.push(LspOutput::Response {
                             id,
-                            result: Ok(json),
+                            result: Err(LspError::invalid_params(format!("Invalid params: {}", e))),
                         });
+                        return (outputs, effects);
                     }
-                    Err(QueryError::Suspend { .. }) => {
-                        // Query is pending - collect effects and store request
-                        let (new_effects, waiting_for) = self.collect_pending_assets();
-                        effects.extend(new_effects);
+                };
 
-                        self.pending_requests.insert(
-                            id.clone(),
-                            PendingRequest {
-                                id,
-                                command,
-                                waiting_for,
-                            },
-                        );
-                    }
+                let position = params.text_document_position;
+                let uri_str = position.text_document.uri.as_str();
+                let file = match uri_to_text_file(uri_str) {
+                    Ok(f) => f,
                     Err(e) => {
-                        if let Some(lsp_err) = Self::handle_query_error("SemanticTokens", e) {
-                            outputs.push(LspOutput::Response {
-                                id,
-                                result: Err(lsp_err),
-                            });
-                        }
+                        outputs.push(LspOutput::Response {
+                            id,
+                            result: Err(LspError::invalid_params(format!("Invalid URI: {}", e))),
+                        });
+                        return (outputs, effects);
                     }
-                }
+                };
+                // The cursor is converted against the text we last received for
+                // this document, which is exactly what the queries parse.
+                let source = self.documents.get(uri_str).cloned().unwrap_or_default();
+                let offset = position_to_offset(&source, position.position) as u32;
+
+                let command = CommandQuery::Completion(CompletionRequest { file, offset });
+                let (cmd_outputs, cmd_effects) = self.run_command(id, command);
+                outputs.extend(cmd_outputs);
+                effects.extend(cmd_effects);
             }
             _ => {
                 outputs.push(LspOutput::Response {
                     id,
                     result: Err(LspError::method_not_found(method)),
                 });
+            }
+        }
+
+        (outputs, effects)
+    }
+
+    /// Execute a command query for request `id`, or park it until the assets
+    /// it suspended on are resolved.
+    fn run_command(
+        &mut self,
+        id: CoreRequestId,
+        command: CommandQuery,
+    ) -> (Vec<LspOutput>, Vec<Effect>) {
+        let mut outputs = Vec::new();
+        let mut effects = Vec::new();
+
+        match self.try_execute(&command) {
+            Ok(result) => {
+                let json = self.result_to_value(result);
+                outputs.push(LspOutput::Response {
+                    id,
+                    result: Ok(json),
+                });
+            }
+            Err(QueryError::Suspend { .. }) => {
+                // Query is pending - collect effects and store request
+                let (new_effects, waiting_for) = self.collect_pending_assets();
+                effects.extend(new_effects);
+
+                self.pending_requests.insert(
+                    id.clone(),
+                    PendingRequest {
+                        id,
+                        command,
+                        waiting_for,
+                    },
+                );
+            }
+            Err(e) => {
+                if let Some(lsp_err) = Self::handle_query_error(command.name(), e) {
+                    outputs.push(LspOutput::Response {
+                        id,
+                        result: Err(lsp_err),
+                    });
+                }
             }
         }
 
@@ -417,12 +471,7 @@ impl LspCore {
 
                     // Also remove any pending requests for this document
                     self.pending_requests
-                        .retain(|_, pending| match &pending.command {
-                            CommandQuery::SemanticTokensFull(q) => {
-                                let pending_uri = text_file_to_uri(&q.file);
-                                pending_uri != uri_str
-                            }
-                        });
+                        .retain(|_, pending| text_file_to_uri(pending.command.file()) != uri_str);
 
                     // Refresh diagnostics - stale files will be cleared automatically
                     let (diag_outputs, diag_effects) = self.refresh_diagnostics();
@@ -753,6 +802,10 @@ impl LspCore {
                 let result = self.runtime.query(query.clone())?;
                 Ok(CommandResult::SemanticTokens(Some((*result).clone())))
             }
+            CommandQuery::Completion(request) => {
+                let items = lsp_completion(&self.runtime, &request.file, request.offset)?;
+                Ok(CommandResult::Completion(items))
+            }
         }
     }
 
@@ -761,6 +814,9 @@ impl LspCore {
         match result {
             CommandResult::SemanticTokens(tokens) => {
                 serde_json::to_value(tokens).unwrap_or(Value::Null)
+            }
+            CommandResult::Completion(items) => {
+                serde_json::to_value(CompletionResponse::Array(items)).unwrap_or(Value::Null)
             }
         }
     }

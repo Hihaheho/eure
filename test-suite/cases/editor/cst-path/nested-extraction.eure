@@ -1,14 +1,25 @@
-unimplemented = true
-
 // Test: nested path extraction
 // From: crates/eure-editor-support/tests/cst_path_test.rs:test_nested_path_extraction
-// Extract path at position after 'c'
+// The value position after `key =` resolves to the path ["a", "b", "c", "key"].
+
+schema = ```eure
+a.b.c.key {
+  $variant: union
+  variants.on = "on"
+  variants.off = "off"
+}
+a.b.key = `boolean`
+```
 
 editor = ```eure
 @ a.b.c
 key = |_|
 ```
 
-// TODO: CstPathScenario not yet implemented
-// cursor_offset = 7
-// expected_path = ["a", "b", "c"]
+@ completions[]
+label = "\"on\""
+kind = "value"
+
+@ completions[]
+label = "\"off\""
+kind = "value"

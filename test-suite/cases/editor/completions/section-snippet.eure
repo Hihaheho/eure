@@ -1,16 +1,16 @@
-unimplemented = true
-
-// Test: section snippet generation
+// Test: completion of record-valued fields
 // From: crates/eure-editor-support/tests/completions_test.rs:test_section_snippet_generation
-// Fields with $prefer.section = true generate snippets
 
 schema = ```eure
-user.$prefer.section = true
-user.name.first.$type = .text
-user.name.last.$type = .text
-user.name.middle.$type = .text
-user.name.middle.$optional = true
-user.age.$type = .number
+user {
+  name {
+    first = `text`
+    last = `text`
+    middle = `text`
+    middle.$optional = true
+  }
+  age = `integer`
+}
 ```
 
 editor = ```eure
@@ -19,7 +19,10 @@ user.|_|
 
 trigger = "."
 
-// TODO: Once snippet support is implemented, add insertText/insertTextFormat fields
 @ completions[]
 label = "name"
+kind = "field"
+
+@ completions[]
+label = "age"
 kind = "field"

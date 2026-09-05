@@ -117,6 +117,36 @@ const EDITOR_PATH: &str = "editor.eure";
 const EDITED_PATH: &str = "edited.eure";
 const WORKSPACE_PATH: &str = "/test-workspace";
 const META_SCHEMA_PATH: &str = "$eure/meta-schema.eure";
+/// Cursor marker inside `editor` content for completion scenarios.
+const CURSOR_MARKER: &str = "|_|";
+
+/// Editor content with the cursor marker removed.
+pub struct EditorContent {
+    /// Content as the editor would hold it (marker stripped).
+    pub text: Text,
+    /// Byte offset of the cursor, when the content had a marker.
+    pub cursor: Option<u32>,
+}
+
+impl EditorContent {
+    fn from_text(text: &Text) -> Self {
+        let Some(index) = text.as_str().find(CURSOR_MARKER) else {
+            return Self {
+                text: text.clone(),
+                cursor: None,
+            };
+        };
+        let stripped = text.as_str().replacen(CURSOR_MARKER, "", 1);
+        Self {
+            text: Text {
+                content: stripped,
+                language: text.language.clone(),
+                syntax_hint: text.syntax_hint,
+            },
+            cursor: Some(index as u32),
+        }
+    }
+}
 
 /// Bundled meta-schema content
 const META_SCHEMA: &str = include_str!(concat!(
@@ -413,8 +443,10 @@ impl Case {
         }
 
         // editor → "editor.eure" or "/test-workspace/editor.eure" for implicit schema
+        // (the `|_|` cursor marker is stripped; it is not part of the document)
         if let Some(editor) = &self.data.editor {
-            Self::resolve_asset(runtime, &self.editor_file_path(), editor)?;
+            let content = EditorContent::from_text(editor);
+            Self::resolve_asset(runtime, &self.editor_file_path(), &content.text)?;
         }
 
         // meta-schema → "$eure/meta-schema.eure" (always available)
@@ -726,28 +758,33 @@ impl Case {
 
         // Editor scenarios (completions, diagnostics)
         // When 'editor' is present, we create:
-        // - Diagnostics scenario: always (empty diagnostics = expect zero diagnostics)
-        // - Completions scenario: when trigger is specified
+        // - Diagnostics scenario: when the editor has no cursor marker, or when
+        //   diagnostics are explicitly expected (an editor with a cursor is a
+        //   document being typed, so it is usually not free of syntax errors)
+        // - Completions scenario: when the editor has a cursor marker or a
+        //   trigger is specified
         if let Some(editor) = &self.data.editor {
-            // Diagnostics scenario - always run when editor is present
-            // Include schema if present for validation tests
-            let schema = self
-                .data
-                .schema
-                .as_ref()
-                .map(|s| Self::resolve_path(s, &self.schema_file_path()));
-            scenarios.push(Scenario::Diagnostics(DiagnosticsScenario {
-                editor: Self::resolve_path(editor, &self.editor_file_path()),
-                schema,
-                diagnostics: self.data.diagnostics.clone(),
-            }));
+            let content = EditorContent::from_text(editor);
 
-            // Completions scenario - run when trigger is specified
-            if self.data.trigger.is_some() {
+            if content.cursor.is_none() || !self.data.diagnostics.is_empty() {
+                // Include schema if present for validation tests
+                let schema = self
+                    .data
+                    .schema
+                    .as_ref()
+                    .map(|s| Self::resolve_path(s, &self.schema_file_path()));
+                scenarios.push(Scenario::Diagnostics(DiagnosticsScenario {
+                    editor: Self::resolve_path(editor, &self.editor_file_path()),
+                    schema,
+                    diagnostics: self.data.diagnostics.clone(),
+                }));
+            }
+
+            if content.cursor.is_some() || self.data.trigger.is_some() {
                 scenarios.push(Scenario::Completions(CompletionsScenario {
                     editor: Self::resolve_path(editor, &self.editor_file_path()),
+                    cursor: content.cursor.unwrap_or(content.text.as_str().len() as u32),
                     completions: self.data.completions.clone(),
-                    trigger: self.data.trigger.clone(),
                 }));
             }
 

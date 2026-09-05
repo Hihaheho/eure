@@ -1,5 +1,3 @@
-unimplemented = true
-
 // Test: completion in value position
 // From: crates/eure-editor-support/tests/completions_test.rs:test_completion_in_value_position
 

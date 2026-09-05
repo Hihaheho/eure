@@ -1,14 +1,98 @@
 //! LSP-specific queries that convert to LSP types.
 
 use eure::query::{
-    DiagnosticMessage, DiagnosticSeverity, GetFileDiagnostics, GetSemanticTokens, SemanticToken,
-    TextFile,
+    CompletionItem, CompletionKind, DiagnosticMessage, DiagnosticSeverity, GetFileDiagnostics,
+    GetSemanticTokens, SemanticToken, TextFile, get_completions,
 };
 use lsp_types::{
-    Diagnostic, DiagnosticSeverity as LspSeverity, NumberOrString, Position, Range,
-    SemanticToken as LspSemanticToken, SemanticTokens,
+    CompletionItem as LspCompletionItem, CompletionItemKind, CompletionTextEdit, Diagnostic,
+    DiagnosticSeverity as LspSeverity, Documentation, MarkupContent, MarkupKind, NumberOrString,
+    Position, Range, SemanticToken as LspSemanticToken, SemanticTokens, TextEdit,
 };
 use query_flow::{Db, QueryError, query};
+
+/// LSP-formatted completion.
+///
+/// Wraps `get_completions` and converts to LSP `CompletionItem`s. `offset` is
+/// the cursor position as a byte offset (see [`position_to_offset`]).
+///
+/// Like `get_completions`, this is a plain function rather than a query so
+/// that per-cursor results are not memoized.
+pub fn lsp_completion(
+    db: &impl Db,
+    file: &TextFile,
+    offset: u32,
+) -> Result<Vec<LspCompletionItem>, QueryError> {
+    let items = get_completions(db, file, offset)?;
+    let source: std::sync::Arc<eure::query::TextFileContent> = db.asset(file.clone())?;
+    let line_offsets = compute_line_offsets(source.get());
+    Ok(items
+        .iter()
+        .map(|item| convert_completion_item(item, source.get(), &line_offsets))
+        .collect())
+}
+
+fn convert_completion_item(
+    item: &CompletionItem,
+    source: &str,
+    line_offsets: &[usize],
+) -> LspCompletionItem {
+    let range = Range {
+        start: offset_to_lsp_position(item.replace.start as usize, source, line_offsets),
+        end: offset_to_lsp_position(item.replace.end as usize, source, line_offsets),
+    };
+    LspCompletionItem {
+        label: item.label.clone(),
+        kind: Some(convert_completion_kind(item.kind)),
+        detail: item.detail.clone(),
+        documentation: item.documentation.as_ref().map(|value| {
+            Documentation::MarkupContent(MarkupContent {
+                kind: MarkupKind::Markdown,
+                value: value.clone(),
+            })
+        }),
+        deprecated: item.deprecated.then_some(true),
+        filter_text: Some(item.label.clone()),
+        text_edit: Some(CompletionTextEdit::Edit(TextEdit {
+            range,
+            new_text: item.label.clone(),
+        })),
+        ..Default::default()
+    }
+}
+
+fn convert_completion_kind(kind: CompletionKind) -> CompletionItemKind {
+    match kind {
+        CompletionKind::Field => CompletionItemKind::FIELD,
+        CompletionKind::Extension => CompletionItemKind::PROPERTY,
+        CompletionKind::Variant => CompletionItemKind::ENUM_MEMBER,
+        CompletionKind::Value => CompletionItemKind::VALUE,
+    }
+}
+
+/// Convert an LSP position (UTF-16 based) to a byte offset in `source`.
+///
+/// Positions past the end of a line clamp to the line end; positions past
+/// the last line clamp to the end of the source.
+pub fn position_to_offset(source: &str, position: Position) -> usize {
+    let line_offsets = compute_line_offsets(source);
+    let Some(&line_start) = line_offsets.get(position.line as usize) else {
+        return source.len();
+    };
+    let line_end = line_offsets
+        .get(position.line as usize + 1)
+        .map(|&next| next - 1)
+        .unwrap_or(source.len());
+    let line = &source[line_start..line_end];
+    let mut utf16_units = 0u32;
+    for (byte_index, c) in line.char_indices() {
+        if utf16_units >= position.character {
+            return line_start + byte_index;
+        }
+        utf16_units += c.len_utf16() as u32;
+    }
+    line_end
+}
 
 /// LSP-formatted semantic tokens query.
 ///
@@ -247,6 +331,21 @@ mod tests {
         assert_eq!(offset_to_position(4, source, &offsets), (0, 2));
         // Byte offset 5 (after 😀a) -> (line 0, char 3)
         assert_eq!(offset_to_position(5, source, &offsets), (0, 3));
+    }
+
+    #[test]
+    fn test_position_to_offset() {
+        let source = "日本語\ntest";
+        assert_eq!(position_to_offset(source, Position::new(0, 0)), 0);
+        assert_eq!(position_to_offset(source, Position::new(0, 2)), 6);
+        assert_eq!(position_to_offset(source, Position::new(0, 3)), 9);
+        // Past the end of the line clamps to the line end (before the newline)
+        assert_eq!(position_to_offset(source, Position::new(0, 10)), 9);
+        assert_eq!(position_to_offset(source, Position::new(1, 4)), 14);
+        // Past the last line clamps to the end of the source
+        assert_eq!(position_to_offset(source, Position::new(5, 0)), 14);
+        // Surrogate pair counts as two UTF-16 units
+        assert_eq!(position_to_offset("😀a", Position::new(0, 2)), 4);
     }
 
     #[test]

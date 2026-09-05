@@ -6,6 +6,7 @@
 
 pub mod asset_locator;
 pub mod assets;
+pub mod completion;
 pub mod config;
 pub mod diagnostics;
 pub mod error;
@@ -43,6 +44,9 @@ pub fn build_runtime() -> QueryRuntime {
     runtime.register_asset_locator(TextFileLocator);
     runtime
 }
+pub use completion::{
+    CompletionItem, CompletionKind, CompletionSite, SiteKind, ValueStyle, get_completions,
+};
 pub use config::{LoadConfigError, ParseConfig, ResolveConfig, ResolvedConfig, load_config};
 pub use diagnostics::{
     CollectDiagnosticTargets, CollectSchemaFiles, DiagnosticMessage, DiagnosticSeverity,

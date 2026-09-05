@@ -1,40 +1,21 @@
-unimplemented = true
-
 // Test: completion in nested section should suggest nested fields
 // From: crates/eure-editor-support/tests/completion_nested_context_test.rs:test_completion_in_nested_section_should_suggest_nested_fields
 
 schema = ```eure
-@ script
-$type = .text
-
-@ name
-$type = .text
-
-@ database {
-    @ host
-    $type = .text
-
-    @ port
-    $type = .number
-
-    @ credentials {
-        @ username
-        $type = .text
-
-        @ password
-        $type = .text
-
-        @ api_key
-        $type = .text
-    }
+script = `text`
+name = `text`
+database {
+  host = `text`
+  port = `integer`
+  credentials {
+    username = `text`
+    password = `text`
+    api_key = `text`
+  }
 }
-
-@ logging {
-    @ level
-    $type = .text
-
-    @ file
-    $type = .text
+logging {
+  level = `text`
+  file = `text`
 }
 ```
 
@@ -45,6 +26,7 @@ username = "admin"
 ```
 
 // SHOULD suggest fields from database.credentials context
+// SHOULD NOT suggest root-level fields, parent fields, or already used fields
 @ completions[]
 label = "password"
 kind = "field"
@@ -52,5 +34,3 @@ kind = "field"
 @ completions[]
 label = "api_key"
 kind = "field"
-
-// SHOULD NOT suggest root-level fields, parent fields, or already used fields

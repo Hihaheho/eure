@@ -1,16 +1,13 @@
-unimplemented = true
-
 // Test: completion in nested section
 // From: crates/eure-editor-support/tests/completion_basic_test.rs:test_completion_in_nested_section
 
 schema = ```eure
-@ a {
-    @ b {
-        @ c {
-            @ key
-            $type = .any
-        }
+a {
+  b {
+    c {
+      key = `any`
     }
+  }
 }
 ```
 
@@ -23,4 +20,12 @@ key = |_|
 
 @ completions[]
 label = "true"
+kind = "value"
+
+@ completions[]
+label = "false"
+kind = "value"
+
+@ completions[]
+label = "null"
 kind = "value"

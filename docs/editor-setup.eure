@@ -77,7 +77,7 @@ require('lspconfig').eure_ls.setup({
 | Parse error diagnostics | Implemented |
 | Schema validation diagnostics | Implemented |
 | Document formatting | Planned (formatter not yet implemented) |
-| Completion | Planned (design in progress) |
+| Schema-based completion | Implemented (fields, `$variant` names, literal values) |
 | Hover documentation | Planned |
 | Go to definition | Planned |
 

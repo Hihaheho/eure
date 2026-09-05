@@ -199,6 +199,11 @@ pub enum ScenarioError {
         expected: Vec<String>,
         actual: Vec<String>,
     },
+    /// Completions mismatch (expected vs actual)
+    CompletionsMismatch {
+        expected: Vec<String>,
+        actual: Vec<String>,
+    },
     /// Rust codegen output mismatch (expected vs actual)
     RustCodegenMismatch {
         expected: String,
@@ -529,6 +534,18 @@ impl std::fmt::Display for ScenarioError {
                 writeln!(f, "\n--- Actual ({}) ---", actual.len())?;
                 for token in actual {
                     writeln!(f, "{}", token)?;
+                }
+                Ok(())
+            }
+            ScenarioError::CompletionsMismatch { expected, actual } => {
+                writeln!(f, "Completions mismatch.")?;
+                writeln!(f, "\n--- Expected ({}) ---", expected.len())?;
+                for item in expected {
+                    writeln!(f, "{}", item)?;
+                }
+                writeln!(f, "\n--- Actual ({}) ---", actual.len())?;
+                for item in actual {
+                    writeln!(f, "{}", item)?;
                 }
                 Ok(())
             }

@@ -1,14 +1,25 @@
-unimplemented = true
-
 // Test: path extraction at binding
 // From: crates/eure-editor-support/tests/cst_path_test.rs:test_path_extraction_at_binding
-// When in a binding under section a.b, should get section path
+// When the cursor is on a binding key under section a.b, the completion
+// context is the section path ["a", "b"]; the key being typed is not "used".
+
+schema = ```eure
+a.b {
+  key = `text`
+  keyword = `text`
+}
+a.other = `text`
+```
 
 editor = ```eure
 @ a.b
 key|_| = value
 ```
 
-// TODO: CstPathScenario not yet implemented
-// cursor_offset = 9
-// expected_path = ["a", "b"]
+@ completions[]
+label = "key"
+kind = "field"
+
+@ completions[]
+label = "keyword"
+kind = "field"

@@ -1,49 +1,28 @@
-unimplemented = true
+unimplemented = "type reference completion inside inline code is not implemented"
 
 // Test: type reference completion
 // From: crates/eure-editor-support/tests/completions_test.rs:test_type_reference_completion
-// Completion of type references after .$types.
+// Completion of type names inside a `$types.` reference in a schema document
 
-schema = ```eure
+editor = ```eure
 $types.Person {
-    @ name
-    $type = .text
-
-    @ age
-    $type = .number
+  name = `text`
+  age = `integer`
 }
 
 $types.Address {
-    @ street
-    $type = .text
-
-    @ city
-    $type = .text
-
-    @ country
-    $type = .text
+  street = `text`
+  city = `text`
+  country = `text`
 }
 
 $types.Company {
-    @ name
-    $type = .text
-
-    @ employees {
-        $array = .$types.Person
-    }
-
-    @ headquarters
-    $type = .$types.Address
+  name = `text`
+  employees = [`$types.Person`]
+  headquarters = `$types.Address`
 }
 
-@ user {
-    # Type will be assigned here
-}
-```
-
-editor = ```eure
-@ user
-$type = .$types.|_|
+user = `$types.|_|`
 ```
 
 trigger = "."
