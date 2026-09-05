@@ -79,12 +79,27 @@ pub enum ValueStyle {
 /// Returns `None` when the cursor is somewhere completion makes no sense
 /// (inside a code block, on an array marker, ...).
 pub fn find_site(input: &str, cst: &Cst, cursor: u32) -> Option<CompletionSite> {
+    find_site_with_inline_code(input, cst, cursor, false)
+}
+
+/// Navigation also recognizes inline type references, which aren't completion sites.
+pub fn find_navigation_site(input: &str, cst: &Cst, cursor: u32) -> Option<CompletionSite> {
+    find_site_with_inline_code(input, cst, cursor, true)
+}
+
+fn find_site_with_inline_code(
+    input: &str,
+    cst: &Cst,
+    cursor: u32,
+    inline_code: bool,
+) -> Option<CompletionSite> {
     let cursor = cursor.min(input.len() as u32);
     let eure = child_of_kind(cst, cst.root(), NonTerminalKind::Eure)?;
     let mut walker = Walker {
         input,
         cst,
         cursor,
+        inline_code,
         scope: Vec::new(),
         hints: Vec::new(),
     };
@@ -96,6 +111,7 @@ pub fn find_site(input: &str, cst: &Cst, cursor: u32) -> Option<CompletionSite> 
 }
 
 struct Walker<'a> {
+    inline_code: bool,
     input: &'a str,
     cst: &'a Cst,
     cursor: u32,
@@ -492,6 +508,23 @@ impl<'a> Walker<'a> {
         match kind {
             NonTerminalKind::Object => self.walk_object(child, path),
             NonTerminalKind::Array => self.walk_array(child, path),
+            NonTerminalKind::InlineCode if self.inline_code => {
+                let span = self.span(value)?;
+                Some(CompletionSite {
+                    kind: SiteKind::Value {
+                        path: EurePath(path.clone()),
+                        style: ValueStyle::Bind,
+                    },
+                    partial: String::new(),
+                    replace: span,
+                    hints: self.hints.clone(),
+                    anchor: Some(Anchor {
+                        kind: AnchorKind::Value,
+                        path: EurePath(path),
+                        span,
+                    }),
+                })
+            }
             _ => None,
         }
     }

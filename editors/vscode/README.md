@@ -34,6 +34,17 @@ Supported languages: Rust, JSON, YAML, TOML, JavaScript, TypeScript, Python, HTM
 
 Parse errors are detected in real-time and displayed in the editor.
 
+### Go to Definition
+
+Use **Go to Definition** (F12) on a field to open its declaration in the schema.
+Schema references (`$schema`, `$import`) and named type references can also be
+followed, including across imported schemas. Ambiguous union fields offer
+multiple destinations.
+
+Remote schemas open as read-only Eure documents inside the editor. Their content
+comes from the language server's loaded source, so navigation uses the same text
+as schema analysis. Local schemas open as ordinary editable files.
+
 ### Editing Support
 
 - **Bracket completion**: Typing `{`, `[`, `(`, `"`, `` ` ``, or ` ``` ` automatically inserts the closing bracket

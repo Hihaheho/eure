@@ -25,6 +25,7 @@ pub fn server_capabilities() -> ServerCapabilities {
             ),
             ..Default::default()
         }),
+        definition_provider: Some(lsp_types::OneOf::Left(true)),
         hover_provider: Some(HoverProviderCapability::Simple(true)),
         semantic_tokens_provider: Some(SemanticTokensServerCapabilities::SemanticTokensOptions(
             SemanticTokensOptions {

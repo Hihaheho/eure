@@ -8,6 +8,7 @@ pub mod asset_locator;
 pub mod assets;
 pub mod completion;
 pub mod config;
+pub mod definition;
 pub mod diagnostics;
 pub mod error;
 pub mod hover;
@@ -26,6 +27,7 @@ pub use assets::{
     DecorStyle, DecorStyleKey, Glob, GlobResult, OpenDocuments, OpenDocumentsList, TextFile,
     TextFileContent, Workspace, WorkspaceId,
 };
+pub use definition::{Definition, get_definition};
 pub use error::{EureQueryError, FileError};
 
 use query_flow::{QueryRuntime, QueryRuntimeBuilder};

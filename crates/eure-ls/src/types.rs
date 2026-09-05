@@ -141,6 +141,13 @@ pub struct HoverRequest {
     pub offset: u32,
 }
 
+/// Keep the UTF-16 position until the source is available, including unopened schemas.
+#[derive(Clone, Debug)]
+pub struct DefinitionRequest {
+    pub file: TextFile,
+    pub position: lsp_types::Position,
+}
+
 /// LSP commands. Each variant carries what is needed to (re-)execute the
 /// request once the assets it suspended on are available.
 #[derive(Clone)]
@@ -148,6 +155,8 @@ pub enum CommandQuery {
     SemanticTokensFull(LspSemanticTokens),
     Completion(CompletionRequest),
     Hover(HoverRequest),
+    Definition(DefinitionRequest),
+    SchemaContent(TextFile),
 }
 
 impl CommandQuery {
@@ -157,6 +166,8 @@ impl CommandQuery {
             CommandQuery::SemanticTokensFull(q) => &q.file,
             CommandQuery::Completion(q) => &q.file,
             CommandQuery::Hover(q) => &q.file,
+            CommandQuery::Definition(q) => &q.file,
+            CommandQuery::SchemaContent(file) => file,
         }
     }
 
@@ -166,6 +177,8 @@ impl CommandQuery {
             CommandQuery::SemanticTokensFull(_) => "SemanticTokens",
             CommandQuery::Completion(_) => "Completion",
             CommandQuery::Hover(_) => "Hover",
+            CommandQuery::Definition(_) => "Definition",
+            CommandQuery::SchemaContent(_) => "SchemaContent",
         }
     }
 }
@@ -175,6 +188,8 @@ pub enum CommandResult {
     SemanticTokens(Option<lsp_types::SemanticTokens>),
     Completion(Vec<lsp_types::CompletionItem>),
     Hover(Option<lsp_types::Hover>),
+    Definition(Vec<lsp_types::LocationLink>),
+    SchemaContent(String),
 }
 
 /// A pending LSP request waiting for assets to be resolved.

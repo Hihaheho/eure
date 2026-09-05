@@ -104,7 +104,7 @@ fn normalize_path_lexically(path: &Path) -> PathBuf {
     normalized
 }
 
-fn resolve_schema_import_text_file(
+pub(super) fn resolve_schema_import_text_file(
     importer: &TextFile,
     raw_path: &str,
     boundary: Option<&Path>,
@@ -121,6 +121,21 @@ fn resolve_schema_import_text_file(
         return Err(ResolverError::UnsupportedScheme {
             scheme: scheme.to_string(),
         });
+    }
+
+    if let Some(base) = importer.as_url() {
+        let url = base
+            .join(raw_path)
+            .map_err(|error| ResolverError::InvalidUrl {
+                raw_url: raw_path.to_string(),
+                reason: error.to_string(),
+            })?;
+        if url.scheme() != "https" {
+            return Err(ResolverError::UnsupportedScheme {
+                scheme: url.scheme().to_string(),
+            });
+        }
+        return Ok(TextFile::from_url(url));
     }
 
     let raw = Path::new(raw_path);
@@ -267,7 +282,10 @@ fn collect_schema_import_graph_inner(
     Ok(())
 }
 
-fn import_boundary(db: &impl Db, root_file: &TextFile) -> Result<Option<PathBuf>, QueryError> {
+pub(super) fn import_boundary(
+    db: &impl Db,
+    root_file: &TextFile,
+) -> Result<Option<PathBuf>, QueryError> {
     let Some(root_path) = root_file.as_local_path() else {
         return Ok(None);
     };
@@ -618,10 +636,10 @@ pub fn resolve_schema(db: &impl Db, file: TextFile) -> Result<Option<ResolvedSch
                 origin: Some(ext.origin.clone()),
             }));
         }
-        // For remote files, only absolute URLs are supported
-        if ext.path.starts_with("https://") {
+        // Remote references resolve against their original URL.
+        if file.as_url().is_some() {
             return Ok(Some(ResolvedSchema {
-                file: TextFile::parse(&ext.path)?,
+                file: resolve_schema_import_text_file(&file, &ext.path, None)?,
                 origin: Some(ext.origin.clone()),
             }));
         }

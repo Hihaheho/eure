@@ -1,5 +1,6 @@
 import type { ExtensionContext, LogOutputChannel } from 'vscode';
 import type { LanguageClient, LanguageClientOptions, MessageTransports } from 'vscode-languageclient';
+import { registerSchemaDocuments, schemaUriConverters } from './schema-documents';
 import { WasmEventLoop } from './wasm-event-loop';
 import { createWasmTransports } from './wasm-transport';
 
@@ -48,12 +49,14 @@ export async function activateCommon(
     },
     {
       documentSelector: [{ language: 'eure' }],
+      uriConverters: schemaUriConverters,
       outputChannel: channel,
     }
   );
   channel.appendLine('[DEBUG] LanguageClient created.');
 
   channel.appendLine('[DEBUG] Starting client...');
+  registerSchemaDocuments(context, client);
   await client.start();
   channel.appendLine('Eure LS started (WASM).');
 

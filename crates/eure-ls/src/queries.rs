@@ -97,6 +97,63 @@ pub fn lsp_hover(db: &impl Db, file: &TextFile, offset: u32) -> Result<Option<Ho
     }))
 }
 
+/// Definition ranges use the target file's own UTF-16 coordinates.
+pub fn lsp_definition(
+    db: &impl Db,
+    file: &TextFile,
+    offset: u32,
+) -> Result<Vec<lsp_types::LocationLink>, QueryError> {
+    let definitions = eure::query::get_definition(db, file, offset)?;
+    let source = db.asset(file.clone())?;
+    let offsets = compute_line_offsets(source.get());
+    definitions
+        .into_iter()
+        .map(|definition| {
+            let target = db.asset(definition.file.clone())?;
+            let target_offsets = compute_line_offsets(target.get());
+            Ok(lsp_types::LocationLink {
+                origin_selection_range: Some(Range {
+                    start: offset_to_lsp_position(
+                        definition.origin.start as usize,
+                        source.get(),
+                        &offsets,
+                    ),
+                    end: offset_to_lsp_position(
+                        definition.origin.end as usize,
+                        source.get(),
+                        &offsets,
+                    ),
+                }),
+                target_uri: crate::uri_utils::text_file_to_uri(&definition.file).parse()?,
+                target_range: Range {
+                    start: offset_to_lsp_position(
+                        definition.range.start as usize,
+                        target.get(),
+                        &target_offsets,
+                    ),
+                    end: offset_to_lsp_position(
+                        definition.range.end as usize,
+                        target.get(),
+                        &target_offsets,
+                    ),
+                },
+                target_selection_range: Range {
+                    start: offset_to_lsp_position(
+                        definition.selection.start as usize,
+                        target.get(),
+                        &target_offsets,
+                    ),
+                    end: offset_to_lsp_position(
+                        definition.selection.end as usize,
+                        target.get(),
+                        &target_offsets,
+                    ),
+                },
+            })
+        })
+        .collect()
+}
+
 /// Convert an LSP position (UTF-16 based) to a byte offset in `source`.
 ///
 /// Positions past the end of a line clamp to the line end; positions past

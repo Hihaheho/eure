@@ -2,6 +2,8 @@ import { ExtensionContext, window, workspace } from 'vscode';
 import { LanguageClient, type ServerOptions } from 'vscode-languageclient/node';
 import { activateCommon, type ActivationResult, type LanguageClientConstructor } from '../common';
 
+import { registerSchemaDocuments, schemaUriConverters } from '../schema-documents';
+
 let activation: ActivationResult | undefined;
 let nativeClient: LanguageClient | undefined;
 
@@ -43,10 +45,12 @@ export async function activate(context: ExtensionContext) {
         serverOptions,
         {
           documentSelector: [{ language: 'eure' }],
+          uriConverters: schemaUriConverters,
           outputChannel: channel,
         }
       );
 
+      registerSchemaDocuments(context, nativeClient);
       await nativeClient.start();
       channel.appendLine('Eure LS started (native).');
     } catch (err: unknown) {

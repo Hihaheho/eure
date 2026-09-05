@@ -21,8 +21,8 @@ pub use wasm::WasmCore;
 // Public exports for shared functionality
 pub use capabilities::server_capabilities;
 pub use queries::{
-    LspDiagnostics, LspFileDiagnostics, LspSemanticTokens, lsp_completion, lsp_hover,
-    position_to_offset,
+    LspDiagnostics, LspFileDiagnostics, LspSemanticTokens, lsp_completion, lsp_definition,
+    lsp_hover, position_to_offset,
 };
 pub use types::{CoreRequestId, Effect, LspError, LspOutput};
 
@@ -37,8 +37,8 @@ use lsp_types::InitializeParams;
 use query_flow::{DurabilityLevel, QueryRuntime};
 
 use crate::types::{
-    CommandQuery, CommandResult, CompletionRequest, FileDiagnosticsSubscription, HoverRequest,
-    PendingRequest,
+    CommandQuery, CommandResult, CompletionRequest, DefinitionRequest, FileDiagnosticsSubscription,
+    HoverRequest, PendingRequest,
 };
 use crate::uri_utils::uri_to_text_file;
 
@@ -57,7 +57,7 @@ use lsp_types::{
 };
 
 use crate::uri_utils::text_file_to_uri;
-use query_flow::QueryError;
+use query_flow::{Db, QueryError};
 use serde_json::Value;
 
 // Cross-platform logging
@@ -132,6 +132,7 @@ pub struct LspCore {
     documents: HashMap<String, String>,
     /// Whether the server has been initialized.
     initialized: bool,
+    definition_link_support: bool,
 }
 
 impl LspCore {
@@ -148,6 +149,7 @@ impl LspCore {
             published_uris: HashSet::new(),
             documents: HashMap::new(),
             initialized: false,
+            definition_link_support: false,
         }
     }
 
@@ -161,6 +163,16 @@ impl LspCore {
     /// Check if the server has been initialized.
     pub fn is_initialized(&self) -> bool {
         self.initialized
+    }
+
+    /// Apply capabilities for both the native and WASM initialization paths.
+    pub fn configure_client(&mut self, capabilities: &lsp_types::ClientCapabilities) {
+        self.definition_link_support = capabilities
+            .text_document
+            .as_ref()
+            .and_then(|caps| caps.definition.as_ref())
+            .and_then(|caps| caps.link_support)
+            .unwrap_or(false);
     }
 
     /// Mark the server as initialized.
@@ -233,7 +245,11 @@ impl LspCore {
 
         // Invalidate in query runtime
         if let Ok(file) = uri_to_text_file(uri) {
-            self.runtime.invalidate_asset(&file);
+            // Downloaded sources remain authoritative when their read-only
+            // editor closes; reopening must not independently refetch them.
+            if file.as_local_path().is_some() {
+                self.runtime.invalidate_asset(&file);
+            }
         }
 
         // Update open documents asset - this triggers re-evaluation of diagnostic targets
@@ -271,6 +287,8 @@ impl LspCore {
                         return (outputs, effects);
                     }
                 };
+
+                self.configure_client(&init_params.capabilities);
 
                 // Register workspaces from initialization
                 register_workspaces_from_init(&mut self.runtime, &init_params);
@@ -390,6 +408,65 @@ impl LspCore {
 
                 let command = CommandQuery::Hover(HoverRequest { file, offset });
                 let (cmd_outputs, cmd_effects) = self.run_command(id, command);
+                outputs.extend(cmd_outputs);
+                effects.extend(cmd_effects);
+            }
+            "textDocument/definition" => {
+                let params: lsp_types::GotoDefinitionParams = match serde_json::from_value(params) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        outputs.push(LspOutput::Response {
+                            id,
+                            result: Err(LspError::invalid_params(format!("Invalid params: {}", e))),
+                        });
+                        return (outputs, effects);
+                    }
+                };
+
+                let position = params.text_document_position_params;
+                let uri_str = position.text_document.uri.as_str();
+                let file = match uri_to_text_file(uri_str) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        outputs.push(LspOutput::Response {
+                            id,
+                            result: Err(LspError::invalid_params(format!("Invalid URI: {}", e))),
+                        });
+                        return (outputs, effects);
+                    }
+                };
+                let command = CommandQuery::Definition(DefinitionRequest {
+                    file,
+                    position: position.position,
+                });
+                let (cmd_outputs, cmd_effects) = self.run_command(id, command);
+                outputs.extend(cmd_outputs);
+                effects.extend(cmd_effects);
+            }
+            "eure/schemaContent" => {
+                let params: lsp_types::TextDocumentIdentifier = match serde_json::from_value(params)
+                {
+                    Ok(params) => params,
+                    Err(error) => {
+                        outputs.push(LspOutput::Response {
+                            id,
+                            result: Err(LspError::invalid_params(error.to_string())),
+                        });
+                        return (outputs, effects);
+                    }
+                };
+                let file = match uri_to_text_file(params.uri.as_str()) {
+                    Ok(file) if file.as_url().is_some() => file,
+                    _ => {
+                        outputs.push(LspOutput::Response {
+                            id,
+                            result: Err(LspError::invalid_params("Expected an HTTPS schema URI")),
+                        });
+                        return (outputs, effects);
+                    }
+                };
+                let (cmd_outputs, cmd_effects) =
+                    self.run_command(id, CommandQuery::SchemaContent(file));
                 outputs.extend(cmd_outputs);
                 effects.extend(cmd_effects);
             }
@@ -844,6 +921,18 @@ impl LspCore {
                 let items = lsp_completion(&self.runtime, &request.file, request.offset)?;
                 Ok(CommandResult::Completion(items))
             }
+            CommandQuery::Definition(request) => {
+                let source = self.runtime.asset(request.file.clone())?;
+                let offset = position_to_offset(source.get(), request.position) as u32;
+                Ok(CommandResult::Definition(lsp_definition(
+                    &self.runtime,
+                    &request.file,
+                    offset,
+                )?))
+            }
+            CommandQuery::SchemaContent(file) => Ok(CommandResult::SchemaContent(
+                self.runtime.asset(file.clone())?.get().to_string(),
+            )),
             CommandQuery::Hover(request) => {
                 let hover = lsp_hover(&self.runtime, &request.file, request.offset)?;
                 Ok(CommandResult::Hover(hover))
@@ -859,6 +948,23 @@ impl LspCore {
             }
             CommandResult::Completion(items) => {
                 serde_json::to_value(CompletionResponse::Array(items)).unwrap_or(Value::Null)
+            }
+            CommandResult::SchemaContent(content) => Value::String(content),
+            CommandResult::Definition(links) => {
+                let response = if self.definition_link_support {
+                    lsp_types::GotoDefinitionResponse::Link(links)
+                } else {
+                    lsp_types::GotoDefinitionResponse::Array(
+                        links
+                            .into_iter()
+                            .map(|link| lsp_types::Location {
+                                uri: link.target_uri,
+                                range: link.target_selection_range,
+                            })
+                            .collect(),
+                    )
+                };
+                serde_json::to_value(response).expect("definition locations are JSON serializable")
             }
             CommandResult::Hover(hover) => serde_json::to_value(hover).unwrap_or(Value::Null),
         }

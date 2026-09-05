@@ -66,7 +66,14 @@ pub fn percent_decode(s: &str) -> String {
 pub fn text_file_to_uri(file: &TextFile) -> String {
     match file {
         TextFile::Local(path) => {
-            let path_str = path.display().to_string();
+            let path_str = path.components().collect::<PathBuf>().display().to_string();
+            const PATH_ESCAPE: &percent_encoding::AsciiSet = &percent_encoding::CONTROLS
+                .add(b' ')
+                .add(b'#')
+                .add(b'?')
+                .add(b'%');
+            let path_str = percent_encoding::utf8_percent_encode(&path_str, PATH_ESCAPE);
+            let path_str = path_str.to_string();
             if path_str.starts_with('/') {
                 format!("file://{}", path_str)
             } else {
@@ -175,6 +182,38 @@ mod tests {
         fn local_windows_path() {
             let file = TextFile::from_path(PathBuf::from("C:/Users/file.eure"));
             assert_eq!(text_file_to_uri(&file), "file:///C:/Users/file.eure");
+        }
+
+        #[test]
+        fn unicode_paths_are_encoded_and_round_trip() {
+            for (path, expected_uri) in [
+                (
+                    "/home/user/日本語.eure",
+                    "file:///home/user/%E6%97%A5%E6%9C%AC%E8%AA%9E.eure",
+                ),
+                ("/home/user/😀.eure", "file:///home/user/%F0%9F%98%80.eure"),
+                (
+                    "C:/Users/日本語 😀.eure",
+                    "file:///C:/Users/%E6%97%A5%E6%9C%AC%E8%AA%9E%20%F0%9F%98%80.eure",
+                ),
+            ] {
+                let file = TextFile::from_path(PathBuf::from(path));
+                let uri = text_file_to_uri(&file);
+                assert_eq!(uri, expected_uri);
+                assert_eq!(uri_to_text_file(&uri).unwrap(), file);
+            }
+        }
+
+        #[test]
+        fn path_delimiters_and_literal_percent_escapes_round_trip() {
+            // A literal "%20" must not become a space after decoding once.
+            let file = TextFile::from_path(PathBuf::from("/home/user/a b#c?d%20.eure"));
+            let uri = text_file_to_uri(&file);
+            assert_eq!(uri, "file:///home/user/a%20b%23c%3Fd%2520.eure");
+            let parsed: lsp_types::Uri = uri.parse().unwrap();
+            assert!(parsed.query().is_none());
+            assert!(parsed.fragment().is_none());
+            assert_eq!(uri_to_text_file(parsed.as_str()).unwrap(), file);
         }
 
         #[test]

@@ -39,6 +39,7 @@ fn main() -> Result<()> {
 
     // Register workspaces from initialization
     eure_ls::register_workspaces_from_init(core.runtime_mut(), &init_params);
+    core.configure_client(&init_params.capabilities);
     core.set_initialized();
 
     // Main event loop
