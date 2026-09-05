@@ -3841,7 +3841,6 @@ checksum = "f92dd0b07c53a0a0c764db2ace8c541dc47320dad97c2200c2a637ab9dd2328f"
 dependencies = [
  "equivalent",
  "seize",
- "serde",
 ]
 
 [[package]]
@@ -4251,14 +4250,13 @@ dependencies = [
 
 [[package]]
 name = "query-flow"
-version = "0.17.0"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b5aa6349b99e16020d9113aacd305970c00167a24c3f22ae64faffe9f3ad7dc"
+checksum = "09d05667b99c6b181ea05d15108547dce99cb1083abcd19bd4c6184be9bff304"
 dependencies = [
  "ahash",
  "anyhow",
  "dyn-hash",
- "papaya",
  "query-flow-macros",
  "serde",
  "whale",
@@ -4266,9 +4264,9 @@ dependencies = [
 
 [[package]]
 name = "query-flow-macros"
-version = "0.17.0"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4faaffbd2b9525ba44232616a1f39cf33bbfa8646c66204d077efd285bf0e5e"
+checksum = "60d88146e3afc41aa03db69aba744be03f5619ed5fce3c5993e07ac2aa662543"
 dependencies = [
  "darling 0.23.0",
  "heck",
@@ -6328,12 +6326,11 @@ checksum = "a28ac98ddc8b9274cb41bb4d9d4d5c425b6020c50c46f25559911905610b4a88"
 
 [[package]]
 name = "whale"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "334a4fe44f044980b6060ca261938355d00a9dfbce0b519ac4fb6efec4f91a0e"
+checksum = "852e158ac2e2948ef9355f0e5c5902bb0fad12f446cf37a36dd8fdb7ad43f972"
 dependencies = [
  "ahash",
- "papaya",
  "serde",
 ]
 
