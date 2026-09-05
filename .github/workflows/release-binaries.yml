@@ -1,0 +1,135 @@
+name: Release binaries
+run-name: Release binaries for ${{ inputs.tag }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag (e.g. v0.1.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-binaries-${{ inputs.tag }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ inputs.tag }}
+
+jobs:
+  create-release:
+    if: >-
+      github.repository == 'Hihaheho/eure' &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      sha: ${{ steps.tag.outputs.sha }}
+    steps:
+      - name: Validate tag name
+        shell: bash
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9][0-9A-Za-z._+-]*$ ]]; then
+            echo '::error::Expected a release tag such as v0.1.0'
+            exit 1
+          fi
+
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+
+      - name: Resolve tag commit
+        id: tag
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Create draft release
+        run: |
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --generate-notes \
+            --draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  build:
+    needs: create-release
+    if: >-
+      github.repository == 'Hihaheho/eure' &&
+      github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: aarch64-apple-darwin
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    env:
+      ARCHIVE_NAME: eure-${{ inputs.tag }}-${{ matrix.target }}
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ needs.create-release.outputs.sha }}
+          persist-credentials: false
+
+      - name: Install Rust
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add "$TARGET"
+
+      - name: Build
+        shell: bash
+        run: |
+          cargo build --locked --release --target "$TARGET" \
+            -p eure-cli -p eure-ls --bins --features eure-ls/http
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p "dist/$ARCHIVE_NAME"
+          cp "target/$TARGET/release/eure" "dist/$ARCHIVE_NAME/eure"
+          cp "target/$TARGET/release/eurels" "dist/$ARCHIVE_NAME/eurels"
+          cd dist
+          tar -czf "$ARCHIVE_NAME.tar.gz" "$ARCHIVE_NAME"
+          shasum -a 256 "$ARCHIVE_NAME.tar.gz" > "$ARCHIVE_NAME.tar.gz.sha256"
+
+      - name: Upload release assets
+        shell: bash
+        run: |
+          gh release upload "$RELEASE_TAG" \
+            "dist/$ARCHIVE_NAME.tar.gz" \
+            "dist/$ARCHIVE_NAME.tar.gz.sha256" \
+            --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  publish:
+    needs: build
+    if: >-
+      github.repository == 'Hihaheho/eure' &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - name: Publish release
+        run: |
+          gh release edit "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft=false \
+            --latest
+        env:
+          GH_TOKEN: ${{ github.token }}
