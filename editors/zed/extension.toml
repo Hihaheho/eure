@@ -1,6 +1,6 @@
 id = "eure"
 name = "Eure"
-version = "0.1.0"
+version = "0.2.0"
 schema_version = 1
 authors = ["Ryo Hirayama <ryo12redstone@gmail.com>"]
 description = "Eure language support for Zed (language server, syntax highlighting, bracket matching, code outline)"
