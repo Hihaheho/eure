@@ -68,8 +68,16 @@ jobs:
         include:
           - os: macos-15
             target: aarch64-apple-darwin
-          - os: ubuntu-24.04
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+          - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+          - os: windows-2025
+            target: x86_64-pc-windows-msvc
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
@@ -95,7 +103,8 @@ jobs:
           cargo build --locked --release --target "$TARGET" \
             -p eure-cli -p eure-ls --bins --features eure-ls/http
 
-      - name: Package
+      - name: Package Unix
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           mkdir -p "dist/$ARCHIVE_NAME"
@@ -104,13 +113,47 @@ jobs:
           cd dist
           tar -czf "$ARCHIVE_NAME.tar.gz" "$ARCHIVE_NAME"
           shasum -a 256 "$ARCHIVE_NAME.tar.gz" > "$ARCHIVE_NAME.tar.gz.sha256"
+          echo "ASSET=dist/$ARCHIVE_NAME.tar.gz" >> "$GITHUB_ENV"
+          echo "CHECKSUM=dist/$ARCHIVE_NAME.tar.gz.sha256" >> "$GITHUB_ENV"
+
+      - name: Package Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $directory = "dist/$env:ARCHIVE_NAME"
+          New-Item -ItemType Directory -Path $directory -Force | Out-Null
+          Copy-Item "target/$env:TARGET/release/eure.exe" "$directory/eure.exe"
+          Copy-Item "target/$env:TARGET/release/eurels.exe" "$directory/eurels.exe"
+          $archive = "$env:ARCHIVE_NAME.zip"
+          Compress-Archive -Path $directory -DestinationPath "dist/$archive"
+          $hash = (Get-FileHash "dist/$archive" -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content -Path "dist/$archive.sha256" -Value "$hash  $archive`n" -Encoding ascii -NoNewline
+          "ASSET=dist/$archive" >> $env:GITHUB_ENV
+          "CHECKSUM=dist/$archive.sha256" >> $env:GITHUB_ENV
+
+      - name: Verify Windows archive
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Expand-Archive -Path "dist/$env:ARCHIVE_NAME.zip" -DestinationPath "dist/verify"
+          foreach ($binary in @('eure.exe', 'eurels.exe')) {
+            $extracted = "dist/verify/$env:ARCHIVE_NAME/$binary"
+            if (!(Test-Path -LiteralPath $extracted -PathType Leaf)) {
+              throw "Missing expected archive entry: $env:ARCHIVE_NAME/$binary"
+            }
+            $expectedHash = (Get-FileHash "target/$env:TARGET/release/$binary" -Algorithm SHA256).Hash
+            $actualHash = (Get-FileHash $extracted -Algorithm SHA256).Hash
+            if ($actualHash -ne $expectedHash) {
+              throw "Archive content differs from built binary: $binary"
+            }
+          }
 
       - name: Upload release assets
         shell: bash
         run: |
           gh release upload "$RELEASE_TAG" \
-            "dist/$ARCHIVE_NAME.tar.gz" \
-            "dist/$ARCHIVE_NAME.tar.gz.sha256" \
+            "$ASSET" \
+            "$CHECKSUM" \
             --repo "$GITHUB_REPOSITORY"
         env:
           GH_TOKEN: ${{ github.token }}

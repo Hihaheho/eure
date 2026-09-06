@@ -3,8 +3,12 @@ name = "Eure"
 version = "0.1.0"
 schema_version = 1
 authors = ["Ryo Hirayama <ryo12redstone@gmail.com>"]
-description = "Eure language support for Zed (syntax highlighting, bracket matching, code outline)"
+description = "Eure language support for Zed (language server, syntax highlighting, bracket matching, code outline)"
 repository = "https://github.com/Hihaheho/eure"
+
+[language_servers.eurels]
+name = "Eure Language Server"
+languages = ["Eure"]
 
 [grammars.eure]
 repository = "https://github.com/eure-lang/tree-sitter-eure"

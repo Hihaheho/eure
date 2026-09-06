@@ -18,6 +18,23 @@ concurrency:
   cancel-in-progress: ${{github.event_name == 'pull_request'}}
 
 jobs:
+  zed:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: editors/zed
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: dtolnay/rust-toolchain@4be9e76fd7c4901c61fb841f559994984270fce7 # stable
+        with:
+          targets: wasm32-wasip2
+          components: rustfmt, clippy
+      - run: cargo fmt --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo clippy --locked --target wasm32-wasip2 -- -D warnings
+      - run: cargo test --locked
+      - run: cargo build --locked --release --target wasm32-wasip2
+
   build:
     runs-on: ubuntu-latest
     steps:

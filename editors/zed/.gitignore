@@ -2,3 +2,7 @@
 !languages/eure/config.toml
 !languages/eure/*.scm
 grammars/
+!Cargo.toml
+!Cargo.lock
+!src/**/*.rs
+target/
