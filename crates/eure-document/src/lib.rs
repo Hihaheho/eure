@@ -19,6 +19,12 @@ pub mod text;
 /// A type-safe data-type of Eure data-model.
 pub mod value;
 
+/// Arbitrary-precision decimal number.
+pub mod decimal;
+
+/// Binary data encodings for the reserved `base64` and `hex` languages.
+pub mod bytes;
+
 /// A data structure for representing a Eure document including extensions.
 pub mod document;
 
@@ -51,6 +57,27 @@ pub mod source;
 /// Macro for building Eure documents.
 mod eure_macro;
 
+#[doc(hidden)]
+pub mod __private {
+    use crate::{decimal::Decimal, value::PrimitiveValue};
+
+    /// Converts a Rust literal used in `eure!` into a primitive value.
+    ///
+    /// Rust types unsuffixed float literals as `f64`, but in Eure they are exact decimals,
+    /// so the literal's source token decides: `1.5` is a decimal and `1.5f64` stays a float.
+    pub fn literal(token: &str, value: impl Into<PrimitiveValue>) -> PrimitiveValue {
+        let value = value.into();
+        if !matches!(value, PrimitiveValue::F64(_)) || token.ends_with("f64") {
+            return value;
+        }
+        let digits: alloc::string::String = token.chars().filter(|&c| c != '_').collect();
+        let decimal: Decimal = digits
+            .parse()
+            .expect("an unsuffixed Rust float literal is a valid decimal");
+        PrimitiveValue::Decimal(decimal)
+    }
+}
+
 pub mod map;
 
 /// Zero-sized types for compile-time literal matching in `FromEure`.
@@ -64,7 +91,7 @@ pub(crate) mod prelude_internal {
     #![allow(deprecated)]
     pub use crate::data_model::*;
     pub use crate::document::constructor::DocumentConstructor;
-    pub use crate::document::node::{Node, NodeMap, NodeMut, NodeValue};
+    pub use crate::document::node::{Node, NodeMap, NodeMut, NodeSet, NodeValue};
     pub use crate::document::{EureDocument, InsertError, InsertErrorKind, NodeId};
     pub use crate::eure;
     pub use crate::identifier::Identifier;

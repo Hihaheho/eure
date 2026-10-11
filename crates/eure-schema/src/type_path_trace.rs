@@ -337,7 +337,9 @@ fn collect_document_node_paths_rec(
                 path.pop();
             }
         }
-        eure_document::document::node::NodeValue::Primitive(_)
+        // Set elements are addressed through their set; they have no path segment of their own.
+        eure_document::document::node::NodeValue::Set(_)
+        | eure_document::document::node::NodeValue::Primitive(_)
         | eure_document::document::node::NodeValue::Hole(_) => {}
     }
 }

@@ -413,6 +413,11 @@ impl<'a> TraceResolver<'a> {
                         stack.push(child);
                     }
                 }
+                NodeValue::Set(set) => {
+                    for &child in set.node_ids() {
+                        stack.push(child);
+                    }
+                }
                 NodeValue::Primitive(_) | NodeValue::Hole(_) => {}
             }
         }

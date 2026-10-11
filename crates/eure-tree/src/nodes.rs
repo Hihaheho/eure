@@ -7844,6 +7844,342 @@ pub enum SectionHeadView {
 }
 impl SectionHeadView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SetHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for SetHandle {
+    type View = SetView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::Set)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::Set
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::SetBegin),
+                NodeKind::NonTerminal(NonTerminalKind::SetOpt),
+                NodeKind::NonTerminal(NonTerminalKind::End),
+            ],
+            |[set_begin, set_opt, end], visit_ignored| {
+                Ok(visit(
+                    SetView {
+                        set_begin: SetBeginHandle(set_begin),
+                        set_opt: SetOptHandle(set_opt),
+                        end: EndHandle(end),
+                    },
+                    visit_ignored,
+                ))
+            },
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SetView {
+    pub set_begin: SetBeginHandle,
+    pub set_opt: SetOptHandle,
+    pub end: EndHandle,
+}
+impl SetView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SetBeginHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for SetBeginHandle {
+    type View = SetBeginView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::SetBegin)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::SetBegin
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::HashLBrace)],
+            |[hash_l_brace], visit_ignored| {
+                Ok(visit(
+                    SetBeginView {
+                        hash_l_brace: HashLBrace(hash_l_brace),
+                    },
+                    visit_ignored,
+                ))
+            },
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SetBeginView {
+    pub hash_l_brace: HashLBrace,
+}
+impl SetBeginView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SetElementsHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for SetElementsHandle {
+    type View = SetElementsView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::SetElements)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::SetElements
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::KeyValue),
+                NodeKind::NonTerminal(NonTerminalKind::SetElementsOpt),
+            ],
+            |[key_value, set_elements_opt], visit_ignored| {
+                Ok(visit(
+                    SetElementsView {
+                        key_value: KeyValueHandle(key_value),
+                        set_elements_opt: SetElementsOptHandle(set_elements_opt),
+                    },
+                    visit_ignored,
+                ))
+            },
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SetElementsView {
+    pub key_value: KeyValueHandle,
+    pub set_elements_opt: SetElementsOptHandle,
+}
+impl SetElementsView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SetElementsOptHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for SetElementsOptHandle {
+    type View = Option<SetElementsTailHandle>;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::SetElementsOpt)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::SetElementsOpt
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        if tree.has_no_children(self.0) {
+            return Ok(visit(None, visit_ignored).0);
+        }
+        Ok(visit(
+            Some(SetElementsTailHandle::new_with_visit(
+                self.0,
+                tree,
+                visit_ignored,
+            )?),
+            visit_ignored,
+        )
+        .0)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SetElementsTailHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for SetElementsTailHandle {
+    type View = SetElementsTailView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::SetElementsTail)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::SetElementsTail
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::Comma),
+                NodeKind::NonTerminal(NonTerminalKind::SetElementsTailOpt),
+            ],
+            |[comma, set_elements_tail_opt], visit_ignored| {
+                Ok(visit(
+                    SetElementsTailView {
+                        comma: CommaHandle(comma),
+                        set_elements_tail_opt: SetElementsTailOptHandle(set_elements_tail_opt),
+                    },
+                    visit_ignored,
+                ))
+            },
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SetElementsTailView {
+    pub comma: CommaHandle,
+    pub set_elements_tail_opt: SetElementsTailOptHandle,
+}
+impl SetElementsTailView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SetElementsTailOptHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for SetElementsTailOptHandle {
+    type View = Option<SetElementsHandle>;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::SetElementsTailOpt)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::SetElementsTailOpt
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        if tree.has_no_children(self.0) {
+            return Ok(visit(None, visit_ignored).0);
+        }
+        Ok(visit(
+            Some(SetElementsHandle::new_with_visit(
+                self.0,
+                tree,
+                visit_ignored,
+            )?),
+            visit_ignored,
+        )
+        .0)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SetOptHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for SetOptHandle {
+    type View = Option<SetElementsHandle>;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::SetOpt)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::SetOpt
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        if tree.has_no_children(self.0) {
+            return Ok(visit(None, visit_ignored).0);
+        }
+        Ok(visit(
+            Some(SetElementsHandle::new_with_visit(
+                self.0,
+                tree,
+                visit_ignored,
+            )?),
+            visit_ignored,
+        )
+        .0)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct StrHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for StrHandle {
     type View = StrView;
@@ -8864,6 +9200,7 @@ impl NonTerminalHandle for ValueHandle {
             NodeKind::NonTerminal(NonTerminalKind::Object) => {
                 ValueView::Object(ObjectHandle(child))
             }
+            NodeKind::NonTerminal(NonTerminalKind::Set) => ValueView::Set(SetHandle(child)),
             NodeKind::NonTerminal(NonTerminalKind::Array) => ValueView::Array(ArrayHandle(child)),
             NodeKind::NonTerminal(NonTerminalKind::Tuple) => ValueView::Tuple(TupleHandle(child)),
             NodeKind::NonTerminal(NonTerminalKind::Number) => {
@@ -8901,6 +9238,7 @@ impl NonTerminalHandle for ValueHandle {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValueView {
     Object(ObjectHandle),
+    Set(SetHandle),
     Array(ArrayHandle),
     Tuple(TupleHandle),
     Number(NumberHandle),
@@ -9562,6 +9900,16 @@ impl TerminalHandle for Dot {
     }
     fn kind(&self) -> TerminalKind {
         TerminalKind::Dot
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct HashLBrace(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for HashLBrace {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::HashLBrace
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

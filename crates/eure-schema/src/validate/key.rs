@@ -182,7 +182,10 @@ fn key_matches_literal_node(
         NodeValue::Primitive(PrimitiveValue::Null)
         | NodeValue::Primitive(PrimitiveValue::F32(_))
         | NodeValue::Primitive(PrimitiveValue::F64(_))
+        | NodeValue::Primitive(PrimitiveValue::Decimal(_))
+        | NodeValue::Primitive(PrimitiveValue::Bytes(_))
         | NodeValue::Array(_)
+        | NodeValue::Set(_)
         | NodeValue::Map(_)
         | NodeValue::PartialMap(_)
         | NodeValue::Hole(_) => false,

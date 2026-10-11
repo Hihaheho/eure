@@ -4,6 +4,7 @@ use std::fmt;
 
 use eure::document::EureDocument;
 use eure::document::constructor::DocumentConstructor;
+use eure::document::decimal::Decimal;
 use eure::document::identifier::Identifier;
 use eure::document::node::NodeValue;
 use eure::document::parse::VariantPath;
@@ -2574,9 +2575,13 @@ fn bind_f32_value(constructor: &mut DocumentConstructor, value: f32) -> Result<(
 }
 
 fn bind_f64_value(constructor: &mut DocumentConstructor, value: f64) -> Result<(), DeError> {
-    constructor
-        .bind_primitive(PrimitiveValue::F64(value))
-        .map_err(Into::into)
+    // Finite floats become the shortest decimal that round-trips, matching how Eure reads an
+    // unsuffixed fractional literal; non-finite values have no decimal form.
+    let primitive = match Decimal::from_f64(value) {
+        Some(decimal) => PrimitiveValue::Decimal(decimal),
+        None => PrimitiveValue::F64(value),
+    };
+    constructor.bind_primitive(primitive).map_err(Into::into)
 }
 
 fn bind_bool_value(constructor: &mut DocumentConstructor, value: bool) -> Result<(), DeError> {
@@ -2664,8 +2669,11 @@ fn primitive_or_node_type_name(value: &NodeValue) -> &'static str {
         NodeValue::Primitive(PrimitiveValue::Integer(_)) => "integer",
         NodeValue::Primitive(PrimitiveValue::F32(_))
         | NodeValue::Primitive(PrimitiveValue::F64(_)) => "float",
+        NodeValue::Primitive(PrimitiveValue::Decimal(_)) => "decimal",
         NodeValue::Primitive(PrimitiveValue::Text(_)) => "text",
+        NodeValue::Primitive(PrimitiveValue::Bytes(_)) => "bytes",
         NodeValue::Array(_) => "array",
+        NodeValue::Set(_) => "set",
         NodeValue::Map(_) => "map",
         NodeValue::Tuple(_) => "tuple",
         NodeValue::PartialMap(_) => "partial-map",
@@ -2704,7 +2712,9 @@ fn primitive_type_name(primitive: &PrimitiveValue) -> &'static str {
         PrimitiveValue::Bool(_) => "boolean",
         PrimitiveValue::Integer(_) => "integer",
         PrimitiveValue::F32(_) | PrimitiveValue::F64(_) => "float",
+        PrimitiveValue::Decimal(_) => "decimal",
         PrimitiveValue::Text(_) => "text",
+        PrimitiveValue::Bytes(_) => "bytes",
     }
 }
 
@@ -2777,9 +2787,11 @@ fn literal_string_key(expected: &EureDocument, actual: &str) -> Result<ObjectKey
                 Err(DeError::Custom("literal mismatch".to_string()))
             }
         }
-        PrimitiveValue::Null | PrimitiveValue::F32(_) | PrimitiveValue::F64(_) => {
-            Err(unsupported_complex_literal_key())
-        }
+        PrimitiveValue::Null
+        | PrimitiveValue::F32(_)
+        | PrimitiveValue::F64(_)
+        | PrimitiveValue::Decimal(_)
+        | PrimitiveValue::Bytes(_) => Err(unsupported_complex_literal_key()),
     }
 }
 

@@ -35,8 +35,10 @@ Eure recommends **2-space indentation** for nested structures.
 - `integer`
 - `float`
 - `decimal`
+- `bytes`
 - `boolean`
 - `array`
+- `set`
 - `object`
 - `enum`
 - `variant`
@@ -137,8 +139,37 @@ Notation as type: `"float"`
   "##": Decimal
 
   "body" = ```markdown
-Notation as value: `1.1`
-Notation as type: `"decimal"`
+Notation as value: `1.1`, `1.10`, `1e3`
+
+Fractional literals without a suffix are exact decimals. The written scale is kept (`1.10`
+stays `1.10`), while equality is numeric (`1.10` equals `1.1`). A float schema reads a decimal as
+the nearest float; add an `f32`/`f64` suffix to write a float directly.
+```
+
+}
+
+@ "bytes" {
+  "##": Bytes
+
+  "body" = ```markdown
+Notation as value: `` base64`SGVsbG8=` `` or `` hex`48656c6c6f` ``
+
+The `base64` and `hex` language tags are reserved for binary data, in inline code and in code
+blocks. Whitespace inside the encoded data is ignored, so long values can be wrapped in a code
+block. The encoding is only notation: the two examples above are the same value.
+```
+
+}
+
+@ "set" {
+  "##": Set
+
+  "body" = ```markdown
+Notation as value: `#{"a", 1, (2, "b")}`, `#{}`
+
+An unordered collection of unique values. Elements are integers, strings, or tuples of those
+(the same values allowed as map keys). Order is ignored when comparing sets, and duplicate
+elements are an error.
 ```
 
 }

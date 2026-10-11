@@ -56,6 +56,8 @@ pub enum SerError {
     BigIntOutOfRange,
     #[error("non-finite float")]
     NonFiniteFloat,
+    #[error("decimal cannot be serialized as a float without losing precision")]
+    DecimalPrecisionLoss,
 }
 
 impl serde::ser::Error for SerError {

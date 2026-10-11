@@ -317,6 +317,7 @@ impl<'a> SemanticTokenVisitor<'a> {
 
             // Punctuation
             TerminalKind::LBrace
+            | TerminalKind::HashLBrace
             | TerminalKind::RBrace
             | TerminalKind::LBracket
             | TerminalKind::RBracket

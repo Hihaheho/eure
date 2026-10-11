@@ -1117,6 +1117,57 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_section_head_super(handle, view, tree)
     }
+    fn visit_set(&mut self, handle: SetHandle, view: SetView, tree: &F) -> Result<(), Self::Error> {
+        self.visit_set_super(handle, view, tree)
+    }
+    fn visit_set_begin(
+        &mut self,
+        handle: SetBeginHandle,
+        view: SetBeginView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_set_begin_super(handle, view, tree)
+    }
+    fn visit_set_elements(
+        &mut self,
+        handle: SetElementsHandle,
+        view: SetElementsView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_set_elements_super(handle, view, tree)
+    }
+    fn visit_set_elements_opt(
+        &mut self,
+        handle: SetElementsOptHandle,
+        view: SetElementsTailHandle,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_set_elements_opt_super(handle, view, tree)
+    }
+    fn visit_set_elements_tail(
+        &mut self,
+        handle: SetElementsTailHandle,
+        view: SetElementsTailView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_set_elements_tail_super(handle, view, tree)
+    }
+    fn visit_set_elements_tail_opt(
+        &mut self,
+        handle: SetElementsTailOptHandle,
+        view: SetElementsHandle,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_set_elements_tail_opt_super(handle, view, tree)
+    }
+    fn visit_set_opt(
+        &mut self,
+        handle: SetOptHandle,
+        view: SetElementsHandle,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_set_opt_super(handle, view, tree)
+    }
     fn visit_str(&mut self, handle: StrHandle, view: StrView, tree: &F) -> Result<(), Self::Error> {
         self.visit_str_super(handle, view, tree)
     }
@@ -1698,6 +1749,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_dot_terminal_super(terminal, data, tree)
+    }
+    fn visit_hash_l_brace_terminal(
+        &mut self,
+        terminal: HashLBrace,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_hash_l_brace_terminal_super(terminal, data, tree)
     }
     fn visit_l_brace_terminal(
         &mut self,
@@ -3027,6 +3086,62 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: SectionHeadView,
         tree: &F,
     ) -> Result<(), E>;
+    fn visit_set_handle(&mut self, handle: SetHandle, tree: &F) -> Result<(), E>;
+    fn visit_set_super(&mut self, handle: SetHandle, view: SetView, tree: &F) -> Result<(), E>;
+    fn visit_set_begin_handle(&mut self, handle: SetBeginHandle, tree: &F) -> Result<(), E>;
+    fn visit_set_begin_super(
+        &mut self,
+        handle: SetBeginHandle,
+        view: SetBeginView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_set_elements_handle(&mut self, handle: SetElementsHandle, tree: &F) -> Result<(), E>;
+    fn visit_set_elements_super(
+        &mut self,
+        handle: SetElementsHandle,
+        view: SetElementsView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_set_elements_opt_handle(
+        &mut self,
+        handle: SetElementsOptHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_set_elements_opt_super(
+        &mut self,
+        handle: SetElementsOptHandle,
+        view: SetElementsTailHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_set_elements_tail_handle(
+        &mut self,
+        handle: SetElementsTailHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_set_elements_tail_super(
+        &mut self,
+        handle: SetElementsTailHandle,
+        view: SetElementsTailView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_set_elements_tail_opt_handle(
+        &mut self,
+        handle: SetElementsTailOptHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_set_elements_tail_opt_super(
+        &mut self,
+        handle: SetElementsTailOptHandle,
+        view: SetElementsHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_set_opt_handle(&mut self, handle: SetOptHandle, tree: &F) -> Result<(), E>;
+    fn visit_set_opt_super(
+        &mut self,
+        handle: SetOptHandle,
+        view: SetElementsHandle,
+        tree: &F,
+    ) -> Result<(), E>;
     fn visit_str_handle(&mut self, handle: StrHandle, tree: &F) -> Result<(), E>;
     fn visit_str_super(&mut self, handle: StrHandle, view: StrView, tree: &F) -> Result<(), E>;
     fn visit_string_handle(&mut self, handle: StringHandle, tree: &F) -> Result<(), E>;
@@ -3499,6 +3614,12 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
     fn visit_dot_terminal_super(
         &mut self,
         terminal: Dot,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_hash_l_brace_terminal_super(
+        &mut self,
+        terminal: HashLBrace,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
@@ -9473,6 +9594,301 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
+    fn visit_set_handle(&mut self, handle: SetHandle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_set(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_set_begin_handle(&mut self, handle: SetBeginHandle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_set_begin(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_set_elements_handle(
+        &mut self,
+        handle: SetElementsHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_set_elements(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_set_elements_opt_handle(
+        &mut self,
+        handle: SetElementsOptHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (
+                        if let Some(view) = view {
+                            visit.visit_set_elements_opt(handle, view, tree)
+                        } else {
+                            Ok(())
+                        },
+                        visit,
+                    )
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_set_elements_tail_handle(
+        &mut self,
+        handle: SetElementsTailHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_set_elements_tail(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_set_elements_tail_opt_handle(
+        &mut self,
+        handle: SetElementsTailOptHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (
+                        if let Some(view) = view {
+                            visit.visit_set_elements_tail_opt(handle, view, tree)
+                        } else {
+                            Ok(())
+                        },
+                        visit,
+                    )
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_set_opt_handle(&mut self, handle: SetOptHandle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (
+                        if let Some(view) = view {
+                            visit.visit_set_opt(handle, view, tree)
+                        } else {
+                            Ok(())
+                        },
+                        visit,
+                    )
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
     fn visit_str_handle(&mut self, handle: StrHandle, tree: &F) -> Result<(), V::Error> {
         let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
             Ok(nt_data) => nt_data,
@@ -13047,6 +13463,106 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         }
         Ok(())
     }
+    fn visit_set_super(
+        &mut self,
+        handle: SetHandle,
+        view_param: SetView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let SetView {
+            set_begin,
+            set_opt,
+            end,
+        } = view_param;
+        self.visit_set_begin_handle(set_begin, tree)?;
+        self.visit_set_opt_handle(set_opt, tree)?;
+        self.visit_end_handle(end, tree)?;
+        Ok(())
+    }
+    fn visit_set_begin_super(
+        &mut self,
+        handle: SetBeginHandle,
+        view_param: SetBeginView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let SetBeginView { hash_l_brace } = view_param;
+        let data = match hash_l_brace.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    hash_l_brace.0,
+                    NodeKind::Terminal(hash_l_brace.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_hash_l_brace_terminal(hash_l_brace, data, tree)?;
+        Ok(())
+    }
+    fn visit_set_elements_super(
+        &mut self,
+        handle: SetElementsHandle,
+        view_param: SetElementsView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let SetElementsView {
+            key_value,
+            set_elements_opt,
+        } = view_param;
+        self.visit_key_value_handle(key_value, tree)?;
+        self.visit_set_elements_opt_handle(set_elements_opt, tree)?;
+        Ok(())
+    }
+    fn visit_set_elements_opt_super(
+        &mut self,
+        handle: SetElementsOptHandle,
+        view_param: SetElementsTailHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        self.visit_set_elements_tail_handle(view_param, tree)?;
+        Ok(())
+    }
+    fn visit_set_elements_tail_super(
+        &mut self,
+        handle: SetElementsTailHandle,
+        view_param: SetElementsTailView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let SetElementsTailView {
+            comma,
+            set_elements_tail_opt,
+        } = view_param;
+        self.visit_comma_handle(comma, tree)?;
+        self.visit_set_elements_tail_opt_handle(set_elements_tail_opt, tree)?;
+        Ok(())
+    }
+    fn visit_set_elements_tail_opt_super(
+        &mut self,
+        handle: SetElementsTailOptHandle,
+        view_param: SetElementsHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        self.visit_set_elements_handle(view_param, tree)?;
+        Ok(())
+    }
+    fn visit_set_opt_super(
+        &mut self,
+        handle: SetOptHandle,
+        view_param: SetElementsHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        self.visit_set_elements_handle(view_param, tree)?;
+        Ok(())
+    }
     fn visit_str_super(
         &mut self,
         handle: StrHandle,
@@ -13374,6 +13890,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         match view_param {
             ValueView::Object(item) => {
                 self.visit_object_handle(item, tree)?;
+            }
+            ValueView::Set(item) => {
+                self.visit_set_handle(item, tree)?;
             }
             ValueView::Array(item) => {
                 self.visit_array_handle(item, tree)?;
@@ -13904,6 +14423,15 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
     fn visit_dot_terminal_super(
         &mut self,
         terminal: Dot,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_hash_l_brace_terminal_super(
+        &mut self,
+        terminal: HashLBrace,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), V::Error> {
@@ -14655,6 +15183,34 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     let handle = SectionHeadHandle(id);
                     self.visit_section_head_handle(handle, tree)?;
                 }
+                NonTerminalKind::Set => {
+                    let handle = SetHandle(id);
+                    self.visit_set_handle(handle, tree)?;
+                }
+                NonTerminalKind::SetBegin => {
+                    let handle = SetBeginHandle(id);
+                    self.visit_set_begin_handle(handle, tree)?;
+                }
+                NonTerminalKind::SetElements => {
+                    let handle = SetElementsHandle(id);
+                    self.visit_set_elements_handle(handle, tree)?;
+                }
+                NonTerminalKind::SetElementsOpt => {
+                    let handle = SetElementsOptHandle(id);
+                    self.visit_set_elements_opt_handle(handle, tree)?;
+                }
+                NonTerminalKind::SetElementsTail => {
+                    let handle = SetElementsTailHandle(id);
+                    self.visit_set_elements_tail_handle(handle, tree)?;
+                }
+                NonTerminalKind::SetElementsTailOpt => {
+                    let handle = SetElementsTailOptHandle(id);
+                    self.visit_set_elements_tail_opt_handle(handle, tree)?;
+                }
+                NonTerminalKind::SetOpt => {
+                    let handle = SetOptHandle(id);
+                    self.visit_set_opt_handle(handle, tree)?;
+                }
                 NonTerminalKind::Str => {
                     let handle = StrHandle(id);
                     self.visit_str_handle(handle, tree)?;
@@ -14952,6 +15508,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                 TerminalKind::Dot => {
                     let terminal = Dot(id);
                     self.visit_dot_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::HashLBrace => {
+                    let terminal = HashLBrace(id);
+                    self.visit_hash_l_brace_terminal(terminal, data, tree)?;
                 }
                 TerminalKind::LBrace => {
                     let terminal = LBrace(id);

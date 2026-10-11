@@ -6,12 +6,14 @@ mod error;
 pub use config::Config;
 pub use error::{EureToJsonError, JsonToEureError};
 use eure::document::OriginMap;
-use eure::document::node::NodeValue;
+use eure::document::node::{NodeArray, NodeMap, NodeValue};
 use eure::document::{EureDocument, NodeId};
 use eure::query::{ParseDocument, TextFile, ValidCst};
 use eure::report::{ErrorReport, ErrorReports, Origin, OriginHints};
 use eure::tree::{Cst, InputSpan};
 use eure::value::{ObjectKey, PrimitiveValue};
+use eure_document::bytes::BytesEncoding;
+use eure_document::decimal::Decimal;
 use eure_document::text::Text;
 use eure_schema::interop::VariantRepr;
 use num_bigint::BigInt;
@@ -144,6 +146,13 @@ fn convert_node(
             }
             Ok(JsonValue::Array(result))
         }
+        NodeValue::Set(set) => {
+            let mut result = Vec::new();
+            for &child_id in set.node_ids() {
+                result.push(convert_node(doc, child_id, config)?);
+            }
+            Ok(JsonValue::Array(result))
+        }
         NodeValue::Map(map) => {
             let mut result = serde_json::Map::new();
             for (key, &child_id) in map.iter() {
@@ -191,7 +200,17 @@ fn convert_primitive(prim: &PrimitiveValue, node_id: NodeId) -> Result<JsonValue
                 Err(EureToJsonError::NonFiniteFloat { node_id })
             }
         }
+        PrimitiveValue::Decimal(d) => {
+            let f = d
+                .to_f64_exact()
+                .ok_or(EureToJsonError::DecimalPrecisionLoss { node_id })?;
+            serde_json::Number::from_f64(f)
+                .map(JsonValue::Number)
+                .ok_or(EureToJsonError::DecimalPrecisionLoss { node_id })
+        }
         PrimitiveValue::Text(text) => Ok(JsonValue::String(text.content.clone())),
+        // JSON has no binary type; base64 strings are the common convention.
+        PrimitiveValue::Bytes(bytes) => Ok(JsonValue::String(BytesEncoding::Base64.encode(bytes))),
     }
 }
 
@@ -282,6 +301,13 @@ fn convert_node_content_only(
             }
             Ok(JsonValue::Array(result))
         }
+        NodeValue::Set(set) => {
+            let mut result = Vec::new();
+            for &child_id in set.node_ids() {
+                result.push(convert_node(doc, child_id, config)?);
+            }
+            Ok(JsonValue::Array(result))
+        }
         NodeValue::Map(map) => {
             let mut result = serde_json::Map::new();
             for (key, &child_id) in map.iter() {
@@ -336,55 +362,58 @@ pub fn value_to_document(
 ) -> Result<EureDocument, JsonToEureError> {
     let mut doc = EureDocument::new();
     let root_id = doc.get_root_id();
-    convert_json_to_node(&mut doc, root_id, value);
+    convert_json_to_node(&mut doc, root_id, value)?;
     Ok(doc)
 }
 
 /// Convert a JSON value and set it as the content of the given node.
-fn convert_json_to_node(doc: &mut EureDocument, node_id: NodeId, value: &JsonValue) {
-    match value {
-        JsonValue::Null => {
-            doc.node_mut(node_id).content = NodeValue::Primitive(PrimitiveValue::Null);
-        }
-        JsonValue::Bool(b) => {
-            doc.node_mut(node_id).content = NodeValue::Primitive(PrimitiveValue::Bool(*b));
-        }
+fn convert_json_to_node(
+    doc: &mut EureDocument,
+    node_id: NodeId,
+    value: &JsonValue,
+) -> Result<(), JsonToEureError> {
+    let content = match value {
+        JsonValue::Null => NodeValue::Primitive(PrimitiveValue::Null),
+        JsonValue::Bool(b) => NodeValue::Primitive(PrimitiveValue::Bool(*b)),
         JsonValue::Number(n) => {
             if let Some(i) = n.as_i64() {
-                doc.node_mut(node_id).content =
-                    NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(i)));
+                NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(i)))
             } else if let Some(u) = n.as_u64() {
-                doc.node_mut(node_id).content =
-                    NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(u)));
-            } else if let Some(f) = n.as_f64() {
-                doc.node_mut(node_id).content = NodeValue::Primitive(PrimitiveValue::F64(f));
+                NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(u)))
+            } else {
+                // JSON numbers are decimal literals, so fractional ones become decimals.
+                let decimal = n.as_f64().and_then(Decimal::from_f64).ok_or_else(|| {
+                    JsonToEureError::UnrepresentableNumber {
+                        number: n.to_string(),
+                    }
+                })?;
+                NodeValue::Primitive(PrimitiveValue::Decimal(decimal))
             }
         }
         JsonValue::String(s) => {
-            doc.node_mut(node_id).content =
-                NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(s.clone())));
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(s.clone())))
         }
         JsonValue::Array(arr) => {
-            doc.node_mut(node_id).content = NodeValue::empty_array();
+            let mut children = Vec::with_capacity(arr.len());
             for item in arr {
                 let child_id = doc.create_node(NodeValue::hole());
-                convert_json_to_node(doc, child_id, item);
-                if let NodeValue::Array(ref mut array) = doc.node_mut(node_id).content {
-                    let _ = array.push(child_id);
-                }
+                convert_json_to_node(doc, child_id, item)?;
+                children.push(child_id);
             }
+            NodeValue::Array(NodeArray::from_vec(children))
         }
         JsonValue::Object(obj) => {
-            doc.node_mut(node_id).content = NodeValue::empty_map();
+            let mut map = NodeMap::new();
             for (key, val) in obj {
                 let child_id = doc.create_node(NodeValue::hole());
-                convert_json_to_node(doc, child_id, val);
-                if let NodeValue::Map(ref mut map) = doc.node_mut(node_id).content {
-                    map.insert(ObjectKey::String(key.clone()), child_id);
-                }
+                convert_json_to_node(doc, child_id, val)?;
+                map.insert(ObjectKey::String(key.clone()), child_id);
             }
+            NodeValue::Map(map)
         }
-    }
+    };
+    doc.node_mut(node_id).content = content;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -629,8 +658,9 @@ mod tests {
 
     #[test]
     fn test_json_to_eure_float() {
+        // JSON numbers are decimal literals, so fractional numbers become decimals.
         let json = json!(1.5);
-        let expected = eure!({ = 1.5f64 });
+        let expected = eure!({ = 1.5 });
         assert_eq!(
             value_to_document(&json, &Config::default()).unwrap(),
             expected

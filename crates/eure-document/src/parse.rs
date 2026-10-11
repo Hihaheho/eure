@@ -23,10 +23,12 @@ use core::cell::RefCell;
 use num_bigint::BigInt;
 
 use core::marker::PhantomData;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use crate::{
-    document::node::{Node, NodeArray},
+    bytes::Bytes,
+    decimal::Decimal,
+    document::node::{Node, NodeArray, NodeSet},
     identifier::IdentifierError,
     prelude_internal::*,
     value::ValueKind,
@@ -1175,10 +1177,11 @@ impl FromEure<'_> for f32 {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        if let PrimitiveValue::F32(f) = ctx.parse_primitive()? {
-            return Ok(*f);
+        match ctx.parse_primitive()? {
+            PrimitiveValue::F32(f) => Ok(*f),
+            PrimitiveValue::Decimal(d) => Ok(d.to_f32()),
+            _ => Err(ctx.unexpected_kind(ValueKind::F32)),
         }
-        Err(ctx.unexpected_kind(ValueKind::F32))
     }
 }
 
@@ -1189,7 +1192,51 @@ impl FromEure<'_> for f64 {
         match ctx.parse_primitive()? {
             PrimitiveValue::F32(f) => Ok(*f as f64),
             PrimitiveValue::F64(f) => Ok(*f),
+            PrimitiveValue::Decimal(d) => Ok(d.to_f64()),
             _ => Err(ctx.unexpected_kind(ValueKind::F64)),
+        }
+    }
+}
+
+impl FromEure<'_> for Decimal {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
+        match ctx.parse_primitive()? {
+            PrimitiveValue::Decimal(d) => Ok(d.clone()),
+            PrimitiveValue::Integer(i) => Ok(Decimal::from(i.clone())),
+            _ => Err(ctx.unexpected_kind(ValueKind::Decimal)),
+        }
+    }
+}
+
+impl<'doc> FromEure<'doc> for &'doc [u8] {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
+        if let PrimitiveValue::Bytes(bytes) = ctx.parse_primitive()? {
+            return Ok(bytes.as_slice());
+        }
+        Err(ctx.unexpected_kind(ValueKind::Bytes))
+    }
+}
+
+impl FromEure<'_> for Bytes {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
+        ctx.parse::<&[u8]>().map(|bytes| Bytes(bytes.to_vec()))
+    }
+}
+
+impl<'doc> FromEure<'doc> for &'doc NodeSet {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
+        ctx.ensure_no_variant_path()?;
+        match &ctx.node().content {
+            NodeValue::Set(set) => Ok(set),
+            _ => Err(ctx.unexpected_kind(ValueKind::Set)),
         }
     }
 }
@@ -1325,6 +1372,24 @@ where
     }
 }
 
+/// Parses a set value (`#{...}`) or, for backward compatibility, an array into a Rust set.
+macro_rules! parse_set {
+    ($ctx:ident, $M:ty, $Out:ty) => {{
+        $ctx.ensure_no_variant_path()?;
+        match &$ctx.node().content {
+            NodeValue::Set(set) => set
+                .node_ids()
+                .map(|item| <$M>::parse(&$ctx.at(*item)))
+                .collect::<Result<$Out, _>>(),
+            NodeValue::Array(array) => array
+                .iter()
+                .map(|item| <$M>::parse(&$ctx.at(*item)))
+                .collect::<Result<$Out, _>>(),
+            _ => Err($ctx.unexpected_kind(ValueKind::Set).into()),
+        }
+    }};
+}
+
 /// `IndexSet<M>` parses `IndexSet<T>` using M's FromEure implementation.
 #[diagnostic::do_not_recommend]
 impl<'doc, M, T> FromEure<'doc, IndexSet<T>> for IndexSet<M>
@@ -1336,13 +1401,35 @@ where
     type Error = M::Error;
     fn parse(ctx: &ParseContext<'doc>) -> Result<IndexSet<T>, Self::Error> {
         ctx.ensure_no_variant_path()?;
-        match &ctx.node().content {
-            NodeValue::Array(array) => array
-                .iter()
-                .map(|item| M::parse(&ctx.at(*item)))
-                .collect::<Result<IndexSet<_>, _>>(),
-            _ => Err(ctx.unexpected_kind(ValueKind::Array).into()),
-        }
+        parse_set!(ctx, M, IndexSet<T>)
+    }
+}
+
+/// `HashSet<M>` parses `HashSet<T>` using M's FromEure implementation.
+#[diagnostic::do_not_recommend]
+impl<'doc, M, T> FromEure<'doc, HashSet<T>> for HashSet<M>
+where
+    M: FromEure<'doc, T>,
+    T: Eq + std::hash::Hash,
+    M::Error: From<ParseError>,
+{
+    type Error = M::Error;
+    fn parse(ctx: &ParseContext<'doc>) -> Result<HashSet<T>, Self::Error> {
+        parse_set!(ctx, M, HashSet<T>)
+    }
+}
+
+/// `BTreeSet<M>` parses `BTreeSet<T>` using M's FromEure implementation.
+#[diagnostic::do_not_recommend]
+impl<'doc, M, T> FromEure<'doc, BTreeSet<T>> for BTreeSet<M>
+where
+    M: FromEure<'doc, T>,
+    T: Ord,
+    M::Error: From<ParseError>,
+{
+    type Error = M::Error;
+    fn parse(ctx: &ParseContext<'doc>) -> Result<BTreeSet<T>, Self::Error> {
+        parse_set!(ctx, M, BTreeSet<T>)
     }
 }
 

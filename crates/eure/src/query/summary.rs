@@ -69,6 +69,11 @@ pub fn render_literal(doc: &EureDocument, style: ValueStyle) -> Option<String> {
         (PrimitiveValue::Integer(i), _) => Some(i.to_string()),
         (PrimitiveValue::F32(f), _) => Some(f.to_string()),
         (PrimitiveValue::F64(f), _) => Some(f.to_string()),
+        (PrimitiveValue::Decimal(d), _) => Some(d.to_string()),
+        (PrimitiveValue::Bytes(bytes), _) => Some(format!(
+            "base64`{}`",
+            eure_document::bytes::BytesEncoding::Base64.encode(bytes)
+        )),
     }
 }
 

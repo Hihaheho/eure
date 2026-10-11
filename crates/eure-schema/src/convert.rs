@@ -888,6 +888,13 @@ impl<'a> Converter<'a> {
                     .map(|(_, v)| v)
                     .collect()
             }
+            NodeValue::Set(set) => {
+                dest.set_content(dest_node_id, NodeValue::empty_set());
+                for element in set.keys() {
+                    dest.add_set_element(element.clone(), dest_node_id)?;
+                }
+                vec![]
+            }
             NodeValue::PartialMap(_) => {
                 return Err(ConversionError::UnsupportedLiteralValue {
                     node_id: src_node_id,
@@ -1129,7 +1136,8 @@ fn collect_document_node_paths(doc: &EureDocument) -> IndexMap<NodeId, EurePath>
                     path.pop();
                 }
             }
-            NodeValue::Primitive(_) | NodeValue::Hole(_) => {}
+            // Set elements are addressed through their set; they have no path segment of their own.
+            NodeValue::Set(_) | NodeValue::Primitive(_) | NodeValue::Hole(_) => {}
         }
     }
 

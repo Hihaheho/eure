@@ -15,6 +15,9 @@ pub enum EureToJsonError {
     #[error("Non-finite floating point value (NaN or Infinity) is not supported in JSON")]
     NonFiniteFloat { node_id: NodeId },
 
+    #[error("Decimal value cannot be represented as a JSON number without losing precision")]
+    DecimalPrecisionLoss { node_id: NodeId },
+
     #[error("Variant content already contains tag field '{tag}' in Internal representation")]
     VariantTagConflict { tag: String, node_id: NodeId },
 
@@ -30,6 +33,7 @@ impl EureToJsonError {
             EureToJsonError::PartialMapNotSupported { node_id } => *node_id,
             EureToJsonError::BigIntOutOfRange { node_id } => *node_id,
             EureToJsonError::NonFiniteFloat { node_id } => *node_id,
+            EureToJsonError::DecimalPrecisionLoss { node_id } => *node_id,
             EureToJsonError::VariantTagConflict { node_id, .. } => *node_id,
             EureToJsonError::VariantAdjacentConflict { node_id, .. } => *node_id,
         }
@@ -37,12 +41,8 @@ impl EureToJsonError {
 }
 
 /// Errors that can occur when converting JSON to Eure.
-/// Currently this is infallible, but the error type is provided for future extensibility
-/// and API consistency.
 #[derive(Debug, Error, PartialEq)]
 pub enum JsonToEureError {
-    // Currently no error cases - JSON to Eure conversion is infallible.
-    // This enum is provided for:
-    // 1. API consistency with EureToJsonError
-    // 2. Future extensibility (e.g., schema-guided conversion constraints)
+    #[error("JSON number {number} cannot be represented as an Eure value")]
+    UnrepresentableNumber { number: String },
 }

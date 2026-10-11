@@ -23,6 +23,7 @@ mod query;
 pub use error::TomlToEureError;
 pub use query::{TomlToEureDocument, TomlToEureSource};
 
+use eure_document::decimal::Decimal;
 use eure_document::document::constructor::{DocumentConstructor, Scope};
 use eure_document::identifier::Identifier;
 use eure_document::path::{ArrayIndexKind, PathSegment};
@@ -462,10 +463,11 @@ impl<'a> TomlParserConverter<'a> {
                 } else if clean == "nan" || clean == "+nan" || clean == "-nan" {
                     PrimitiveValue::F64(f64::NAN)
                 } else {
-                    let f = clean.parse::<f64>().unwrap_or_else(|e| {
+                    // Finite TOML floats are decimal literals, so they convert exactly.
+                    let d = clean.parse::<Decimal>().unwrap_or_else(|e| {
                         panic!("TOML parser validated float '{clean}' failed to parse: {e}")
                     });
-                    PrimitiveValue::F64(f)
+                    PrimitiveValue::Decimal(d)
                 }
             }
             ScalarKind::DateTime => {

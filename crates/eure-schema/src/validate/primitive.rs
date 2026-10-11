@@ -26,10 +26,13 @@ pub(crate) fn node_type_name(content: &NodeValue) -> String {
             PrimitiveValue::Bool(_) => "boolean".to_string(),
             PrimitiveValue::Integer(_) => "integer".to_string(),
             PrimitiveValue::F32(_) | PrimitiveValue::F64(_) => "float".to_string(),
+            PrimitiveValue::Decimal(_) => "decimal".to_string(),
             PrimitiveValue::Text(_) => "text".to_string(),
+            PrimitiveValue::Bytes(_) => "bytes".to_string(),
         },
         NodeValue::Array(_) => "array".to_string(),
         NodeValue::Tuple(_) => "tuple".to_string(),
+        NodeValue::Set(_) => "set".to_string(),
         NodeValue::Map(_) => "map".to_string(),
         NodeValue::PartialMap(_) => "partial-map".to_string(),
     }
@@ -55,9 +58,12 @@ fn value_kind_to_name(kind: eure_document::value::ValueKind) -> String {
         ValueKind::Bool => "boolean".to_string(),
         ValueKind::Integer => "integer".to_string(),
         ValueKind::F32 | ValueKind::F64 => "float".to_string(),
+        ValueKind::Decimal => "decimal".to_string(),
         ValueKind::Text => "text".to_string(),
+        ValueKind::Bytes => "bytes".to_string(),
         ValueKind::Array => "array".to_string(),
         ValueKind::Tuple => "tuple".to_string(),
+        ValueKind::Set => "set".to_string(),
         ValueKind::Map => "map".to_string(),
         ValueKind::PartialMap => "partial-map".to_string(),
         ValueKind::Hole => "hole".to_string(),
@@ -202,7 +208,9 @@ fn primitive_type_name(p: &PrimitiveValue) -> String {
         PrimitiveValue::Bool(_) => "boolean".to_string(),
         PrimitiveValue::Integer(_) => "integer".to_string(),
         PrimitiveValue::F32(_) | PrimitiveValue::F64(_) => "float".to_string(),
+        PrimitiveValue::Decimal(_) => "decimal".to_string(),
         PrimitiveValue::Text(_) => "text".to_string(),
+        PrimitiveValue::Bytes(_) => "bytes".to_string(),
     }
 }
 

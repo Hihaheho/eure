@@ -3,7 +3,11 @@ mod interpreter;
 use std::path::Path;
 
 use eros::Union as _;
+pub use eure_document::bytes;
+use eure_document::bytes::BytesDecodeError;
 pub use eure_document::data_model;
+pub use eure_document::decimal;
+use eure_document::decimal::DecimalParseError;
 use eure_document::document::constructor::ScopeError;
 pub use eure_document::document::node::NodeValue;
 pub use eure_document::document::*;
@@ -191,6 +195,30 @@ pub enum DocumentConstructionError {
         "Float keys are not supported. Found '{value}'. Use integer keys like 'a.3.1' only when the pattern is <int>.<int>"
     )]
     InvalidFloatKey { node_id: CstNodeId, value: String },
+    #[error("Invalid decimal literal: {error}")]
+    InvalidDecimal {
+        node_id: CstNodeId,
+        error: DecimalParseError,
+    },
+    #[error("Invalid binary data: {error}")]
+    InvalidBytes {
+        node_id: CstNodeId,
+        error: BytesDecodeError,
+    },
+    #[error("{element} cannot be a set element; use integers, strings, or tuples of them")]
+    UnsupportedSetElement {
+        node_id: CstNodeId,
+        element: UnsupportedSetElement,
+    },
+}
+
+/// Values that share the key grammar but are not allowed as set elements.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum UnsupportedSetElement {
+    #[error("A boolean")]
+    Boolean,
+    #[error("A hole")]
+    Hole,
 }
 
 impl DocumentConstructionError {
@@ -214,6 +242,9 @@ impl DocumentConstructionError {
             DocumentConstructionError::InvalidStringKey { node_id, .. } => cst.span(*node_id),
             DocumentConstructionError::InvalidKeyType { node_id } => cst.span(*node_id),
             DocumentConstructionError::InvalidFloatKey { node_id, .. } => cst.span(*node_id),
+            DocumentConstructionError::InvalidDecimal { node_id, .. } => cst.span(*node_id),
+            DocumentConstructionError::InvalidBytes { node_id, .. } => cst.span(*node_id),
+            DocumentConstructionError::UnsupportedSetElement { node_id, .. } => cst.span(*node_id),
             _ => None,
         }
     }
@@ -450,8 +481,9 @@ pub fn cst_to_document_and_origin_map(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use eure_document::eure;
     use eure_document::plan::LayoutPlan;
-    use eure_document::value::ObjectKey;
+    use eure_document::value::{ObjectKey, PrimitiveValue};
     use eure_fmt::format_source_document;
     use eure_tree::tree::CstFacade;
 
@@ -771,5 +803,191 @@ mod tests {
             msg.contains("no prior push"),
             "expected ArrayCurrentOutOfScope, got: {msg}"
         );
+    }
+
+    fn parse_document_error(input: &str) -> DocumentConstructionError {
+        let cst = eure_parol::parse(input, "<input>").unwrap();
+        cst_to_document(input, &cst).unwrap_err()
+    }
+
+    fn format_round_trip(doc: &EureDocument) -> EureDocument {
+        let source = LayoutPlan::auto(doc.clone()).expect("layout plan").emit();
+        parse_document(&format_source_document(&source))
+    }
+
+    // ---- Decimal ----
+
+    #[test]
+    fn test_unsuffixed_float_is_decimal() {
+        let doc = parse_document("price = 1.10\nbig = 1e3\nneg = -0.5");
+        assert_eq!(doc, eure!({ price = 1.10, big = 1e3, neg = -0.5 }));
+        let price = doc.parse_record(doc.get_root_id()).unwrap();
+        let price: &PrimitiveValue = price.parse_field("price").unwrap();
+        assert_eq!(price, &PrimitiveValue::Decimal("1.10".parse().unwrap()));
+    }
+
+    #[test]
+    fn test_suffixed_float_stays_float() {
+        let doc = parse_document("a = 1.5f64\nb = 1.5f32\nc = inf");
+        let inf = f64::INFINITY;
+        assert_eq!(doc, eure!({ a = 1.5f64, b = 1.5f32, c = inf }));
+    }
+
+    #[test]
+    fn test_decimal_keeps_precision() {
+        let doc = parse_document("x = 0.1000000000000000000000001");
+        let x: eure_document::decimal::Decimal = doc
+            .parse_record(doc.get_root_id())
+            .unwrap()
+            .parse_field("x")
+            .unwrap();
+        assert_eq!(x.to_string(), "0.1000000000000000000000001");
+    }
+
+    #[test]
+    fn test_decimal_parses_as_f64() {
+        let doc = parse_document("x = 1.5");
+        let x: f64 = doc
+            .parse_record(doc.get_root_id())
+            .unwrap()
+            .parse_field("x")
+            .unwrap();
+        assert_eq!(x, 1.5);
+    }
+
+    #[test]
+    fn test_decimal_format_round_trip() {
+        let doc = parse_document("a = 1.10\nb = 1e3\nc = 0.005");
+        assert_eq!(format_round_trip(&doc), doc);
+    }
+
+    // ---- Bytes ----
+
+    #[test]
+    fn test_base64_and_hex_are_bytes() {
+        let hello = eure_document::bytes::Bytes(b"Hello".to_vec());
+        let doc = parse_document("a = base64`SGVsbG8=`\nb = hex`48656c6c6f`");
+        let hello2 = hello.clone();
+        assert_eq!(doc, eure!({ a = hello, b = hello2 }));
+    }
+
+    #[test]
+    fn test_bytes_equal_across_encodings() {
+        assert_eq!(
+            parse_document("a = base64`SGVsbG8=`"),
+            parse_document("a = hex`48656C6C6F`")
+        );
+    }
+
+    #[test]
+    fn test_bytes_code_block_ignores_whitespace() {
+        let hello = eure_document::bytes::Bytes(b"Hello".to_vec());
+        let doc = parse_document("a = ```base64\nSGVs\nbG8=\n```\n");
+        assert_eq!(doc, eure!({ a = hello }));
+    }
+
+    #[test]
+    fn test_invalid_bytes_is_error() {
+        assert!(matches!(
+            parse_document_error("a = hex`48656`"),
+            DocumentConstructionError::InvalidBytes {
+                error: eure_document::bytes::BytesDecodeError::OddHexLength,
+                ..
+            }
+        ));
+        assert!(matches!(
+            parse_document_error("a = base64`SGVsbG8`"),
+            DocumentConstructionError::InvalidBytes {
+                error: eure_document::bytes::BytesDecodeError::InvalidBase64Length,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_other_languages_stay_text() {
+        let doc = parse_document("a = rust`fn main() {}`");
+        assert_eq!(doc, eure!({ a = @code("rust", "fn main() {}") }));
+    }
+
+    #[test]
+    fn test_bytes_format_round_trip() {
+        let doc = parse_document("a = hex`00ff10`\nb = base64``");
+        assert_eq!(format_round_trip(&doc), doc);
+    }
+
+    // ---- Set ----
+
+    #[test]
+    fn test_set_literal() {
+        let doc = parse_document("tags = #{\"a\", 1, (2, \"b\")}\nempty = #{}");
+        let tuple = ObjectKey::Tuple(eure_document::value::Tuple(vec![
+            ObjectKey::from(2),
+            ObjectKey::from("b"),
+        ]));
+        assert_eq!(doc, eure!({ tags = #{"a", 1, tuple}, empty = #{} }));
+    }
+
+    #[test]
+    fn test_set_equality_ignores_order() {
+        assert_eq!(
+            parse_document("s = #{1, 2, 3}"),
+            parse_document("s = #{3, 1, 2,}")
+        );
+        assert_ne!(
+            parse_document("s = #{1, 2}"),
+            parse_document("s = #{1, 2, 3}")
+        );
+    }
+
+    #[test]
+    fn test_set_differs_from_array() {
+        assert_ne!(parse_document("s = #{1, 2}"), parse_document("s = [1, 2]"));
+    }
+
+    #[test]
+    fn test_duplicate_set_element_is_error() {
+        assert!(matches!(
+            parse_document_error("s = #{1, \"a\", 1}"),
+            DocumentConstructionError::DocumentInsert {
+                error: InsertError {
+                    kind: InsertErrorKind::DuplicateSetElement { .. },
+                    ..
+                },
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_boolean_and_hole_set_elements_are_errors() {
+        assert!(matches!(
+            parse_document_error("s = #{true}"),
+            DocumentConstructionError::UnsupportedSetElement {
+                element: UnsupportedSetElement::Boolean,
+                ..
+            }
+        ));
+        assert!(matches!(
+            parse_document_error("s = #{!}"),
+            DocumentConstructionError::UnsupportedSetElement {
+                element: UnsupportedSetElement::Hole,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_set_parses_into_rust_sets() {
+        let doc = parse_document("s = #{3, 1, 2}");
+        let rec = doc.parse_record(doc.get_root_id()).unwrap();
+        let set: std::collections::BTreeSet<i32> = rec.parse_field("s").unwrap();
+        assert_eq!(set, [1, 2, 3].into_iter().collect());
+    }
+
+    #[test]
+    fn test_set_format_round_trip() {
+        let doc = parse_document("s = #{\"a b\", 1, (2, \"c\")}\nempty = #{}");
+        assert_eq!(format_round_trip(&doc), doc);
     }
 }

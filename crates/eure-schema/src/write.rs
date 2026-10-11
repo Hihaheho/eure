@@ -756,6 +756,12 @@ fn copy_subtree(
         NodeValue::Primitive(prim) => {
             c.bind_primitive(prim.clone())?;
         }
+        NodeValue::Set(set) => {
+            c.bind_empty_set()?;
+            for element in set.keys() {
+                c.add_set_element(element.clone())?;
+            }
+        }
         NodeValue::Array(array) => {
             c.bind_empty_array()?;
             for &child_id in array.iter() {
@@ -815,6 +821,7 @@ fn literal_needs_variant(node: &eure_document::document::node::Node) -> bool {
         NodeValue::Primitive(_) => false,
         NodeValue::Array(_)
         | NodeValue::Tuple(_)
+        | NodeValue::Set(_)
         | NodeValue::Map(_)
         | NodeValue::PartialMap(_) => true,
         NodeValue::Hole(_) => true,

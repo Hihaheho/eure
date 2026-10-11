@@ -146,6 +146,12 @@ fn write_subtree_node(
         NodeValue::Primitive(prim) => {
             c.bind_primitive(prim.clone())?;
         }
+        NodeValue::Set(set) => {
+            c.bind_empty_set()?;
+            for element in set.keys() {
+                c.add_set_element(element.clone())?;
+            }
+        }
         NodeValue::Array(array) => {
             c.bind_empty_array()?;
             for &child_id in array.iter() {
@@ -241,6 +247,26 @@ impl IntoEure for f64 {
 
     fn write(value: f64, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
         c.bind_primitive(PrimitiveValue::F64(value))
+            .map_err(WriteError::from)?;
+        Ok(())
+    }
+}
+
+impl IntoEure for crate::decimal::Decimal {
+    type Error = WriteError;
+
+    fn write(value: Self, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+        c.bind_primitive(PrimitiveValue::Decimal(value))
+            .map_err(WriteError::from)?;
+        Ok(())
+    }
+}
+
+impl IntoEure for crate::bytes::Bytes {
+    type Error = WriteError;
+
+    fn write(value: Self, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+        c.bind_primitive(PrimitiveValue::Bytes(value.0))
             .map_err(WriteError::from)?;
         Ok(())
     }

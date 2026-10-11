@@ -747,6 +747,18 @@ impl FromEure<'_> for ParsedSchemaNodeContent {
             }
 
             NodeValue::Map(_) => parse_map_as_schema(ctx, variant),
+            NodeValue::Set(_) => {
+                if variant.as_deref() == Some("literal") {
+                    return Ok(ParsedSchemaNodeContent::Literal(node_id));
+                }
+                Err(ParseError {
+                    node_id,
+                    kind: ParseErrorKind::TypeMismatch {
+                        expected: ValueKind::Map,
+                        actual: ValueKind::Set,
+                    },
+                })
+            }
             NodeValue::PartialMap(_) => Err(ParseError {
                 node_id,
                 kind: ParseErrorKind::TypeMismatch {

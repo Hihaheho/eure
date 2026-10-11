@@ -482,6 +482,7 @@ impl<'a> Walker<'a> {
             value,
             &[
                 NonTerminalKind::Object,
+                NonTerminalKind::Set,
                 NonTerminalKind::Array,
                 NonTerminalKind::Tuple,
                 NonTerminalKind::CodeBlock,

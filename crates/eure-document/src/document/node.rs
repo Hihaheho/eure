@@ -1,3 +1,5 @@
+use indexmap::IndexMap;
+
 use crate::{
     map::PartialNodeMap,
     prelude_internal::*,
@@ -98,6 +100,10 @@ impl<'d> NodeMut<'d> {
         self.document.node_mut(self.node_id).require_tuple()
     }
 
+    pub fn as_set(self) -> Option<&'d NodeSet> {
+        self.document.node(self.node_id).as_set()
+    }
+
     pub fn require_array(self) -> Result<&'d mut NodeArray, InsertErrorKind> {
         self.document.node_mut(self.node_id).require_array()
     }
@@ -132,6 +138,13 @@ impl Node {
         }
     }
 
+    pub fn as_set(&self) -> Option<&NodeSet> {
+        match &self.content {
+            NodeValue::Set(set) => Some(set),
+            _ => None,
+        }
+    }
+
     pub fn as_primitive(&self) -> Option<&PrimitiveValue> {
         match &self.content {
             NodeValue::Primitive(primitive) => Some(primitive),
@@ -154,6 +167,20 @@ impl Node {
             Ok(map)
         } else {
             Err(InsertErrorKind::ExpectedMap)
+        }
+    }
+
+    pub(crate) fn require_set(&mut self) -> Result<&mut NodeSet, InsertErrorKind> {
+        if self.content.is_hole() {
+            self.content = NodeValue::Set(Default::default());
+            let NodeValue::Set(set) = &mut self.content else {
+                unreachable!();
+            };
+            Ok(set)
+        } else if let NodeValue::Set(set) = &mut self.content {
+            Ok(set)
+        } else {
+            Err(InsertErrorKind::ExpectedSet)
         }
     }
 
@@ -227,6 +254,8 @@ pub enum NodeValue {
     Array(NodeArray),
     Map(NodeMap),
     Tuple(NodeTuple),
+    /// An unordered collection of unique key-comparable values (`#{1, "a"}`).
+    Set(NodeSet),
     /// A map that contains at least one hole key (or a mix of hole and resolved keys).
     ///
     /// Produced when an Eure document uses hole syntax in a key position,
@@ -263,6 +292,10 @@ impl NodeValue {
         Self::Tuple(NodeTuple::new())
     }
 
+    pub fn empty_set() -> Self {
+        Self::Set(NodeSet::new())
+    }
+
     pub fn empty_partial_map() -> Self {
         Self::PartialMap(PartialNodeMap::new())
     }
@@ -274,6 +307,7 @@ impl NodeValue {
             Self::Array(_) => ValueKind::Array,
             Self::Map(_) => ValueKind::Map,
             Self::Tuple(_) => ValueKind::Tuple,
+            Self::Set(_) => ValueKind::Set,
             Self::PartialMap(_) => ValueKind::PartialMap,
         }
     }
@@ -298,6 +332,68 @@ pub struct NodeArray(Vec<NodeId>);
 pub struct NodeTuple(Vec<NodeId>);
 
 pub type NodeMap = Map<ObjectKey, NodeId>;
+
+/// Elements of a set value (`#{1, "a", (1, 2)}`).
+///
+/// Each element is a node (an integer, a plaintext string, or a tuple of those) indexed by its
+/// [`ObjectKey`], so uniqueness, equality and hashing are deterministic while element nodes
+/// remain addressable for parsing, validation and diagnostics.
+/// Insertion order is preserved for stable round-trips, but equality ignores order.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct NodeSet(IndexMap<ObjectKey, NodeId>);
+
+impl NodeSet {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Iterates elements in document order.
+    pub fn iter(&self) -> indexmap::map::Iter<'_, ObjectKey, NodeId> {
+        self.0.iter()
+    }
+
+    pub fn keys(&self) -> indexmap::map::Keys<'_, ObjectKey, NodeId> {
+        self.0.keys()
+    }
+
+    pub fn node_ids(&self) -> indexmap::map::Values<'_, ObjectKey, NodeId> {
+        self.0.values()
+    }
+
+    pub fn contains(&self, element: &ObjectKey) -> bool {
+        self.0.contains_key(element)
+    }
+
+    pub fn get_node_id(&self, element: &ObjectKey) -> Option<NodeId> {
+        self.0.get(element).copied()
+    }
+
+    /// Registers an element node, rejecting duplicates.
+    pub fn add(&mut self, element: ObjectKey, node_id: NodeId) -> Result<(), InsertErrorKind> {
+        match self.0.entry(element) {
+            indexmap::map::Entry::Occupied(e) => Err(InsertErrorKind::DuplicateSetElement {
+                element: e.key().clone(),
+            }),
+            indexmap::map::Entry::Vacant(e) => {
+                e.insert(node_id);
+                Ok(())
+            }
+        }
+    }
+
+    /// Returns true if both sets contain the same elements, ignoring order and node ids.
+    pub fn same_elements(&self, other: &Self) -> bool {
+        self.len() == other.len() && self.keys().all(|k| other.contains(k))
+    }
+}
 
 impl NodeTuple {
     pub fn get(&self, index: usize) -> Option<NodeId> {

@@ -801,6 +801,23 @@ impl From<DotToken> for BuilderNodeId {
         token.node_id
     }
 }
+///Branded type for HashLBrace terminal
+#[derive(Debug, Clone)]
+pub struct HashLBraceToken {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl HashLBraceToken {
+    /// Consume this token and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<HashLBraceToken> for BuilderNodeId {
+    fn from(token: HashLBraceToken) -> Self {
+        token.node_id
+    }
+}
 ///Branded type for LBrace terminal
 #[derive(Debug, Clone)]
 pub struct LBraceToken {
@@ -3453,6 +3470,125 @@ impl From<SectionHeadNode> for BuilderNodeId {
         node.node_id
     }
 }
+///Branded type for Set non-terminal
+#[derive(Debug, Clone)]
+pub struct SetNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl SetNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<SetNode> for BuilderNodeId {
+    fn from(node: SetNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for SetBegin non-terminal
+#[derive(Debug, Clone)]
+pub struct SetBeginNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl SetBeginNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<SetBeginNode> for BuilderNodeId {
+    fn from(node: SetBeginNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for SetElements non-terminal
+#[derive(Debug, Clone)]
+pub struct SetElementsNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl SetElementsNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<SetElementsNode> for BuilderNodeId {
+    fn from(node: SetElementsNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for SetElementsOpt non-terminal
+#[derive(Debug, Clone)]
+pub struct SetElementsOptNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl SetElementsOptNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<SetElementsOptNode> for BuilderNodeId {
+    fn from(node: SetElementsOptNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for SetElementsTail non-terminal
+#[derive(Debug, Clone)]
+pub struct SetElementsTailNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl SetElementsTailNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<SetElementsTailNode> for BuilderNodeId {
+    fn from(node: SetElementsTailNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for SetElementsTailOpt non-terminal
+#[derive(Debug, Clone)]
+pub struct SetElementsTailOptNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl SetElementsTailOptNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<SetElementsTailOptNode> for BuilderNodeId {
+    fn from(node: SetElementsTailOptNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for SetOpt non-terminal
+#[derive(Debug, Clone)]
+pub struct SetOptNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl SetOptNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<SetOptNode> for BuilderNodeId {
+    fn from(node: SetOptNode) -> Self {
+        node.node_id
+    }
+}
 ///Branded type for Str non-terminal
 #[derive(Debug, Clone)]
 pub struct StrNode {
@@ -6097,6 +6233,116 @@ impl SectionHeadConstructor {
     }
 }
 #[derive(bon::Builder)]
+pub struct SetConstructor {
+    set_begin: SetBeginNode,
+    set_opt: SetOptNode,
+    end: EndNode,
+}
+impl SetConstructor {
+    pub fn build(self) -> SetNode {
+        let mut builder = CstBuilder::new();
+        let set_begin = builder.embed(self.set_begin.builder);
+        let set_opt = builder.embed(self.set_opt.builder);
+        let end = builder.embed(self.end.builder);
+        let node_id = builder.non_terminal(NonTerminalKind::Set, vec![set_begin, set_opt, end]);
+        SetNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct SetBeginConstructor {
+    hash_l_brace: HashLBraceToken,
+}
+impl SetBeginConstructor {
+    pub fn build(self) -> SetBeginNode {
+        let mut builder = CstBuilder::new();
+        let hash_l_brace = builder.embed(self.hash_l_brace.builder);
+        let node_id = builder.non_terminal(NonTerminalKind::SetBegin, vec![hash_l_brace]);
+        SetBeginNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct SetElementsConstructor {
+    key_value: KeyValueNode,
+    set_elements_opt: SetElementsOptNode,
+}
+impl SetElementsConstructor {
+    pub fn build(self) -> SetElementsNode {
+        let mut builder = CstBuilder::new();
+        let key_value = builder.embed(self.key_value.builder);
+        let set_elements_opt = builder.embed(self.set_elements_opt.builder);
+        let node_id = builder.non_terminal(
+            NonTerminalKind::SetElements,
+            vec![key_value, set_elements_opt],
+        );
+        SetElementsNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct SetElementsOptConstructor {
+    set_elements_tail: Option<SetElementsTailNode>,
+}
+impl SetElementsOptConstructor {
+    pub fn build(self) -> SetElementsOptNode {
+        let mut builder = CstBuilder::new();
+        let children = if let Some(child) = self.set_elements_tail {
+            vec![builder.embed(child.builder)]
+        } else {
+            Vec::<BuilderNodeId>::new()
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::SetElementsOpt, children);
+        SetElementsOptNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct SetElementsTailConstructor {
+    comma: CommaNode,
+    set_elements_tail_opt: SetElementsTailOptNode,
+}
+impl SetElementsTailConstructor {
+    pub fn build(self) -> SetElementsTailNode {
+        let mut builder = CstBuilder::new();
+        let comma = builder.embed(self.comma.builder);
+        let set_elements_tail_opt = builder.embed(self.set_elements_tail_opt.builder);
+        let node_id = builder.non_terminal(
+            NonTerminalKind::SetElementsTail,
+            vec![comma, set_elements_tail_opt],
+        );
+        SetElementsTailNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct SetElementsTailOptConstructor {
+    set_elements: Option<SetElementsNode>,
+}
+impl SetElementsTailOptConstructor {
+    pub fn build(self) -> SetElementsTailOptNode {
+        let mut builder = CstBuilder::new();
+        let children = if let Some(child) = self.set_elements {
+            vec![builder.embed(child.builder)]
+        } else {
+            Vec::<BuilderNodeId>::new()
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::SetElementsTailOpt, children);
+        SetElementsTailOptNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct SetOptConstructor {
+    set_elements: Option<SetElementsNode>,
+}
+impl SetOptConstructor {
+    pub fn build(self) -> SetOptNode {
+        let mut builder = CstBuilder::new();
+        let children = if let Some(child) = self.set_elements {
+            vec![builder.embed(child.builder)]
+        } else {
+            Vec::<BuilderNodeId>::new()
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::SetOpt, children);
+        SetOptNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
 pub struct StrConstructor {
     str: StrToken,
 }
@@ -6410,6 +6656,7 @@ impl TupleOptConstructor {
 }
 pub enum ValueConstructor {
     Object(ObjectNode),
+    Set(SetNode),
     Array(ArrayNode),
     Tuple(TupleNode),
     Number(NumberNode),
@@ -6425,6 +6672,7 @@ impl ValueConstructor {
         let mut builder = CstBuilder::new();
         let child_id = match self {
             Self::Object(node) => builder.embed(node.builder),
+            Self::Set(node) => builder.embed(node.builder),
             Self::Array(node) => builder.embed(node.builder),
             Self::Tuple(node) => builder.embed(node.builder),
             Self::Number(node) => builder.embed(node.builder),
@@ -6713,6 +6961,11 @@ pub mod terminals {
         let mut builder = CstBuilder::new();
         let node_id = builder.terminal(TerminalKind::Dot, ".");
         DotToken { node_id, builder }
+    }
+    pub fn hash_l_brace() -> HashLBraceToken {
+        let mut builder = CstBuilder::new();
+        let node_id = builder.terminal(TerminalKind::HashLBrace, "");
+        HashLBraceToken { node_id, builder }
     }
     pub fn l_brace() -> LBraceToken {
         let mut builder = CstBuilder::new();

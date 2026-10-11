@@ -82,6 +82,12 @@ pub trait InterpreterSink {
     /// Bind an empty tuple to the current node.
     fn bind_empty_tuple(&mut self) -> Result<(), Self::Error>;
 
+    /// Bind an empty set to the current node.
+    fn bind_empty_set(&mut self) -> Result<(), Self::Error>;
+
+    /// Add an element to the set at the current node, returning the element's node id.
+    fn add_set_element(&mut self, element: ObjectKey) -> Result<NodeId, Self::Error>;
+
     /// Bind a value using `Into<PrimitiveValue>`.
     /// Convenience method for use with the `eure!` macro.
     fn bind_from(&mut self, value: impl Into<PrimitiveValue>) -> Result<(), Self::Error> {

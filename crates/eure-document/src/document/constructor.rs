@@ -344,6 +344,30 @@ impl DocumentConstructor {
         Ok(())
     }
 
+    /// Bind an empty set to the current node. Error if already bound.
+    pub fn bind_empty_set(&mut self) -> Result<(), InsertError> {
+        let node = self.current_node_mut();
+        if !node.content.is_hole() {
+            return Err(InsertError {
+                kind: InsertErrorKind::BindingTargetHasValue,
+                path: EurePath::from_iter(self.current_path().iter().cloned()),
+            });
+        }
+        node.content = NodeValue::empty_set();
+        Ok(())
+    }
+
+    /// Add an element to the set at the current node, returning the element's node id.
+    pub fn add_set_element(&mut self, element: ObjectKey) -> Result<NodeId, InsertError> {
+        let set_node_id = self.current_node_id();
+        self.document
+            .add_set_element(element, set_node_id)
+            .map_err(|kind| InsertError {
+                kind,
+                path: EurePath::from_iter(self.current_path().iter().cloned()),
+            })
+    }
+
     /// Bind an empty tuple to the current node. Error if already bound.
     pub fn bind_empty_tuple(&mut self) -> Result<(), InsertError> {
         let node = self.current_node_mut();
@@ -471,6 +495,14 @@ impl InterpreterSink for DocumentConstructor {
 
     fn bind_empty_tuple(&mut self) -> Result<(), Self::Error> {
         DocumentConstructor::bind_empty_tuple(self)
+    }
+
+    fn bind_empty_set(&mut self) -> Result<(), Self::Error> {
+        DocumentConstructor::bind_empty_set(self)
+    }
+
+    fn add_set_element(&mut self, element: ObjectKey) -> Result<NodeId, Self::Error> {
+        DocumentConstructor::add_set_element(self, element)
     }
 
     fn current_node_id(&self) -> NodeId {

@@ -83,9 +83,13 @@ Section: At Keys SectionBody ;
   // In the key context, true, false, and null are valid identifiers.
   KeyIdent: Ident | True | False | Null ;
 
-Value: Object | Array | Tuple | Number | Boolean | Null | Strings | Hole | CodeBlock | InlineCode ;
+Value: Object | Set | Array | Tuple | Number | Boolean | Null | Strings | Hole | CodeBlock | InlineCode ;
   Object: Begin [ ValueBinding [ Comma ] ] { Keys MapBind Value [ Comma ] } End ;
   MapBind: '=>' ;
+  // Set: unordered collection of unique key-comparable values
+  Set: SetBegin [ SetElements ] End ;
+  SetElements: KeyValue [ SetElementsTail ] ;
+  SetElementsTail: Comma [ SetElements ] ;
   Array: ArrayBegin [ ArrayElements ] ArrayEnd ;
   ArrayElements: Value [ ArrayElementsTail ] ;
   ArrayElementsTail: Comma [ ArrayElements ] ;
@@ -201,6 +205,7 @@ Ws: <Text>/[\s--\r\n]+/ ;
 At: <INITIAL, Header>'@' ;
 Ext: <INITIAL, Header>'$' ;
 Dot: <INITIAL, Header>'.' ;
+SetBegin: <INITIAL, Header>'#{' ;
 Begin: <INITIAL, Header>'{' ;
 End: '}' ;
 ArrayBegin: <INITIAL, Header>'[' ;

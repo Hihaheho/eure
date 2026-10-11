@@ -170,8 +170,11 @@ pub(crate) fn check_form_compat(id: NodeId, form: Form, kind: ValueKind) -> Resu
                     | ValueKind::Integer
                     | ValueKind::F32
                     | ValueKind::F64
+                    | ValueKind::Decimal
                     | ValueKind::Text
+                    | ValueKind::Bytes
                     | ValueKind::Tuple
+                    | ValueKind::Set
             )
         }
     };
@@ -521,8 +524,11 @@ pub(crate) mod auto {
             | ValueKind::Integer
             | ValueKind::F32
             | ValueKind::F64
+            | ValueKind::Decimal
             | ValueKind::Text
-            | ValueKind::Tuple => Form::Inline,
+            | ValueKind::Bytes
+            | ValueKind::Tuple
+            | ValueKind::Set => Form::Inline,
             ValueKind::Array => unreachable!("arrays use auto_array_form"),
             ValueKind::Map | ValueKind::PartialMap => {
                 if !node.extensions.is_empty() || map_has_complex_child(doc, &node.content) {
@@ -587,9 +593,12 @@ pub(crate) mod auto {
                         | ValueKind::Integer
                         | ValueKind::F32
                         | ValueKind::F64
+                        | ValueKind::Decimal
                         | ValueKind::Text
+                        | ValueKind::Bytes
                         | ValueKind::Hole
                         | ValueKind::Tuple
+                        | ValueKind::Set
                 )
         })
     }

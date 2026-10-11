@@ -1,6 +1,6 @@
 use num_bigint::BigInt;
 
-use crate::{identifier::Identifier, prelude_internal::*, text::Text};
+use crate::{decimal::Decimal, identifier::Identifier, prelude_internal::*, text::Text};
 
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub enum ValueKind {
@@ -10,10 +10,13 @@ pub enum ValueKind {
     Integer,
     F32,
     F64,
+    Decimal,
     Text,
+    Bytes,
     Array,
     Tuple,
     Map,
+    Set,
     PartialMap,
 }
 
@@ -26,10 +29,13 @@ impl core::fmt::Display for ValueKind {
             Self::Integer => write!(f, "integer"),
             Self::F32 => write!(f, "f32"),
             Self::F64 => write!(f, "f64"),
+            Self::Decimal => write!(f, "decimal"),
             Self::Text => write!(f, "text"),
+            Self::Bytes => write!(f, "bytes"),
             Self::Array => write!(f, "array"),
             Self::Tuple => write!(f, "tuple"),
             Self::Map => write!(f, "map"),
+            Self::Set => write!(f, "set"),
             Self::PartialMap => write!(f, "partial-map"),
         }
     }
@@ -42,12 +48,16 @@ pub enum PrimitiveValue {
     Integer(BigInt),
     F32(f32),
     F64(f64),
+    /// Exact decimal number from an unsuffixed fractional literal (e.g. `1.10`, `1e3`).
+    Decimal(Decimal),
     /// Unified text type for strings and code.
     ///
     /// - `"..."` syntax produces `Text` with `Language::Plaintext`
     /// - `` `...` `` syntax produces `Text` with `Language::Implicit`
     /// - `` lang`...` `` syntax produces `Text` with `Language::Other(lang)`
     Text(Text),
+    /// Binary data from the reserved `` base64`...` `` and `` hex`...` `` literals.
+    Bytes(Vec<u8>),
 }
 
 impl PrimitiveValue {
@@ -72,7 +82,9 @@ impl PrimitiveValue {
             Self::Integer(_) => ValueKind::Integer,
             Self::F32(_) => ValueKind::F32,
             Self::F64(_) => ValueKind::F64,
+            Self::Decimal(_) => ValueKind::Decimal,
             Self::Text(_) => ValueKind::Text,
+            Self::Bytes(_) => ValueKind::Bytes,
         }
     }
 }
@@ -319,6 +331,18 @@ impl From<f32> for PrimitiveValue {
 impl From<f64> for PrimitiveValue {
     fn from(n: f64) -> Self {
         PrimitiveValue::F64(n)
+    }
+}
+
+impl From<Decimal> for PrimitiveValue {
+    fn from(n: Decimal) -> Self {
+        PrimitiveValue::Decimal(n)
+    }
+}
+
+impl From<crate::bytes::Bytes> for PrimitiveValue {
+    fn from(bytes: crate::bytes::Bytes) -> Self {
+        PrimitiveValue::Bytes(bytes.0)
     }
 }
 

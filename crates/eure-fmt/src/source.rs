@@ -10,7 +10,8 @@ use crate::config::FormatConfig;
 use crate::doc::Doc;
 use crate::printer::Printer;
 
-use eure_document::document::node::{NodeArray, NodeMap, NodeTuple, NodeValue};
+use eure_document::bytes::BytesEncoding;
+use eure_document::document::node::{NodeArray, NodeMap, NodeSet, NodeTuple, NodeValue};
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::identifier::Identifier;
 use eure_document::path::ArrayIndexKind;
@@ -354,6 +355,7 @@ impl<'a> SourceDocBuilder<'a> {
             NodeValue::Primitive(prim) => self.build_primitive(prim),
             NodeValue::Array(arr) => self.build_array(node_id, arr),
             NodeValue::Tuple(tuple) => self.build_tuple(tuple),
+            NodeValue::Set(set) => self.build_set(set),
             NodeValue::Map(map) => self.build_map(map),
             NodeValue::PartialMap(map) => self.build_partial_map(map),
         }
@@ -366,7 +368,11 @@ impl<'a> SourceDocBuilder<'a> {
             PrimitiveValue::Integer(n) => Doc::text(n.to_string()),
             PrimitiveValue::F64(f) => self.build_f64(*f),
             PrimitiveValue::F32(f) => self.build_f32(*f),
+            PrimitiveValue::Decimal(d) => Doc::text(d.to_string()),
             PrimitiveValue::Text(text) => self.build_text(text),
+            PrimitiveValue::Bytes(bytes) => {
+                Doc::text(format!("base64`{}`", BytesEncoding::Base64.encode(bytes)))
+            }
         }
     }
 
@@ -567,6 +573,31 @@ impl<'a> SourceDocBuilder<'a> {
         );
 
         Doc::text("(").concat(elements).concat(Doc::text(")"))
+    }
+
+    fn build_set(&self, set: &NodeSet) -> Doc {
+        let elements = Doc::join(
+            set.keys().map(|element| self.build_set_element(element)),
+            Doc::text(", "),
+        );
+        Doc::text("#{").concat(elements).concat(Doc::text("}"))
+    }
+
+    /// Set elements are in value position, so strings are always quoted.
+    fn build_set_element(&self, element: &ObjectKey) -> Doc {
+        match element {
+            ObjectKey::String(s) => Doc::text("\"")
+                .concat(Doc::text(escape_string(s)))
+                .concat(Doc::text("\"")),
+            ObjectKey::Number(n) => Doc::text(n.to_string()),
+            ObjectKey::Tuple(elements) => {
+                let inner = Doc::join(
+                    elements.iter().map(|e| self.build_set_element(e)),
+                    Doc::text(", "),
+                );
+                Doc::text("(").concat(inner).concat(Doc::text(")"))
+            }
+        }
     }
 
     fn build_map(&self, map: &NodeMap) -> Doc {

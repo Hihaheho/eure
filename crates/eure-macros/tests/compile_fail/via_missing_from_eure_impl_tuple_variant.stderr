@@ -12,11 +12,11 @@ help: the trait `FromEure<'_, JumpAt>` is not implemented for `JumpAtProxy`
   = note: consider adding `#[derive(FromEure)]` to `JumpAtProxy`
   = help: the following other types implement trait `FromEure<'doc, T>`:
             `&'doc NodeArray` implements `FromEure<'doc>`
+            `&'doc NodeSet` implements `FromEure<'doc>`
             `&'doc PrimitiveValue` implements `FromEure<'doc>`
+            `&'doc [u8]` implements `FromEure<'doc>`
             `&'doc str` implements `FromEure<'doc>`
             `Cmd` implements `FromEure<'doc>`
             `EureDocument` implements `FromEure<'doc>`
             `Identifier` implements `FromEure<'_>`
-            `MustBeText<M>` implements `FromEure<'_>`
-            `NodeId` implements `FromEure<'doc>`
           and $N others

@@ -162,6 +162,10 @@ fn serialize_node<S: serde::Serializer>(
                     Err(S::Error::custom(SerError::NonFiniteFloat.to_string()))
                 }
             }
+            // A float schema reads decimals as the nearest float.
+            NodeValue::Primitive(PrimitiveValue::Decimal(value)) => {
+                ser.serialize_f64(value.to_f64())
+            }
             other => Err(S::Error::custom(
                 SerError::Custom(format!(
                     "type mismatch: expected float, got {}",
@@ -827,6 +831,16 @@ fn serialize_untyped_node<S: serde::Serializer>(
             }
             tuple.end()
         }
+        NodeValue::Set(values) => {
+            let mut seq = ser.serialize_seq(Some(values.len()))?;
+            for &child_id in values.node_ids() {
+                seq.serialize_element(&UntypedNode {
+                    doc,
+                    node_id: child_id,
+                })?;
+            }
+            seq.end()
+        }
         NodeValue::Map(values) => {
             let mut map = ser.serialize_map(Some(values.len()))?;
             for (key, &child_id) in values.iter() {
@@ -865,7 +879,13 @@ fn serialize_primitive<S: serde::Serializer>(
                 Err(S::Error::custom(SerError::NonFiniteFloat.to_string()))
             }
         }
+        // Without a schema there is no float to round to, so only exact decimals are accepted.
+        PrimitiveValue::Decimal(value) => match value.to_f64_exact() {
+            Some(value) => ser.serialize_f64(value),
+            None => Err(S::Error::custom(SerError::DecimalPrecisionLoss.to_string())),
+        },
         PrimitiveValue::Text(text) => ser.serialize_str(text.as_str()),
+        PrimitiveValue::Bytes(bytes) => ser.serialize_bytes(bytes),
     }
 }
 
@@ -1005,9 +1025,13 @@ fn serialize_literal_object_key<S: serde::Serializer>(
                 object_key_type_mismatch("boolean", key).to_string(),
             )),
         },
-        PrimitiveValue::Null | PrimitiveValue::F32(_) | PrimitiveValue::F64(_) => Err(
-            S::Error::custom(unsupported_complex_literal_key().to_string()),
-        ),
+        PrimitiveValue::Null
+        | PrimitiveValue::F32(_)
+        | PrimitiveValue::F64(_)
+        | PrimitiveValue::Decimal(_)
+        | PrimitiveValue::Bytes(_) => Err(S::Error::custom(
+            unsupported_complex_literal_key().to_string(),
+        )),
     }
 }
 
@@ -1141,7 +1165,11 @@ fn literal_object_key_matches(expected: &EureDocument, key: &ObjectKey) -> Resul
             ObjectKey::String(value)
                 if (*expected_value && value == "true") || (!*expected_value && value == "false")
         )),
-        PrimitiveValue::Null | PrimitiveValue::F32(_) | PrimitiveValue::F64(_) => Ok(false),
+        PrimitiveValue::Null
+        | PrimitiveValue::F32(_)
+        | PrimitiveValue::F64(_)
+        | PrimitiveValue::Decimal(_)
+        | PrimitiveValue::Bytes(_) => Ok(false),
     }
 }
 
@@ -1249,8 +1277,11 @@ fn node_value_type(value: &NodeValue) -> &'static str {
         NodeValue::Primitive(PrimitiveValue::Integer(_)) => "integer",
         NodeValue::Primitive(PrimitiveValue::F32(_))
         | NodeValue::Primitive(PrimitiveValue::F64(_)) => "float",
+        NodeValue::Primitive(PrimitiveValue::Decimal(_)) => "decimal",
         NodeValue::Primitive(PrimitiveValue::Text(_)) => "text",
+        NodeValue::Primitive(PrimitiveValue::Bytes(_)) => "bytes",
         NodeValue::Array(_) => "array",
+        NodeValue::Set(_) => "set",
         NodeValue::Map(_) => "map",
         NodeValue::Tuple(_) => "tuple",
         NodeValue::PartialMap(_) => "partial-map",

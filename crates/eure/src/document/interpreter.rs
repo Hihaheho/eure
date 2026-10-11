@@ -1,5 +1,7 @@
 use eure_document::value::Tuple;
 use eure_document::{
+    bytes::BytesEncoding,
+    decimal::Decimal,
     document::{EureDocument, source_constructor::SourceConstructor},
     identifier::Identifier,
     path::{ArrayIndexKind, PathSegment},
@@ -13,7 +15,9 @@ use num_bigint::BigInt;
 use regex::Regex;
 use std::sync::LazyLock;
 
-use crate::document::{CodeBlockError, DocumentConstructionError, InlineCodeError, OriginMap};
+use crate::document::{
+    CodeBlockError, DocumentConstructionError, InlineCodeError, OriginMap, UnsupportedSetElement,
+};
 
 #[derive(Debug, Clone, Default)]
 struct TerminalTokens {
@@ -314,6 +318,47 @@ impl<'a> CstInterpreter<'a> {
             Language::new(lang.to_string())
         };
         Ok(language)
+    }
+
+    /// Converts a code literal into its value: text, or bytes for the reserved `base64`/`hex` tags.
+    fn code_value(
+        text: Text,
+        node_id: CstNodeId,
+    ) -> Result<PrimitiveValue, DocumentConstructionError> {
+        match BytesEncoding::from_language(&text.language) {
+            Some(encoding) => encoding
+                .decode(&text.content)
+                .map(PrimitiveValue::Bytes)
+                .map_err(|error| DocumentConstructionError::InvalidBytes { node_id, error }),
+            None => Ok(PrimitiveValue::Text(text)),
+        }
+    }
+
+    /// Evaluates a set element. Elements share the map key grammar, but booleans and holes are
+    /// rejected because set elements are values, not keys.
+    fn set_element<F: CstFacade>(
+        &mut self,
+        handle: KeyValueHandle,
+        tree: &F,
+    ) -> Result<ObjectKey, DocumentConstructionError> {
+        let node_id = handle.node_id();
+        let unsupported =
+            |element| DocumentConstructionError::UnsupportedSetElement { node_id, element };
+        match handle.get_view(tree)? {
+            KeyValueView::Boolean(_) => return Err(unsupported(UnsupportedSetElement::Boolean)),
+            KeyValueView::Hole(_) => return Err(unsupported(UnsupportedSetElement::Hole)),
+            KeyValueView::Integer(_) | KeyValueView::Str(_) | KeyValueView::KeyTuple(_) => {}
+        }
+        self.collecting_partial_keys.push(vec![]);
+        self.visit_key_value_handle(handle, tree)?;
+        let mut keys = self
+            .collecting_partial_keys
+            .pop()
+            .expect("collecting_partial_keys stack should not be empty after visiting KeyValue");
+        let key = keys
+            .pop()
+            .expect("visiting a KeyValue pushes exactly one key");
+        ObjectKey::try_from(key).map_err(|_| unsupported(UnsupportedSetElement::Hole))
     }
 
     pub fn into_document(self) -> EureDocument {
@@ -633,6 +678,39 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         })();
         self.document.resume_path_tracking();
         result
+    }
+
+    fn visit_set(&mut self, handle: SetHandle, view: SetView, tree: &F) -> Result<(), Self::Error> {
+        let container_id = self.document.current_node_id();
+        self.record_value(container_id, handle.node_id());
+        let insert_error = |error| DocumentConstructionError::DocumentInsert {
+            error,
+            node_id: handle.node_id(),
+            parent_node_id: None,
+        };
+        self.document.bind_empty_set().map_err(insert_error)?;
+
+        let mut current = view.set_opt.get_view(tree)?;
+        while let Some(elements) = current {
+            let elements_view = elements.get_view(tree)?;
+            let element_cst_id = elements_view.key_value.node_id();
+            let element = self.set_element(elements_view.key_value, tree)?;
+            let element_id = self.document.add_set_element(element).map_err(|error| {
+                DocumentConstructionError::DocumentInsert {
+                    error,
+                    node_id: element_cst_id,
+                    parent_node_id: Some(container_id),
+                }
+            })?;
+            self.record_value(element_id, element_cst_id);
+            current = match elements_view.set_elements_opt.get_view(tree)? {
+                Some(tail) => tail.get_view(tree)?.set_elements_tail_opt.get_view(tree)?,
+                None => None,
+            };
+        }
+
+        self.document.set_last_bound_node(container_id);
+        Ok(())
     }
 
     fn visit_array(
@@ -1387,12 +1465,12 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         let str = self.get_terminal_str(tree, view.float)?;
 
         // Check for f32/f64 suffix
-        let (num_str, is_f32) = if let Some(stripped) = str.strip_suffix("f32") {
-            (stripped, true)
+        let (num_str, is_f32, is_f64) = if let Some(stripped) = str.strip_suffix("f32") {
+            (stripped, true, false)
         } else if let Some(stripped) = str.strip_suffix("f64") {
-            (stripped, false)
+            (stripped, false, true)
         } else {
-            (str, false)
+            (str, false, false)
         };
 
         // Remove underscores for parsing
@@ -1404,11 +1482,21 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 .parse()
                 .map_err(|_| DocumentConstructionError::InvalidFloat(str.to_string()))?;
             PrimitiveValue::F32(float)
-        } else {
+        } else if is_f64 {
             let float: f64 = clean_str
                 .parse()
                 .map_err(|_| DocumentConstructionError::InvalidFloat(str.to_string()))?;
             PrimitiveValue::F64(float)
+        } else {
+            // Unsuffixed fractional literals are exact decimals; schemas decide how to read them.
+            let decimal: Decimal =
+                clean_str
+                    .parse()
+                    .map_err(|error| DocumentConstructionError::InvalidDecimal {
+                        node_id: handle.node_id(),
+                        error,
+                    })?;
+            PrimitiveValue::Decimal(decimal)
         };
 
         self.document.bind_primitive(primitive).map_err(|e| {
@@ -1466,7 +1554,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         let text = Text::with_syntax_hint(content, language, SyntaxHint::Inline1);
         let node_id = self.document.current_node_id();
         self.document
-            .bind_primitive(PrimitiveValue::Text(text))
+            .bind_primitive(Self::code_value(text, handle.node_id())?)
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
@@ -1521,7 +1609,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
             let node_id = self.document.current_node_id();
             self.document
-                .bind_primitive(PrimitiveValue::Text(text))
+                .bind_primitive(Self::code_value(text, handle.node_id())?)
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -1579,7 +1667,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
             let node_id = self.document.current_node_id();
             self.document
-                .bind_primitive(PrimitiveValue::Text(text))
+                .bind_primitive(Self::code_value(text, handle.node_id())?)
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -1637,7 +1725,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
             let node_id = self.document.current_node_id();
             self.document
-                .bind_primitive(PrimitiveValue::Text(text))
+                .bind_primitive(Self::code_value(text, handle.node_id())?)
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -1702,7 +1790,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                     })?;
             let node_id = self.document.current_node_id();
             self.document
-                .bind_primitive(PrimitiveValue::Text(text))
+                .bind_primitive(Self::code_value(text, handle.node_id())?)
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -1754,7 +1842,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                     })?;
             let node_id = self.document.current_node_id();
             self.document
-                .bind_primitive(PrimitiveValue::Text(text))
+                .bind_primitive(Self::code_value(text, handle.node_id())?)
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -1806,7 +1894,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                     })?;
             let node_id = self.document.current_node_id();
             self.document
-                .bind_primitive(PrimitiveValue::Text(text))
+                .bind_primitive(Self::code_value(text, handle.node_id())?)
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -1858,7 +1946,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                     })?;
             let node_id = self.document.current_node_id();
             self.document
-                .bind_primitive(PrimitiveValue::Text(text))
+                .bind_primitive(Self::code_value(text, handle.node_id())?)
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),

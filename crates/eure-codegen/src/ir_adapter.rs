@@ -45,6 +45,12 @@ pub enum SchemaToIrError {
     #[error("schema node {node} has unsupported partial map value in {field_path}")]
     UnsupportedPartialMapValue { node: usize, field_path: String },
 
+    #[error("schema node {node} has unsupported bytes value in {field_path}")]
+    UnsupportedBytesValue { node: usize, field_path: String },
+
+    #[error("schema node {node} has unsupported set value in {field_path}")]
+    UnsupportedSetValue { node: usize, field_path: String },
+
     #[error("schema node {node} has unsupported value extensions in {field_path}")]
     UnsupportedValueExtensions { node: usize, field_path: String },
 
@@ -647,7 +653,11 @@ fn convert_node_value(
             node: schema_node,
             field_path: path,
         }),
-        NodeValue::Primitive(primitive) => Ok(convert_primitive_value(primitive)),
+        NodeValue::Set(_) => Err(SchemaToIrError::UnsupportedSetValue {
+            node: schema_node,
+            field_path: path,
+        }),
+        NodeValue::Primitive(primitive) => convert_primitive_value(primitive, schema_node, path),
         NodeValue::Array(array) => {
             let mut out = Vec::with_capacity(array.len());
             for (index, child) in array.iter().enumerate() {
@@ -685,18 +695,30 @@ fn convert_node_value(
     }
 }
 
-fn convert_primitive_value(value: &PrimitiveValue) -> ValueIr {
-    match value {
+fn convert_primitive_value(
+    value: &PrimitiveValue,
+    schema_node: usize,
+    path: String,
+) -> Result<ValueIr, SchemaToIrError> {
+    Ok(match value {
         PrimitiveValue::Null => ValueIr::Null,
         PrimitiveValue::Bool(value) => ValueIr::Bool(*value),
         PrimitiveValue::Integer(value) => ValueIr::Integer(DecimalInt::new(value.to_string())),
         PrimitiveValue::F32(value) => ValueIr::Float(f64::from(*value)),
         PrimitiveValue::F64(value) => ValueIr::Float(*value),
+        // Without a decimal schema type, a decimal value can only target a float.
+        PrimitiveValue::Decimal(value) => ValueIr::Float(value.to_f64()),
+        PrimitiveValue::Bytes(_) => {
+            return Err(SchemaToIrError::UnsupportedBytesValue {
+                node: schema_node,
+                field_path: path,
+            });
+        }
         PrimitiveValue::Text(text) => ValueIr::Text(TextValueIr {
             value: text.content.clone(),
             language: convert_text_language(&text.language),
         }),
-    }
+    })
 }
 
 fn convert_text_language(language: &Language) -> TextLanguageIr {

@@ -38,6 +38,10 @@ pub enum InsertErrorKind {
     ExpectedMap,
     #[error("Expected tuple")]
     ExpectedTuple,
+    #[error("Expected set")]
+    ExpectedSet,
+    #[error("Duplicate set element: {element}")]
+    DuplicateSetElement { element: ObjectKey },
     #[error("Tuple index invalid: expected {expected_index} but got {index}")]
     TupleIndexInvalid { index: u8, expected_index: usize },
     #[error("Binding target already has a value")]
@@ -131,6 +135,7 @@ impl EureDocument {
                 self.node_tuples_equal(tup1, other, tup2)
             }
             (NodeValue::Map(map1), NodeValue::Map(map2)) => self.node_maps_equal(map1, other, map2),
+            (NodeValue::Set(set1), NodeValue::Set(set2)) => set1.same_elements(set2),
             (NodeValue::PartialMap(pm1), NodeValue::PartialMap(pm2)) => {
                 self.node_partial_maps_equal(pm1, other, pm2)
             }
@@ -391,6 +396,47 @@ impl EureDocument {
         Ok(NodeMut::new(self, node_id))
     }
 
+    /// Adds an element to the set at `parent_node_id`, creating the element node(s) from `element`.
+    ///
+    /// Numbers become integer nodes, strings become plaintext nodes, and tuples become tuple
+    /// nodes of their elements.
+    pub fn add_set_element(
+        &mut self,
+        element: ObjectKey,
+        parent_node_id: NodeId,
+    ) -> Result<NodeId, InsertErrorKind> {
+        if self
+            .node_mut(parent_node_id)
+            .require_set()?
+            .contains(&element)
+        {
+            return Err(InsertErrorKind::DuplicateSetElement { element });
+        }
+        let node_id = self.create_object_key_node(&element);
+        self.node_mut(parent_node_id)
+            .require_set()?
+            .add(element, node_id)?;
+        Ok(node_id)
+    }
+
+    fn create_object_key_node(&mut self, key: &ObjectKey) -> NodeId {
+        match key {
+            ObjectKey::Number(n) => {
+                self.create_node(NodeValue::Primitive(PrimitiveValue::Integer(n.clone())))
+            }
+            ObjectKey::String(s) => self.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+                Text::plaintext(s.clone()),
+            ))),
+            ObjectKey::Tuple(elements) => {
+                let children = elements
+                    .iter()
+                    .map(|e| self.create_object_key_node(e))
+                    .collect();
+                self.create_node(NodeValue::Tuple(NodeTuple::from_vec(children)))
+            }
+        }
+    }
+
     pub fn insert_array_element(
         &mut self,
         index: usize,
@@ -525,6 +571,13 @@ impl EureDocument {
             }
             NodeValue::Primitive(p) => {
                 dst.node_mut(dst_id).content = NodeValue::Primitive(p.clone());
+            }
+            NodeValue::Set(set) => {
+                dst.node_mut(dst_id).content = NodeValue::empty_set();
+                for element in set.keys() {
+                    dst.add_set_element(element.clone(), dst_id)
+                        .expect("elements of a set are unique and the target is a set");
+                }
             }
             NodeValue::Array(arr) => {
                 dst.node_mut(dst_id).content = NodeValue::empty_array();

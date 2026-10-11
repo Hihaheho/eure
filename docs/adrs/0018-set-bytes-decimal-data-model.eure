@@ -1,0 +1,135 @@
+$schema: ../../assets/schemas/eure-adr.schema.eure
+
+id = "0018-set-bytes-decimal-data-model"
+title = "Set, Bytes, and Decimal in the Data Model"
+status = "accepted"
+decision-date = `2026-10-11`
+tags = ["data-model", "syntax", "interpreter", "set", "bytes", "decimal"]
+
+context = ````markdown
+Eure lacked three kinds of values that configuration and data-exchange formats routinely need:
+
+- **Set** — an unordered collection of unique values. An array with a `unique` schema constraint
+  only guarantees uniqueness; it cannot express that order is meaningless, so `[1, 2]` and
+  `[2, 1]` remain different documents.
+- **Bytes** — binary data. Storing it as text tagged with an encoding makes the same bytes
+  unequal depending on how they were written (hex vs base64).
+- **Decimal** — exact fractional numbers. Unsuffixed literals such as `1.10` were parsed into
+  `f64` during document construction, so precision was lost before any schema could decide how
+  the value should be read.
+
+The guiding criterion is: **a value belongs in the data model when it has meaning (especially
+equality) that must hold without a schema.** Compatibility with formats that lack the concept
+(JSON has none of the three) is not a reason to leave it out; those formats get a documented
+lossy projection, as tuples and holes already do.
+````
+
+decision = ````markdown
+Add all three to the data model.
+
+## Set
+
+```eure
+tags = #{"a", 1, (2, "b")}
+empty = #{}
+```
+
+- New value `NodeValue::Set(NodeSet)`, written with the `#{ ... }` literal (`SetBegin: '#{'`).
+  A distinct opener is required because `{ 1, ... }` cannot be told apart from an object
+  (`{ k => v }`, whose keys may span many tokens) under LL(k).
+- Elements share the map-key grammar (`KeyValue`) and are restricted to the map-key domain:
+  integers, strings, and tuples of those. This keeps equality and hashing deterministic, for the
+  same reasons `ObjectKey` is restricted.
+- Booleans and holes are rejected inside sets. In key position `true` silently becomes the string
+  `"true"`; that would be a trap for a value-position literal.
+- Each element is also a node (integer, plaintext, or tuple node) indexed by its `ObjectKey`, so
+  `FromEure`, schema validation, and diagnostics address elements like any other value.
+- Insertion order is preserved for stable round-trips, but equality ignores order.
+- Duplicate elements are a document construction error.
+
+## Bytes
+
+```eure
+blob = base64`SGVsbG8=`
+same = hex`48656c6c6f`
+key = ```base64
+SGVs
+bG8=
+```
+```
+
+- New primitive `PrimitiveValue::Bytes(Vec<u8>)`.
+- The text language tags `base64` (RFC 4648 standard alphabet, padding required, canonical
+  trailing bits) and `hex` (case-insensitive) are **reserved**: inline code, delimited code, and
+  code blocks with these tags are decoded into bytes during interpretation. ASCII whitespace is
+  ignored so long values can be wrapped in code blocks. Invalid encodings are errors.
+- The encoding is only notation: `base64` and `hex` forms of the same bytes are equal.
+- Writers emit `` base64`...` ``.
+
+## Decimal
+
+- New primitive `PrimitiveValue::Decimal(Decimal)`, an exact `mantissa * 10^-scale`.
+- **Unsuffixed fractional literals** (`1.10`, `1e3`, `-0.5`) produce `Decimal`. Literals with an
+  `f32`/`f64` suffix, `inf`, and `nan` keep producing floats.
+- The source scale is preserved (`1.10` displays as `1.10`), but equality, ordering, and hashing
+  are numeric (`1.10 == 1.1`).
+- The literal stays untyped until something decides how to read it, mirroring
+  `Language::Implicit` for text: `FromEure` for `f64`/`f32` and the `.float` schema accept
+  decimals by rounding to the nearest float.
+- In the `eure!` macro, unsuffixed float literals also produce `Decimal` (the macro inspects the
+  literal token), so expected documents in tests match parsed documents.
+````
+
+consequences = ````markdown
+**Positive**
+
+- Sets compare by membership, bytes compare by content, and fractional literals keep their exact
+  value, all without a schema.
+- No information is lost between parsing and schema validation.
+- TOML floats and JSON fractional numbers convert into exact decimals.
+- `serde-eure` deserialization does the same: a finite `f64` from any serde source becomes the
+  shortest decimal that round-trips to it (`3.5` from JSON reads like the Eure literal `3.5`),
+  so every path into a document yields the same value. Reading it back as `f64` is lossless.
+  Non-finite floats (which have no decimal form) stay `F64`.
+
+**Negative / trade-offs**
+
+- `F64` values rendered back to source are written without a suffix, so they re-parse as
+  `Decimal` (numerically equal, different kind). Use the `f64` suffix when the float kind itself
+  must round-trip.
+- Converting to JSON: sets become arrays, bytes become base64 strings, and decimals become numbers
+  only when that is exact (otherwise an error is reported instead of silently rounding). This is
+  a breaking change: a literal such as `0.1000000000000000000000001` used to be rounded to `f64`
+  at parse time and converted without complaint. It follows the existing precedent of integers
+  outside the JSON number range, which already fail with `BigIntOutOfRange`.
+- `serde-eure` serializes decimals with the schema's float semantics under a `.float` schema, and
+  only exactly representable decimals otherwise.
+- `Vec<u8>` already means "array of integers", so binary data is read and written through the
+  dedicated `eure_document::bytes::Bytes` type (or `&[u8]`).
+
+**Follow-up**
+
+- Schema types `.decimal`, `.bytes`, and `.set` (with item schemas and codegen support). Until
+  then, schema synthesis reports decimals as `.float` and bytes/sets as `.any`.
+- `IntoEure` for Rust set types.
+````
+
+alternatives-considered = [
+  ````markdown
+  **Set as a schema-level concept (array + `unique`).** Rejected: a schema can enforce
+  uniqueness but cannot make order irrelevant to document equality, and documents must carry
+  their meaning without a schema.
+  ````,
+  ````markdown
+  **Bytes as plain text tagged `base64`/`hex`, decoded by the schema.** Rejected: the same bytes
+  written in two encodings would be different values.
+  ````,
+  ````markdown
+  **Decimal via an explicit suffix (`1.10d`).** Rejected: it makes the lossy float the default
+  and pushes the decision onto every author, instead of letting the schema decide how an exact
+  literal is read.
+  ````,
+  ````markdown
+  **Set literal `{1, 2}`.** Rejected: indistinguishable from an object literal under LL(k).
+  ````,
+]

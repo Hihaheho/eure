@@ -48,7 +48,8 @@ pub fn all_reachable_ids(doc: &EureDocument) -> Vec<NodeId> {
                     children.push(cid);
                 }
             }
-            _ => {}
+            // Set element nodes are part of the set literal and never laid out separately.
+            NodeValue::Set(_) | NodeValue::Hole(_) | NodeValue::Primitive(_) => {}
         }
         for child in children.into_iter().rev() {
             stack.push(child);
@@ -91,7 +92,8 @@ pub fn children_of(doc: &EureDocument, parent: NodeId) -> Vec<(PathSegment, Node
                 out.push((PathSegment::TupleIndex(i as u8), child));
             }
         }
-        _ => {}
+        // Set element nodes are part of the set literal and never laid out separately.
+        NodeValue::Set(_) | NodeValue::Hole(_) | NodeValue::Primitive(_) => {}
     }
     out
 }

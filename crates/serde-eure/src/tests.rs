@@ -645,8 +645,9 @@ mod de {
 
     #[test]
     fn primitive_float() {
+        // Fractional input numbers become exact decimals, like unsuffixed Eure literals.
         let actual = de_json("3.5", &make_float_schema());
-        assert_eq!(actual, f64_doc(3.5));
+        assert_eq!(actual, eure!({ = 3.5 }));
     }
 
     #[test]

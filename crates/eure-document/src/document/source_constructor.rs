@@ -263,6 +263,16 @@ impl SourceConstructor {
         InterpreterSink::bind_empty_tuple(self)
     }
 
+    /// Bind an empty set to the current node.
+    pub fn bind_empty_set(&mut self) -> Result<(), InsertError> {
+        InterpreterSink::bind_empty_set(self)
+    }
+
+    /// Add an element to the set at the current node, returning the element's node id.
+    pub fn add_set_element(&mut self, element: ObjectKey) -> Result<NodeId, InsertError> {
+        InterpreterSink::add_set_element(self, element)
+    }
+
     /// Bind a value using `Into<PrimitiveValue>`.
     pub fn bind_from(&mut self, value: impl Into<PrimitiveValue>) -> Result<(), InsertError> {
         InterpreterSink::bind_from(self, value)
@@ -583,6 +593,15 @@ impl InterpreterSink for SourceConstructor {
     fn bind_empty_tuple(&mut self) -> Result<(), Self::Error> {
         self.last_bound_node = Some(self.inner.current_node_id());
         InterpreterSink::bind_empty_tuple(&mut self.inner)
+    }
+
+    fn bind_empty_set(&mut self) -> Result<(), Self::Error> {
+        self.last_bound_node = Some(self.inner.current_node_id());
+        InterpreterSink::bind_empty_set(&mut self.inner)
+    }
+
+    fn add_set_element(&mut self, element: ObjectKey) -> Result<NodeId, Self::Error> {
+        InterpreterSink::add_set_element(&mut self.inner, element)
     }
 
     fn current_node_id(&self) -> NodeId {

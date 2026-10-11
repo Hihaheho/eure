@@ -91,6 +91,17 @@
 ///     point = (1.0f64, 2.0f64)
 /// });
 ///
+/// // Sets (elements convert into `ObjectKey`)
+/// let doc = eure!({
+///     tags = #{"a", "b", 1}
+/// });
+///
+/// // Unsuffixed float literals are exact decimals, like in Eure source
+/// let doc = eure!({
+///     price = 1.10
+///     ratio = 0.5f64
+/// });
+///
 /// // Sections (like TOML)
 /// let doc = eure!({
 ///     @user
@@ -146,8 +157,9 @@ macro_rules! eure {
     (@value_tt true) => { true };
     (@value_tt false) => { false };
 
-    // General literal fallback (string, int, float)
-    (@value_tt $v:literal) => { $v };
+    // General literal fallback (string, int, float).
+    // Unsuffixed float literals become decimals, matching Eure's literal semantics.
+    (@value_tt $v:literal) => { $crate::__private::literal(stringify!($v), $v) };
 
     // General expression fallback (variables, expressions)
     (@value_tt $v:expr) => { $v };
@@ -380,7 +392,7 @@ macro_rules! eure {
     // Root binding: negative literal (e.g., = -42)
     // Negative numbers are two tokens: `-` and the number, so they need special handling
     (@stmt $c:ident; = - $v:literal $($rest:tt)*) => {{
-        $c.bind_from(-$v).unwrap();
+        $c.bind_from($crate::__private::literal(concat!("-", stringify!($v)), -$v)).unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
@@ -431,6 +443,13 @@ macro_rules! eure {
     (@stmt $c:ident; = ($($items:tt)+) $($rest:tt)*) => {{
         $c.bind_empty_tuple().unwrap();
         $crate::eure!(@tuple_items $c 0; $($items)+);
+        $crate::eure!(@stmt $c; $($rest)*);
+    }};
+
+    // Root binding: set literal #{ a, b, ... } (elements convert into ObjectKey)
+    (@stmt $c:ident; = # { $($item:expr),* $(,)? } $($rest:tt)*) => {{
+        $c.bind_empty_set().unwrap();
+        $( $c.add_set_element($crate::value::ObjectKey::from($item)).unwrap(); )*
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
@@ -898,7 +917,7 @@ macro_rules! eure {
 
     // Terminal: negative literal (e.g., path = -42)
     (@terminal $c:ident $scope:ident; = - $v:literal $($rest:tt)*) => {{
-        $c.bind_from(-$v).unwrap();
+        $c.bind_from($crate::__private::literal(concat!("-", stringify!($v)), -$v)).unwrap();
         $c.end_scope($scope).unwrap();
         $c.end_binding_value().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
@@ -965,6 +984,15 @@ macro_rules! eure {
     (@terminal $c:ident $scope:ident; = ($($items:tt)+) $($rest:tt)*) => {{
         $c.bind_empty_tuple().unwrap();
         $crate::eure!(@tuple_items $c 0; $($items)+);
+        $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
+        $crate::eure!(@stmt $c; $($rest)*);
+    }};
+
+    // Terminal: set literal #{ a, b, ... } (elements convert into ObjectKey)
+    (@terminal $c:ident $scope:ident; = # { $($item:expr),* $(,)? } $($rest:tt)*) => {{
+        $c.bind_empty_set().unwrap();
+        $( $c.add_set_element($crate::value::ObjectKey::from($item)).unwrap(); )*
         $c.end_scope($scope).unwrap();
         $c.end_binding_value().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
