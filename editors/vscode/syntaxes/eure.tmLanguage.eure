@@ -175,6 +175,8 @@ scopeName: source.eure
   patterns[] { include = "source.eure" }
 }
 
+@patterns[] { include = "#code-block-3-bytes" }
+
 @patterns[] {
   comment: Code block: generic with language
   begin: (\x60\x60\x60)\s*((?!(?i:rust|json|ya?ml|toml|javascript|js|typescript|ts|python|py|html|css|sql|markdown|md|shell|bash|sh|zsh|eure)\b)[\w-]+)\b[^\n\r]*$
@@ -322,7 +324,9 @@ scopeName: source.eure
 @repository.value {
   patterns[] { include = "#comments" }
   patterns[] { include = "#code-block" }
+  patterns[] { include = "#inline-bytes" }
   patterns[] { include = "#inline-code" }
+  patterns[] { include = "#set" }
   patterns[] { include = "#object" }
   patterns[] { include = "#array" }
   patterns[] { include = "#tuple" }
@@ -346,6 +350,7 @@ scopeName: source.eure
   patterns[] { include = "#code-block-3-markdown" }
   patterns[] { include = "#code-block-3-shell" }
   patterns[] { include = "#code-block-3-eure" }
+  patterns[] { include = "#code-block-3-bytes" }
   patterns[] { include = "#code-block-3-generic" }
   patterns[] { include = "#code-block-3-no-lang" }
 }
@@ -505,6 +510,18 @@ scopeName: source.eure
   patterns[] { include = "source.eure" }
 }
 
+@repository.code-block-3-bytes {
+  comment: Binary data fence - the base64 and hex tags are reserved for bytes
+  begin: (\x60\x60\x60)\s*(?i:(base64|hex))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: storage.type.bytes.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: constant.other.bytes.eure
+}
+
 @repository.code-block-3-generic {
   begin: (\x60\x60\x60)\s*((?!(?i:rust|json|ya?ml|toml|javascript|js|typescript|ts|python|py|html|css|sql|markdown|md|shell|bash|sh|zsh|eure)\b)[\w-]+)\b[^\n\r]*$
   end: ^\s*(\x60\x60\x60)\s*$
@@ -525,6 +542,17 @@ scopeName: source.eure
   contentName: markup.raw.block.eure
 }
 
+@repository.inline-bytes {
+  comment: Binary data - the base64 and hex tags are reserved for bytes
+  match: \b(base64|hex)(`)([^`\r\n]*)(`)
+  captures {
+    1.name: storage.type.bytes.eure
+    2.name: punctuation.definition.bytes.begin.eure
+    3.name: constant.other.bytes.eure
+    4.name: punctuation.definition.bytes.end.eure
+  }
+}
+
 @repository.inline-code {
   name: markup.inline.raw.eure
   match: ([a-zA-Z0-9-_]*)`([^`\r\n]+)`
@@ -532,6 +560,15 @@ scopeName: source.eure
     1.name: entity.name.function.eure
     2.name: string.other.inline-code.eure
   }
+}
+
+@repository.set {
+  begin: \#\{
+  end: \}
+  beginCaptures.0.name: punctuation.definition.set.begin.eure
+  endCaptures.0.name: punctuation.definition.set.end.eure
+  patterns[] { include = "#comments" }
+  patterns[] { include = "#value" }
 }
 
 @repository.object {
@@ -611,12 +648,18 @@ scopeName: source.eure
 
 @repository.numbers {
   patterns[] {
+    comment: Binary float - explicit f32/f64 suffix
     name: constant.numeric.float.eure
-    match: -?[0-9]+\.[0-9]+([eE][+-]?[0-9]+)?
+    match: [-+]?[0-9][0-9_]*(\.[0-9]+)?([eE][+-]?[0-9]+)?(f32|f64)\b
+  }
+  patterns[] {
+    comment: Exact decimal - unsuffixed fractional or exponent literal
+    name: constant.numeric.decimal.eure
+    match: [-+]?[0-9][0-9_]*(\.[0-9]+([eE][+-]?[0-9]+)?|[eE][+-]?[0-9]+)
   }
   patterns[] {
     name: constant.numeric.integer.eure
-    match: -?[0-9]+
+    match: [-+]?[0-9][0-9_]*
   }
 }
 

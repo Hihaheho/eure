@@ -165,6 +165,8 @@ nested = <<`python`code with `backticks` inside`>>
 
     "body" = ```markdown
 Block code uses 3 to 6 backticks. Use more backticks than appear in the content.
+
+The language tags `base64` and `hex` are reserved for [binary data](#binary-data).
 ```
 
     "eure-snippet" = `````eure
@@ -350,6 +352,63 @@ Tuples use `( ... )` syntax with positional elements separated by commas.
   "eure-snippet" = ```eure
 position = (10, 20)
 rgb = (255, 128, 0)
+```
+
+}
+
+@ "numbers" {
+  "##": Numbers
+
+  "body" = ```markdown
+Integers are arbitrary precision. Fractional literals without a suffix are exact decimals that
+keep the written digits (`1.10` stays `1.10`, while comparing equal to `1.1`); a float schema
+reads them as the nearest float. Add `f32` or `f64` to write a binary float directly.
+Underscores may separate digits in the integer part.
+```
+
+  "eure-snippet" = ```eure
+count = 1_000_000
+price = 19.90        // decimal
+distance = 1.5e3     // decimal, exponent form
+ratio = 0.5f64       // binary float
+limit = inf          // floats only: inf, -inf, nan
+```
+
+}
+
+@ "binary-data" {
+  "##": Binary Data
+
+  "body" = ```markdown
+Inline code or code fences tagged `base64` (standard alphabet, with padding) or `hex` hold bytes
+rather than text. Whitespace inside is ignored, so long data can be wrapped in a fence.
+The encoding is only notation: the first two values below are equal.
+```
+
+  "eure-snippet" = `````eure
+greeting = base64`SGVsbG8=`
+same = hex`48656c6c6f`
+key = ```base64
+SGVsbG8gZnJv
+bSBFdXJlIQ==
+```
+`````
+
+}
+
+@ "sets" {
+  "##": Sets
+
+  "body" = ```markdown
+Sets use `#{ ... }` syntax. Elements are integers, strings, or tuples of those; order is not
+significant and duplicates are an error. `true`, `false`, and holes are not allowed in sets.
+```
+
+  "eure-snippet" = ```eure
+tags = #{"rust", "eure"}
+ports = #{80, 443}
+pairs = #{(1, "a"), (2, "b")}
+empty = #{}
 ```
 
 }

@@ -22,8 +22,10 @@ use std::any::TypeId;
 use std::collections::HashMap;
 
 use eure_document::Text;
+use eure_document::bytes::Bytes;
+use eure_document::decimal::Decimal;
 use eure_document::identifier::Identifier;
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 
 use crate::{
     CodegenDefaults, ExtTypeSchema, RootCodegen, SchemaDocument, SchemaMetadata, SchemaNode,
@@ -334,6 +336,24 @@ impl BuildSchema for f64 {
     }
 }
 
+impl BuildSchema for Decimal {
+    fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
+        SchemaNodeContent::Decimal(crate::DecimalSchema::default())
+    }
+}
+
+impl BuildSchema for Bytes {
+    fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
+        SchemaNodeContent::Bytes(crate::BytesSchema::default())
+    }
+}
+
+impl BuildSchema for &[u8] {
+    fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
+        SchemaNodeContent::Bytes(crate::BytesSchema::default())
+    }
+}
+
 // Unit type
 impl BuildSchema for () {
     fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
@@ -408,9 +428,39 @@ impl<T: BuildSchema + 'static> BuildSchema for Vec<T> {
     }
 }
 
+fn set_schema<T: BuildSchema + 'static>(ctx: &mut SchemaBuilder) -> SchemaNodeContent {
+    let item = ctx.build::<T>();
+    SchemaNodeContent::Set(crate::SetSchema {
+        item,
+        min_size: None,
+        max_size: None,
+    })
+}
+
+/// HashSet<T> is represented as a set
+impl<T: BuildSchema + 'static, S: 'static> BuildSchema for std::collections::HashSet<T, S> {
+    fn build_schema(ctx: &mut SchemaBuilder) -> SchemaNodeContent {
+        set_schema::<T>(ctx)
+    }
+}
+
+/// BTreeSet<T> is represented as a set
+impl<T: BuildSchema + 'static> BuildSchema for std::collections::BTreeSet<T> {
+    fn build_schema(ctx: &mut SchemaBuilder) -> SchemaNodeContent {
+        set_schema::<T>(ctx)
+    }
+}
+
+/// IndexSet<T> is represented as a set (preserves insertion order)
+impl<T: BuildSchema + 'static, S: 'static> BuildSchema for IndexSet<T, S> {
+    fn build_schema(ctx: &mut SchemaBuilder) -> SchemaNodeContent {
+        set_schema::<T>(ctx)
+    }
+}
+
 /// HashMap<K, V> is represented as a map
-impl<K: BuildSchema + 'static, V: BuildSchema + 'static> BuildSchema
-    for std::collections::HashMap<K, V>
+impl<K: BuildSchema + 'static, V: BuildSchema + 'static, S: 'static> BuildSchema
+    for std::collections::HashMap<K, V, S>
 {
     fn build_schema(ctx: &mut SchemaBuilder) -> SchemaNodeContent {
         let key = ctx.build::<K>();
@@ -441,7 +491,9 @@ impl<K: BuildSchema + 'static, V: BuildSchema + 'static> BuildSchema
 }
 
 /// IndexMap<K, V> is represented as a map (preserves insertion order)
-impl<K: BuildSchema + 'static, V: BuildSchema + 'static> BuildSchema for IndexMap<K, V> {
+impl<K: BuildSchema + 'static, V: BuildSchema + 'static, S: 'static> BuildSchema
+    for IndexMap<K, V, S>
+{
     fn build_schema(ctx: &mut SchemaBuilder) -> SchemaNodeContent {
         let key = ctx.build::<K>();
         let value = ctx.build::<V>();
