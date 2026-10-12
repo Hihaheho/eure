@@ -97,8 +97,14 @@ pub fn synth(doc: &EureDocument, node_id: NodeId) -> SynthType {
             }
         }
         NodeValue::PartialMap(_) => SynthType::Any,
-        // No set schema type exists yet.
-        NodeValue::Set(_) => SynthType::Any,
+        NodeValue::Set(set) => {
+            let unified = set
+                .node_ids()
+                .map(|&id| synth(doc, id))
+                .reduce(unify)
+                .unwrap_or(SynthType::Any);
+            SynthType::Set(Box::new(unified))
+        }
     }
 }
 
@@ -108,12 +114,9 @@ fn synth_primitive(prim: &PrimitiveValue) -> SynthType {
         PrimitiveValue::Null => SynthType::Null,
         PrimitiveValue::Bool(_) => SynthType::Boolean,
         PrimitiveValue::Integer(_) => SynthType::Integer,
-        // `.float` accepts decimals, and no dedicated decimal schema type exists yet.
-        PrimitiveValue::F32(_) | PrimitiveValue::F64(_) | PrimitiveValue::Decimal(_) => {
-            SynthType::Float
-        }
-        // No bytes schema type exists yet.
-        PrimitiveValue::Bytes(_) => SynthType::Any,
+        PrimitiveValue::F32(_) | PrimitiveValue::F64(_) => SynthType::Float,
+        PrimitiveValue::Decimal(_) => SynthType::Decimal,
+        PrimitiveValue::Bytes(_) => SynthType::Bytes,
         PrimitiveValue::Text(text) => SynthType::Text(synth_text_language(&text.language)),
     }
 }

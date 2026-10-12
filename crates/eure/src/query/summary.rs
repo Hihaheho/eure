@@ -19,12 +19,15 @@ pub fn type_summary(nav: &SchemaNavigator<'_>, id: SchemaNodeId) -> String {
         },
         SchemaNodeContent::Integer(_) => "integer".to_string(),
         SchemaNodeContent::Float(_) => "float".to_string(),
+        SchemaNodeContent::Decimal(_) => "decimal".to_string(),
+        SchemaNodeContent::Bytes(_) => "bytes".to_string(),
         SchemaNodeContent::Boolean => "boolean".to_string(),
         SchemaNodeContent::Null => "null".to_string(),
         SchemaNodeContent::Literal(doc) => {
             render_literal(doc, ValueStyle::Bind).unwrap_or_else(|| "literal".to_string())
         }
         SchemaNodeContent::Array(array) => format!("[{}]", type_summary(nav, array.item)),
+        SchemaNodeContent::Set(set) => format!("#{{{}}}", type_summary(nav, set.item)),
         SchemaNodeContent::Map(map) => format!(
             "{{ {} => {} }}",
             type_summary(nav, map.key),

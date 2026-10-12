@@ -48,6 +48,7 @@ pub use codegen::{
 
 use eure_document::Text;
 use eure_document::constructor::DocumentConstructor;
+use eure_document::decimal::Decimal;
 use eure_document::document::EureDocument;
 use eure_document::identifier::Identifier;
 use eure_document::plan::{ArrayForm, Form};
@@ -155,6 +156,13 @@ pub enum SchemaNodeContent {
     /// Spec: lines 371-375
     Float(FloatSchema),
 
+    /// Exact decimal type with optional constraints.
+    /// Accepts decimal and integer values, never binary floats.
+    Decimal(DecimalSchema),
+
+    /// Binary data type with optional length constraints
+    Bytes(BytesSchema),
+
     /// Boolean type (no constraints)
     /// Spec: line 383
     Boolean,
@@ -176,6 +184,9 @@ pub enum SchemaNodeContent {
     /// Map type with dynamic keys
     /// Spec: lines 453-459
     Map(MapSchema),
+
+    /// Set type with item schema and optional size constraints
+    Set(SetSchema),
 
     /// Record type with fixed named fields
     /// Spec: lines 401-410
@@ -202,11 +213,14 @@ pub enum SchemaKind {
     Text,
     Integer,
     Float,
+    Decimal,
+    Bytes,
     Boolean,
     Null,
     Literal,
     Array,
     Map,
+    Set,
     Record,
     Tuple,
     Union,
@@ -220,11 +234,14 @@ impl std::fmt::Display for SchemaKind {
             Self::Text => "text",
             Self::Integer => "integer",
             Self::Float => "float",
+            Self::Decimal => "decimal",
+            Self::Bytes => "bytes",
             Self::Boolean => "boolean",
             Self::Null => "null",
             Self::Literal => "literal",
             Self::Array => "array",
             Self::Map => "map",
+            Self::Set => "set",
             Self::Record => "record",
             Self::Tuple => "tuple",
             Self::Union => "union",
@@ -242,11 +259,14 @@ impl SchemaNodeContent {
             Self::Text(_) => SchemaKind::Text,
             Self::Integer(_) => SchemaKind::Integer,
             Self::Float(_) => SchemaKind::Float,
+            Self::Decimal(_) => SchemaKind::Decimal,
+            Self::Bytes(_) => SchemaKind::Bytes,
             Self::Boolean => SchemaKind::Boolean,
             Self::Null => SchemaKind::Null,
             Self::Literal(_) => SchemaKind::Literal,
             Self::Array(_) => SchemaKind::Array,
             Self::Map(_) => SchemaKind::Map,
+            Self::Set(_) => SchemaKind::Set,
             Self::Record(_) => SchemaKind::Record,
             Self::Tuple(_) => SchemaKind::Tuple,
             Self::Union(_) => SchemaKind::Union,
@@ -428,6 +448,43 @@ pub struct FloatSchema {
     pub precision: FloatPrecision,
 }
 
+/// Decimal type constraints
+///
+/// ```eure
+/// @variants.decimal
+/// range = .$types.range-string (optional)
+/// multiple-of = .decimal (optional)
+/// ```
+///
+/// Note: Range string is parsed in the converter to Bound<Decimal>
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct DecimalSchema {
+    /// Minimum value constraint (parsed from range string)
+    pub min: Bound<Decimal>,
+    /// Maximum value constraint (parsed from range string)
+    pub max: Bound<Decimal>,
+    /// Multiple-of constraint
+    pub multiple_of: Option<Decimal>,
+}
+
+/// Bytes type constraints
+///
+/// ```eure
+/// @variants.bytes
+/// min-length = .integer (optional)
+/// max-length = .integer (optional)
+/// ```
+#[derive(Debug, Clone, Default, PartialEq, FromEure, IntoEure)]
+#[eure(crate = eure_document, rename_all = "kebab-case")]
+pub struct BytesSchema {
+    /// Minimum number of bytes
+    #[eure(default)]
+    pub min_length: Option<u32>,
+    /// Maximum number of bytes
+    #[eure(default)]
+    pub max_length: Option<u32>,
+}
+
 // ============================================================================
 // Compound Type Schemas
 // ============================================================================
@@ -479,6 +536,24 @@ pub struct MapSchema {
     /// Minimum number of key-value pairs
     pub min_size: Option<u32>,
     /// Maximum number of key-value pairs
+    pub max_size: Option<u32>,
+}
+
+/// Set type constraints
+///
+/// ```eure
+/// @variants.set
+/// item = .$types.type
+/// min-size = .integer (optional)
+/// max-size = .integer (optional)
+/// ```
+#[derive(Debug, Clone, PartialEq)]
+pub struct SetSchema {
+    /// Schema for set elements
+    pub item: SchemaNodeId,
+    /// Minimum number of elements
+    pub min_size: Option<u32>,
+    /// Maximum number of elements
     pub max_size: Option<u32>,
 }
 

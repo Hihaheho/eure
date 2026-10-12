@@ -27,10 +27,11 @@ pub use rust_binding::{
     TypeParamIr, VariantShapeIr, WhereClauseIr, WrapperKindIr,
 };
 pub use schema::{
-    ArrayBindingStyleIr, ArraySchemaIr, BindingStyleIr, BoundIr, DescriptionIr, ExtTypeIr,
-    FloatPrecisionIr, FloatSchemaIr, IntegerSchemaIr, MapSchemaIr, RecordFieldSchemaIr,
-    RecordSchemaIr, SchemaMetadataIr, SchemaNodeContentIr, SchemaNodeIr, TextSchemaIr,
-    TupleSchemaIr, UnionInteropIr, UnionSchemaIr, UnknownFieldsPolicyIr, VariantReprIr,
+    ArrayBindingStyleIr, ArraySchemaIr, BindingStyleIr, BoundIr, BytesSchemaIr, DecimalSchemaIr,
+    DescriptionIr, ExtTypeIr, FloatPrecisionIr, FloatSchemaIr, IntegerSchemaIr, MapSchemaIr,
+    RecordFieldSchemaIr, RecordSchemaIr, SchemaMetadataIr, SchemaNodeContentIr, SchemaNodeIr,
+    SetSchemaIr, TextSchemaIr, TupleSchemaIr, UnionInteropIr, UnionSchemaIr, UnknownFieldsPolicyIr,
+    VariantReprIr,
 };
 pub use structural::{assert_structural_eq, structural_eq};
-pub use value::{DecimalInt, ObjectKeyIr, TextLanguageIr, TextValueIr, ValueIr};
+pub use value::{DecimalInt, DecimalValueIr, ObjectKeyIr, TextLanguageIr, TextValueIr, ValueIr};

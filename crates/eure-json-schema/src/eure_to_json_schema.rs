@@ -5,14 +5,15 @@
 //! cannot be represented in JSON Schema and will result in conversion errors.
 
 use crate::json_schema::*;
+use eure_document::decimal::Decimal;
 use eure_document::document::EureDocument;
 use eure_json::Config as JsonConfig;
 use eure_schema::interop::VariantRepr;
 use eure_schema::{
-    ArraySchema as EureArraySchema, Bound, Description, FloatSchema,
+    ArraySchema as EureArraySchema, Bound, BytesSchema, DecimalSchema, Description, FloatSchema,
     IntegerSchema as EureIntegerSchema, MapSchema, RecordSchema, SchemaDocument,
-    SchemaMetadata as EureMetadata, SchemaNode, SchemaNodeContent, SchemaNodeId, TextSchema,
-    TupleSchema, TypeReference, UnionSchema, UnknownFieldsPolicy,
+    SchemaMetadata as EureMetadata, SchemaNode, SchemaNodeContent, SchemaNodeId, SetSchema,
+    TextSchema, TupleSchema, TypeReference, UnionSchema, UnknownFieldsPolicy,
 };
 use indexmap::IndexMap;
 use num_traits::ToPrimitive;
@@ -56,6 +57,16 @@ pub enum ConversionError {
     /// JSON conversion error (from eure-json)
     #[error(transparent)]
     JsonConversion(#[from] eure_json::EureToJsonError),
+
+    /// Decimal constraint cannot be represented as a JSON number without losing precision
+    #[error(
+        "Decimal value {0} cannot be represented as a JSON Schema number without losing precision"
+    )]
+    DecimalPrecisionLoss(String),
+
+    /// Byte-length constraints have no exact equivalent on the base64 string length
+    #[error("Bytes length constraints cannot be represented in JSON Schema")]
+    BytesLengthNotSupported,
 
     /// Invalid default value type
     #[error("Invalid default value: expected {expected}, got {actual}")]
@@ -198,6 +209,10 @@ fn convert_schema_content(
 
         SchemaNodeContent::Float(f) => convert_float_schema(f, eure_meta, json_metadata),
 
+        SchemaNodeContent::Decimal(d) => convert_decimal_schema(d, eure_meta, json_metadata),
+
+        SchemaNodeContent::Bytes(b) => convert_bytes_schema(b, json_metadata),
+
         SchemaNodeContent::Boolean => convert_boolean_schema(eure_meta, json_metadata),
 
         SchemaNodeContent::Null => Ok(JsonSchema::Typed(TypedSchema::Null(NullSchema {
@@ -207,6 +222,8 @@ fn convert_schema_content(
         SchemaNodeContent::Array(a) => convert_array_schema(ctx, a, json_metadata),
 
         SchemaNodeContent::Map(m) => convert_map_schema(ctx, m, json_metadata),
+
+        SchemaNodeContent::Set(set) => convert_set_schema(ctx, set, json_metadata),
 
         SchemaNodeContent::Record(r) => convert_record_schema(ctx, r, json_metadata),
 
@@ -333,6 +350,7 @@ fn convert_text_schema(
         max_length: eure.max_length,
         pattern: eure.pattern.as_ref().map(|r| r.as_str().to_string()),
         format,
+        content_encoding: None,
         default,
         metadata,
     })))
@@ -455,6 +473,78 @@ fn convert_float_schema(
     })))
 }
 
+/// Convert Eure Decimal schema to JSON Schema
+///
+/// JSON numbers are the closest match; constraints must convert to `f64` exactly.
+fn convert_decimal_schema(
+    eure: &DecimalSchema,
+    eure_meta: &EureMetadata,
+    metadata: SchemaMetadata,
+) -> Result<JsonSchema, ConversionError> {
+    let exact = |d: &Decimal| -> Result<f64, ConversionError> {
+        d.to_f64_exact()
+            .ok_or_else(|| ConversionError::DecimalPrecisionLoss(d.to_string()))
+    };
+
+    let (minimum, exclusive_minimum) = match &eure.min {
+        Bound::Unbounded => (None, None),
+        Bound::Inclusive(val) => (Some(exact(val)?), None),
+        Bound::Exclusive(val) => (None, Some(exact(val)?)),
+    };
+    let (maximum, exclusive_maximum) = match &eure.max {
+        Bound::Unbounded => (None, None),
+        Bound::Inclusive(val) => (Some(exact(val)?), None),
+        Bound::Exclusive(val) => (None, Some(exact(val)?)),
+    };
+    let multiple_of = eure.multiple_of.as_ref().map(exact).transpose()?;
+
+    // Decimal defaults convert to JSON numbers exactly or fail in `document_to_json`.
+    let default = eure_meta
+        .default
+        .as_ref()
+        .map(|doc| match document_to_json(doc)? {
+            serde_json::Value::Number(n) => {
+                n.as_f64()
+                    .ok_or_else(|| ConversionError::InvalidDefaultValue {
+                        expected: "number",
+                        actual: format!("{:?}", n),
+                    })
+            }
+            other => Err(ConversionError::InvalidDefaultValue {
+                expected: "number",
+                actual: format!("{:?}", other),
+            }),
+        })
+        .transpose()?;
+
+    Ok(JsonSchema::Typed(TypedSchema::Number(NumberSchema {
+        minimum,
+        maximum,
+        exclusive_minimum,
+        exclusive_maximum,
+        multiple_of,
+        default,
+        metadata,
+    })))
+}
+
+/// Convert Eure Bytes schema to JSON Schema
+///
+/// Bytes are carried in JSON as base64 strings, matching the Eure-to-JSON conversion.
+fn convert_bytes_schema(
+    eure: &BytesSchema,
+    metadata: SchemaMetadata,
+) -> Result<JsonSchema, ConversionError> {
+    if eure.min_length.is_some() || eure.max_length.is_some() {
+        return Err(ConversionError::BytesLengthNotSupported);
+    }
+    Ok(JsonSchema::Typed(TypedSchema::String(StringSchema {
+        content_encoding: Some("base64".to_string()),
+        metadata,
+        ..Default::default()
+    })))
+}
+
 /// Convert Eure Boolean schema to JSON Schema
 fn convert_boolean_schema(
     eure_meta: &EureMetadata,
@@ -504,6 +594,25 @@ fn convert_array_schema(
         max_items: eure.max_length,
         unique_items: if eure.unique { Some(true) } else { None },
         contains,
+        metadata,
+    })))
+}
+
+/// Convert Eure Set schema to JSON Schema
+///
+/// Sets are carried in JSON as arrays of unique items.
+fn convert_set_schema(
+    ctx: &mut ConversionContext,
+    eure: &SetSchema,
+    metadata: SchemaMetadata,
+) -> Result<JsonSchema, ConversionError> {
+    Ok(JsonSchema::Typed(TypedSchema::Array(ArraySchema {
+        items: Some(Box::new(convert_node(ctx, eure.item)?)),
+        prefix_items: None,
+        min_items: eure.min_size,
+        max_items: eure.max_size,
+        unique_items: Some(true),
+        contains: None,
         metadata,
     })))
 }

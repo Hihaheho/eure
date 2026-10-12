@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use std::fmt;
 
 use eure::document::EureDocument;
+use eure::document::bytes::BytesEncoding;
 use eure::document::constructor::DocumentConstructor;
 use eure::document::decimal::Decimal;
 use eure::document::identifier::Identifier;
@@ -679,6 +680,24 @@ impl<'de, 's> DeserializeSeed<'de> for EureDocumentSeed<'s> {
             SchemaNodeContent::Float(_) => de.deserialize_f64(FloatVisitor {
                 constructor: self.constructor,
             }),
+            SchemaNodeContent::Decimal(_) => de.deserialize_any(DecimalVisitor {
+                constructor: self.constructor,
+            }),
+            // Human-readable formats carry bytes as base64 strings (mirroring the serializer);
+            // asking for a string keeps them from handing over the raw UTF-8 as bytes.
+            SchemaNodeContent::Bytes(_) if de.is_human_readable() => {
+                de.deserialize_str(BytesVisitor {
+                    constructor: self.constructor,
+                })
+            }
+            SchemaNodeContent::Bytes(_) => de.deserialize_byte_buf(BytesVisitor {
+                constructor: self.constructor,
+            }),
+            SchemaNodeContent::Set(s) => de.deserialize_seq(SetVisitor {
+                schema: self.schema,
+                item_schema_id: s.item,
+                constructor: self.constructor,
+            }),
             SchemaNodeContent::Boolean => de.deserialize_bool(BoolVisitor {
                 constructor: self.constructor,
             }),
@@ -783,7 +802,10 @@ impl<'de> DeserializeSeed<'de> for ObjectKeySeed<'_> {
         match &self.schema.node(schema_node_id).content {
             SchemaNodeContent::Any => de.deserialize_any(AnyObjectKeyVisitor),
             SchemaNodeContent::Text(_) => de.deserialize_any(TextObjectKeyVisitor),
-            SchemaNodeContent::Integer(_) => de.deserialize_any(IntegerObjectKeyVisitor),
+            // Map keys are never fractional, so a decimal key is an integer key.
+            SchemaNodeContent::Integer(_) | SchemaNodeContent::Decimal(_) => {
+                de.deserialize_any(IntegerObjectKeyVisitor)
+            }
             SchemaNodeContent::Boolean => de.deserialize_any(BoolObjectKeyVisitor),
             SchemaNodeContent::Literal(expected) => {
                 de.deserialize_any(LiteralObjectKeyVisitor { expected })
@@ -798,8 +820,10 @@ impl<'de> DeserializeSeed<'de> for ObjectKeySeed<'_> {
             }),
             SchemaNodeContent::Reference(_) => unreachable!("references are resolved above"),
             SchemaNodeContent::Float(_)
+            | SchemaNodeContent::Bytes(_)
             | SchemaNodeContent::Null
             | SchemaNodeContent::Array(_)
+            | SchemaNodeContent::Set(_)
             | SchemaNodeContent::Map(_)
             | SchemaNodeContent::Record(_) => {
                 Err(D::Error::custom(unsupported_complex_map_keys().to_string()))
@@ -1337,6 +1361,145 @@ impl<'de> Visitor<'de> for FloatVisitor<'_> {
     }
 }
 
+/// Reads exact decimals: numbers, or decimal strings (formats like JSON often carry exact
+/// decimals as strings to avoid float rounding).
+struct DecimalVisitor<'s> {
+    constructor: &'s mut DocumentConstructor,
+}
+
+impl DecimalVisitor<'_> {
+    fn bind<E: de::Error>(self, value: PrimitiveValue) -> Result<(), E> {
+        self.constructor.bind_primitive(value).map_err(E::custom)
+    }
+}
+
+impl<'de> Visitor<'de> for DecimalVisitor<'_> {
+    type Value = ();
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("decimal number or decimal string")
+    }
+
+    fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let decimal =
+            Decimal::from_f64(value).ok_or_else(|| E::custom(DeError::NonFiniteDecimal(value)))?;
+        self.bind(PrimitiveValue::Decimal(decimal))
+    }
+
+    fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        self.bind(PrimitiveValue::Integer(BigInt::from(value)))
+    }
+
+    fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        self.bind(PrimitiveValue::Integer(BigInt::from(value)))
+    }
+
+    fn visit_i128<E>(self, value: i128) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        self.bind(PrimitiveValue::Integer(BigInt::from(value)))
+    }
+
+    fn visit_u128<E>(self, value: u128) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        self.bind(PrimitiveValue::Integer(BigInt::from(value)))
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let decimal: Decimal = value
+            .parse()
+            .map_err(|error| E::custom(DeError::InvalidDecimal(error)))?;
+        self.bind(PrimitiveValue::Decimal(decimal))
+    }
+}
+
+/// Reads binary data: native bytes, or base64 strings (the JSON convention used by eure-json).
+struct BytesVisitor<'s> {
+    constructor: &'s mut DocumentConstructor,
+}
+
+impl<'de> Visitor<'de> for BytesVisitor<'_> {
+    type Value = ();
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("bytes or base64 string")
+    }
+
+    fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        self.visit_byte_buf(value.to_vec())
+    }
+
+    fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        self.constructor
+            .bind_primitive(PrimitiveValue::Bytes(value))
+            .map_err(E::custom)
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let bytes = BytesEncoding::Base64
+            .decode(value)
+            .map_err(|error| E::custom(DeError::InvalidBytes(error)))?;
+        self.visit_byte_buf(bytes)
+    }
+}
+
+/// Reads a sequence into a set; each element is read as a key of the item schema.
+struct SetVisitor<'s> {
+    schema: &'s SchemaDocument,
+    item_schema_id: SchemaNodeId,
+    constructor: &'s mut DocumentConstructor,
+}
+
+impl<'de> Visitor<'de> for SetVisitor<'_> {
+    type Value = ();
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("set")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        self.constructor
+            .bind_empty_set()
+            .map_err(A::Error::custom)?;
+        while let Some(element) = seq.next_element_seed(ObjectKeySeed {
+            schema: self.schema,
+            schema_node_id: self.item_schema_id,
+        })? {
+            self.constructor
+                .add_set_element(element)
+                .map_err(A::Error::custom)?;
+        }
+        Ok(())
+    }
+}
+
 struct BoolVisitor<'s> {
     constructor: &'s mut DocumentConstructor,
 }
@@ -1530,10 +1693,13 @@ fn collect_flatten_fields(
         | SchemaNodeContent::Text(_)
         | SchemaNodeContent::Integer(_)
         | SchemaNodeContent::Float(_)
+        | SchemaNodeContent::Decimal(_)
+        | SchemaNodeContent::Bytes(_)
         | SchemaNodeContent::Boolean
         | SchemaNodeContent::Null
         | SchemaNodeContent::Literal(_)
         | SchemaNodeContent::Array(_)
+        | SchemaNodeContent::Set(_)
         | SchemaNodeContent::Map(_)
         | SchemaNodeContent::Tuple(_)
         | SchemaNodeContent::Reference(_) => {}
@@ -2806,7 +2972,9 @@ fn object_key_from_string_for_schema(
         SchemaNodeContent::Any | SchemaNodeContent::Text(_) => {
             Ok(ObjectKey::String(value.to_owned()))
         }
-        SchemaNodeContent::Integer(_) => Ok(ObjectKey::Number(parse_bigint(value)?)),
+        SchemaNodeContent::Integer(_) | SchemaNodeContent::Decimal(_) => {
+            Ok(ObjectKey::Number(parse_bigint(value)?))
+        }
         SchemaNodeContent::Boolean => match value {
             "true" | "false" => Ok(ObjectKey::String(value.to_owned())),
             _ => Err(type_mismatch("boolean", "text")),
@@ -2814,8 +2982,10 @@ fn object_key_from_string_for_schema(
         SchemaNodeContent::Literal(expected) => literal_string_key(expected, value),
         SchemaNodeContent::Tuple(_)
         | SchemaNodeContent::Float(_)
+        | SchemaNodeContent::Bytes(_)
         | SchemaNodeContent::Null
         | SchemaNodeContent::Array(_)
+        | SchemaNodeContent::Set(_)
         | SchemaNodeContent::Map(_)
         | SchemaNodeContent::Record(_) => Err(unsupported_complex_map_keys()),
         SchemaNodeContent::Union(union_schema) => {
@@ -2833,7 +3003,7 @@ fn object_key_from_integer_for_schema(
     let schema_node_id = resolve_schema_node_id(schema, schema_node_id)?;
 
     match &schema.node(schema_node_id).content {
-        SchemaNodeContent::Any | SchemaNodeContent::Integer(_) => {
+        SchemaNodeContent::Any | SchemaNodeContent::Integer(_) | SchemaNodeContent::Decimal(_) => {
             Ok(ObjectKey::Number(value.clone()))
         }
         SchemaNodeContent::Text(_) => Ok(ObjectKey::String(value.to_string())),
@@ -2844,8 +3014,10 @@ fn object_key_from_integer_for_schema(
         SchemaNodeContent::Boolean
         | SchemaNodeContent::Tuple(_)
         | SchemaNodeContent::Float(_)
+        | SchemaNodeContent::Bytes(_)
         | SchemaNodeContent::Null
         | SchemaNodeContent::Array(_)
+        | SchemaNodeContent::Set(_)
         | SchemaNodeContent::Map(_)
         | SchemaNodeContent::Record(_) => Err(unsupported_complex_map_keys()),
         SchemaNodeContent::Reference(_) => unreachable!("references are resolved above"),
@@ -2874,8 +3046,11 @@ fn object_key_from_bool_for_schema(
         SchemaNodeContent::Integer(_)
         | SchemaNodeContent::Tuple(_)
         | SchemaNodeContent::Float(_)
+        | SchemaNodeContent::Decimal(_)
+        | SchemaNodeContent::Bytes(_)
         | SchemaNodeContent::Null
         | SchemaNodeContent::Array(_)
+        | SchemaNodeContent::Set(_)
         | SchemaNodeContent::Map(_)
         | SchemaNodeContent::Record(_) => Err(unsupported_complex_map_keys()),
         SchemaNodeContent::Reference(_) => unreachable!("references are resolved above"),

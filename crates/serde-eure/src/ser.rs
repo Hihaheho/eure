@@ -2,6 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use eure::document::EureDocument;
 use eure::document::NodeId;
+use eure::document::bytes::BytesEncoding;
+use eure::document::decimal::Decimal;
 use eure::document::identifier::Identifier;
 use eure::document::node::NodeValue;
 use eure::document::parse::VariantPath;
@@ -169,6 +171,51 @@ fn serialize_node<S: serde::Serializer>(
             other => Err(S::Error::custom(
                 SerError::Custom(format!(
                     "type mismatch: expected float, got {}",
+                    node_value_type(other)
+                ))
+                .to_string(),
+            )),
+        },
+        SchemaNodeContent::Decimal(_) => match &doc.node(node_id).content {
+            NodeValue::Primitive(PrimitiveValue::Decimal(value)) => {
+                serialize_exact_decimal(ser, value)
+            }
+            NodeValue::Primitive(PrimitiveValue::Integer(value)) => serialize_bigint(ser, value),
+            other => Err(S::Error::custom(
+                SerError::Custom(format!(
+                    "type mismatch: expected decimal, got {}",
+                    node_value_type(other)
+                ))
+                .to_string(),
+            )),
+        },
+        SchemaNodeContent::Bytes(_) => match &doc.node(node_id).content {
+            NodeValue::Primitive(PrimitiveValue::Bytes(bytes)) => serialize_bytes(ser, bytes),
+            other => Err(S::Error::custom(
+                SerError::Custom(format!(
+                    "type mismatch: expected bytes, got {}",
+                    node_value_type(other)
+                ))
+                .to_string(),
+            )),
+        },
+        SchemaNodeContent::Set(set_schema) => match &doc.node(node_id).content {
+            NodeValue::Set(values) => {
+                let mut seq = ser.serialize_seq(Some(values.len()))?;
+                for &child_id in values.node_ids() {
+                    seq.serialize_element(&NodeWithSchema {
+                        doc,
+                        node_id: child_id,
+                        schema,
+                        schema_node_id: set_schema.item,
+                        variant_path: None,
+                    })?;
+                }
+                seq.end()
+            }
+            other => Err(S::Error::custom(
+                SerError::Custom(format!(
+                    "type mismatch: expected set, got {}",
                     node_value_type(other)
                 ))
                 .to_string(),
@@ -480,10 +527,13 @@ fn collect_flatten_fields(
         | SchemaNodeContent::Text(_)
         | SchemaNodeContent::Integer(_)
         | SchemaNodeContent::Float(_)
+        | SchemaNodeContent::Decimal(_)
+        | SchemaNodeContent::Bytes(_)
         | SchemaNodeContent::Boolean
         | SchemaNodeContent::Null
         | SchemaNodeContent::Literal(_)
         | SchemaNodeContent::Array(_)
+        | SchemaNodeContent::Set(_)
         | SchemaNodeContent::Map(_)
         | SchemaNodeContent::Tuple(_)
         | SchemaNodeContent::Reference(_) => {}
@@ -691,12 +741,15 @@ fn schema_content_type_name(content: &SchemaNodeContent) -> &'static str {
         SchemaNodeContent::Text(_) => "text",
         SchemaNodeContent::Integer(_) => "integer",
         SchemaNodeContent::Float(_) => "float",
+        SchemaNodeContent::Decimal(_) => "decimal",
+        SchemaNodeContent::Bytes(_) => "bytes",
         SchemaNodeContent::Boolean => "boolean",
         SchemaNodeContent::Null => "null",
         SchemaNodeContent::Literal(_) => "literal",
         SchemaNodeContent::Array(_) => "array",
         SchemaNodeContent::Tuple(_) => "tuple",
         SchemaNodeContent::Map(_) => "map",
+        SchemaNodeContent::Set(_) => "set",
         SchemaNodeContent::Record(_) => "record",
         SchemaNodeContent::Union(_) => "union",
         SchemaNodeContent::Reference(_) => "reference",
@@ -880,12 +933,29 @@ fn serialize_primitive<S: serde::Serializer>(
             }
         }
         // Without a schema there is no float to round to, so only exact decimals are accepted.
-        PrimitiveValue::Decimal(value) => match value.to_f64_exact() {
-            Some(value) => ser.serialize_f64(value),
-            None => Err(S::Error::custom(SerError::DecimalPrecisionLoss.to_string())),
-        },
+        PrimitiveValue::Decimal(value) => serialize_exact_decimal(ser, value),
         PrimitiveValue::Text(text) => ser.serialize_str(text.as_str()),
-        PrimitiveValue::Bytes(bytes) => ser.serialize_bytes(bytes),
+        PrimitiveValue::Bytes(bytes) => serialize_bytes(ser, bytes),
+    }
+}
+
+/// Serde has no decimal type, so decimals serialize as floats only when that is exact.
+fn serialize_exact_decimal<S: serde::Serializer>(
+    ser: S,
+    value: &Decimal,
+) -> Result<S::Ok, S::Error> {
+    match value.to_f64_exact() {
+        Some(value) => ser.serialize_f64(value),
+        None => Err(S::Error::custom(SerError::DecimalPrecisionLoss.to_string())),
+    }
+}
+
+/// Human-readable formats (such as JSON) carry bytes as base64 strings; others get raw bytes.
+fn serialize_bytes<S: serde::Serializer>(ser: S, bytes: &[u8]) -> Result<S::Ok, S::Error> {
+    if ser.is_human_readable() {
+        ser.serialize_str(&BytesEncoding::Base64.encode(bytes))
+    } else {
+        ser.serialize_bytes(bytes)
     }
 }
 
@@ -915,7 +985,10 @@ fn serialize_object_key_with_schema<S: serde::Serializer>(
     match &schema.node(schema_node_id).content {
         SchemaNodeContent::Any => serialize_object_key(ser, key),
         SchemaNodeContent::Text(_) => serialize_text_object_key(ser, key),
-        SchemaNodeContent::Integer(_) => serialize_integer_object_key(ser, key),
+        // Map keys are never fractional, so a decimal key is an integer key.
+        SchemaNodeContent::Integer(_) | SchemaNodeContent::Decimal(_) => {
+            serialize_integer_object_key(ser, key)
+        }
         SchemaNodeContent::Boolean => serialize_bool_object_key(ser, key),
         SchemaNodeContent::Literal(expected) => serialize_literal_object_key(ser, key, expected),
         SchemaNodeContent::Tuple(tuple_schema) => {
@@ -926,8 +999,10 @@ fn serialize_object_key_with_schema<S: serde::Serializer>(
         }
         SchemaNodeContent::Reference(_) => unreachable!("references are resolved above"),
         SchemaNodeContent::Float(_)
+        | SchemaNodeContent::Bytes(_)
         | SchemaNodeContent::Null
         | SchemaNodeContent::Array(_)
+        | SchemaNodeContent::Set(_)
         | SchemaNodeContent::Map(_)
         | SchemaNodeContent::Record(_) => {
             Err(S::Error::custom(unsupported_complex_map_keys().to_string()))
@@ -1103,7 +1178,7 @@ fn object_key_matches_schema(
     match &schema.node(schema_node_id).content {
         SchemaNodeContent::Any => Ok(true),
         SchemaNodeContent::Text(_) => Ok(!matches!(key, ObjectKey::Tuple(_))),
-        SchemaNodeContent::Integer(_) => Ok(match key {
+        SchemaNodeContent::Integer(_) | SchemaNodeContent::Decimal(_) => Ok(match key {
             ObjectKey::Number(_) => true,
             ObjectKey::String(value) => value.parse::<BigInt>().is_ok(),
             ObjectKey::Tuple(_) => false,
@@ -1140,8 +1215,10 @@ fn object_key_matches_schema(
         }
         SchemaNodeContent::Reference(_) => unreachable!("references are resolved above"),
         SchemaNodeContent::Float(_)
+        | SchemaNodeContent::Bytes(_)
         | SchemaNodeContent::Null
         | SchemaNodeContent::Array(_)
+        | SchemaNodeContent::Set(_)
         | SchemaNodeContent::Map(_)
         | SchemaNodeContent::Record(_) => Ok(false),
     }

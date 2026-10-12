@@ -1,7 +1,7 @@
 #![no_std]
 extern crate alloc;
 
-#[cfg(feature = "std")]
+#[cfg(any(feature = "std", test))]
 extern crate std;
 
 // Re-export commonly used types for eure! macro users
@@ -79,6 +79,21 @@ pub mod __private {
 }
 
 pub mod map;
+
+/// Hash-based collections used throughout the crate.
+pub mod collections {
+    /// Hash builder for hash-based collections.
+    ///
+    /// Randomized per process and `no_std`-compatible, so the collection types are identical
+    /// whether or not the `std` feature is enabled.
+    pub type HashBuilder = foldhash::fast::RandomState;
+
+    /// Insertion-ordered map using [`HashBuilder`].
+    pub type IndexMap<K, V> = indexmap::IndexMap<K, V, HashBuilder>;
+
+    /// Insertion-ordered set using [`HashBuilder`].
+    pub type IndexSet<T> = indexmap::IndexSet<T, HashBuilder>;
+}
 
 /// Zero-sized types for compile-time literal matching in `FromEure`.
 pub mod must_be;

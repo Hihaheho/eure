@@ -188,7 +188,7 @@ value {
 @ cases.not-multiple-of.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "Integer not a multiple of 5 at path value.n (based on nearest variant 'by-five' for union at path value)"
+message = "Value is not a multiple of 5 at path value.n (based on nearest variant 'by-five' for union at path value)"
 span = "7"
 
 @ cases.pattern-mismatch

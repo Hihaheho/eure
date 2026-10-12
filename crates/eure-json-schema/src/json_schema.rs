@@ -179,6 +179,10 @@ pub struct StringSchema {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub format: Option<String>,
 
+    /// Encoding of binary content carried in the string (e.g. `base64`).
+    #[serde(rename = "contentEncoding", skip_serializing_if = "Option::is_none")]
+    pub content_encoding: Option<String>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default: Option<String>,
 
@@ -391,6 +395,7 @@ mod tests {
                 max_length: None,
                 pattern: None,
                 format: None,
+                content_encoding: None,
                 default: None,
                 metadata: SchemaMetadata::default(),
             }))
@@ -413,6 +418,7 @@ mod tests {
                 max_length: Some(20),
                 pattern: Some("^[a-z]+$".to_string()),
                 format: None,
+                content_encoding: None,
                 default: None,
                 metadata: SchemaMetadata::default(),
             }))
@@ -655,6 +661,7 @@ mod tests {
             max_length: Some(100),
             pattern: Some("^[A-Z]".to_string()),
             format: Some("email".to_string()),
+            content_encoding: None,
             default: None,
             metadata: SchemaMetadata {
                 title: Some("Email".to_string()),
@@ -684,6 +691,7 @@ mod tests {
                 max_length: None,
                 pattern: None,
                 format: None,
+                content_encoding: None,
                 default: None,
                 metadata: SchemaMetadata::default(),
             })),

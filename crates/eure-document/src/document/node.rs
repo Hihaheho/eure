@@ -1,4 +1,4 @@
-use indexmap::IndexMap;
+use crate::collections::IndexMap;
 
 use crate::{
     map::PartialNodeMap,

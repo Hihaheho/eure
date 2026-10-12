@@ -27,6 +27,12 @@ pub enum SynthType {
     /// Floating-point value
     Float,
 
+    /// Exact decimal value (from an unsuffixed fractional literal)
+    Decimal,
+
+    /// Binary data
+    Bytes,
+
     /// Text value with optional language tag
     ///
     /// - `None` - implicit/unknown language (from `` `...` ``)
@@ -37,6 +43,9 @@ pub enum SynthType {
     // === Compounds ===
     /// Homogeneous array type
     Array(Box<SynthType>),
+
+    /// Homogeneous set type
+    Set(Box<SynthType>),
 
     /// Tuple type (fixed-length, heterogeneous)
     Tuple(Vec<SynthType>),
@@ -191,9 +200,12 @@ impl fmt::Display for SynthType {
             SynthType::Boolean => write!(f, "boolean"),
             SynthType::Integer => write!(f, "integer"),
             SynthType::Float => write!(f, "float"),
+            SynthType::Decimal => write!(f, "decimal"),
+            SynthType::Bytes => write!(f, "bytes"),
             SynthType::Text(None) => write!(f, "text"),
             SynthType::Text(Some(lang)) => write!(f, "text.{}", lang),
             SynthType::Array(inner) => write!(f, "[{}]", inner),
+            SynthType::Set(inner) => write!(f, "#{{{}}}", inner),
             SynthType::Tuple(elems) => {
                 write!(f, "(")?;
                 for (i, elem) in elems.iter().enumerate() {
@@ -256,6 +268,8 @@ impl SynthType {
                 | SynthType::Boolean
                 | SynthType::Integer
                 | SynthType::Float
+                | SynthType::Decimal
+                | SynthType::Bytes
                 | SynthType::Text(_)
         )
     }
@@ -264,7 +278,7 @@ impl SynthType {
     pub fn is_compound(&self) -> bool {
         matches!(
             self,
-            SynthType::Array(_) | SynthType::Tuple(_) | SynthType::Record(_)
+            SynthType::Array(_) | SynthType::Set(_) | SynthType::Tuple(_) | SynthType::Record(_)
         )
     }
 
@@ -272,7 +286,7 @@ impl SynthType {
     pub fn has_holes(&self) -> bool {
         match self {
             SynthType::Hole(_) => true,
-            SynthType::Array(inner) => inner.has_holes(),
+            SynthType::Array(inner) | SynthType::Set(inner) => inner.has_holes(),
             SynthType::Tuple(elems) => elems.iter().any(|e| e.has_holes()),
             SynthType::Record(rec) => rec.fields.values().any(|f| f.ty.has_holes()),
             SynthType::Union(union) => union.variants.iter().any(|v| v.has_holes()),
@@ -284,7 +298,7 @@ impl SynthType {
     pub fn is_complete(&self) -> bool {
         match self {
             SynthType::Hole(_) | SynthType::Any | SynthType::Never => false,
-            SynthType::Array(inner) => inner.is_complete(),
+            SynthType::Array(inner) | SynthType::Set(inner) => inner.is_complete(),
             SynthType::Tuple(elems) => elems.iter().all(|e| e.is_complete()),
             SynthType::Record(rec) => rec.fields.values().all(|f| f.ty.is_complete()),
             SynthType::Union(union) => union.variants.iter().all(|v| v.is_complete()),

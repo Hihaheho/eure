@@ -1,0 +1,35 @@
+// Decimal, bytes, and set schema types map to exact Rust types
+
+schema = ```eure
+price = `decimal`
+digest = `bytes`
+tags {
+  $variant = "set"
+  item = `text`
+}
+// Set items resolve to built-in `Ord` types, including tuples and type references.
+pairs {
+  $variant = "set"
+  item = (`integer`, `text`)
+}
+labels {
+  $variant = "set"
+  item = `$types.label`
+}
+$types.label = `text`
+```
+
+scenarios_expected = ["rust_codegen"]
+
+rust = ```rust
+pub struct Root {
+    pub price: ::eure_document::decimal::Decimal,
+    pub digest: ::eure_document::bytes::Bytes,
+    pub tags: ::std::collections::BTreeSet<String>,
+    pub pairs: ::std::collections::BTreeSet<(i64, String)>,
+    pub labels: ::std::collections::BTreeSet<String>,
+}
+
+#[eure(type_name = "label")]
+pub struct Label(pub String);
+```

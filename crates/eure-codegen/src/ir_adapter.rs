@@ -1,13 +1,14 @@
 use eure_codegen_ir::{
-    ArraySchemaIr, BindingStyleIr, BoundIr, CodegenDefaultsIr, DecimalInt, DescriptionIr,
-    ExtTypeIr, FieldCodegenIr, FloatPrecisionIr, FloatSchemaIr, InheritableCodegenValueIr,
-    IntegerSchemaIr, IrModule, MapSchemaIr, ObjectKeyIr, QualifiedTypeName, RecordCodegenIr,
-    RecordFieldSchemaIr, RecordSchemaIr, RootCodegenIr, RustBindingIr, RustTypeKindIr,
-    SchemaMetadataIr, SchemaNodeContentIr, SchemaNodeIr, SchemaNodeIrId, TextLanguageIr,
-    TextSchemaIr, TextValueIr, TupleSchemaIr, TypeCodegenIr, TypeDefIr, TypeId, TypeNamesIr,
-    TypeOriginIr, UnionCodegenIr, UnionInteropIr, UnionSchemaIr, UnknownFieldsPolicyIr, ValueIr,
-    VariantReprIr,
+    ArraySchemaIr, BindingStyleIr, BoundIr, BytesSchemaIr, CodegenDefaultsIr, DecimalInt,
+    DecimalSchemaIr, DecimalValueIr, DescriptionIr, ExtTypeIr, FieldCodegenIr, FloatPrecisionIr,
+    FloatSchemaIr, InheritableCodegenValueIr, IntegerSchemaIr, IrModule, MapSchemaIr, ObjectKeyIr,
+    QualifiedTypeName, RecordCodegenIr, RecordFieldSchemaIr, RecordSchemaIr, RootCodegenIr,
+    RustBindingIr, RustTypeKindIr, SchemaMetadataIr, SchemaNodeContentIr, SchemaNodeIr,
+    SchemaNodeIrId, SetSchemaIr, TextLanguageIr, TextSchemaIr, TextValueIr, TupleSchemaIr,
+    TypeCodegenIr, TypeDefIr, TypeId, TypeNamesIr, TypeOriginIr, UnionCodegenIr, UnionInteropIr,
+    UnionSchemaIr, UnknownFieldsPolicyIr, ValueIr, VariantReprIr,
 };
+use eure_document::decimal::Decimal;
 use eure_document::document::node::NodeValue;
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::plan::Form;
@@ -44,12 +45,6 @@ pub enum SchemaToIrError {
 
     #[error("schema node {node} has unsupported partial map value in {field_path}")]
     UnsupportedPartialMapValue { node: usize, field_path: String },
-
-    #[error("schema node {node} has unsupported bytes value in {field_path}")]
-    UnsupportedBytesValue { node: usize, field_path: String },
-
-    #[error("schema node {node} has unsupported set value in {field_path}")]
-    UnsupportedSetValue { node: usize, field_path: String },
 
     #[error("schema node {node} has unsupported value extensions in {field_path}")]
     UnsupportedValueExtensions { node: usize, field_path: String },
@@ -341,6 +336,15 @@ fn convert_schema_content(
                 FloatPrecision::F64 => FloatPrecisionIr::F64,
             },
         }),
+        SchemaNodeContent::Decimal(decimal) => SchemaNodeContentIr::Decimal(DecimalSchemaIr {
+            min: convert_decimal_bound(&decimal.min),
+            max: convert_decimal_bound(&decimal.max),
+            multiple_of: decimal.multiple_of.as_ref().map(convert_decimal),
+        }),
+        SchemaNodeContent::Bytes(bytes) => SchemaNodeContentIr::Bytes(BytesSchemaIr {
+            min_length: bytes.min_length,
+            max_length: bytes.max_length,
+        }),
         SchemaNodeContent::Boolean => SchemaNodeContentIr::Boolean,
         SchemaNodeContent::Null => SchemaNodeContentIr::Null,
         SchemaNodeContent::Literal(doc) => SchemaNodeContentIr::Literal(convert_document_value(
@@ -372,6 +376,15 @@ fn convert_schema_content(
                 value: SchemaNodeIrId(map.value.0),
                 min_size: map.min_size,
                 max_size: map.max_size,
+            })
+        }
+        SchemaNodeContent::Set(set) => {
+            assert_node_exists(schema, node_idx, set.item, "set.item".to_string())?;
+
+            SchemaNodeContentIr::Set(SetSchemaIr {
+                item: SchemaNodeIrId(set.item.0),
+                min_size: set.min_size,
+                max_size: set.max_size,
             })
         }
         SchemaNodeContent::Record(record) => {
@@ -653,11 +666,8 @@ fn convert_node_value(
             node: schema_node,
             field_path: path,
         }),
-        NodeValue::Set(_) => Err(SchemaToIrError::UnsupportedSetValue {
-            node: schema_node,
-            field_path: path,
-        }),
-        NodeValue::Primitive(primitive) => convert_primitive_value(primitive, schema_node, path),
+        NodeValue::Set(set) => Ok(ValueIr::Set(set.keys().map(convert_object_key).collect())),
+        NodeValue::Primitive(primitive) => Ok(convert_primitive_value(primitive)),
         NodeValue::Array(array) => {
             let mut out = Vec::with_capacity(array.len());
             for (index, child) in array.iter().enumerate() {
@@ -695,30 +705,35 @@ fn convert_node_value(
     }
 }
 
-fn convert_primitive_value(
-    value: &PrimitiveValue,
-    schema_node: usize,
-    path: String,
-) -> Result<ValueIr, SchemaToIrError> {
-    Ok(match value {
+fn convert_primitive_value(value: &PrimitiveValue) -> ValueIr {
+    match value {
         PrimitiveValue::Null => ValueIr::Null,
         PrimitiveValue::Bool(value) => ValueIr::Bool(*value),
         PrimitiveValue::Integer(value) => ValueIr::Integer(DecimalInt::new(value.to_string())),
         PrimitiveValue::F32(value) => ValueIr::Float(f64::from(*value)),
         PrimitiveValue::F64(value) => ValueIr::Float(*value),
-        // Without a decimal schema type, a decimal value can only target a float.
-        PrimitiveValue::Decimal(value) => ValueIr::Float(value.to_f64()),
-        PrimitiveValue::Bytes(_) => {
-            return Err(SchemaToIrError::UnsupportedBytesValue {
-                node: schema_node,
-                field_path: path,
-            });
-        }
+        PrimitiveValue::Decimal(value) => ValueIr::Decimal(convert_decimal(value)),
         PrimitiveValue::Text(text) => ValueIr::Text(TextValueIr {
             value: text.content.clone(),
             language: convert_text_language(&text.language),
         }),
-    })
+        PrimitiveValue::Bytes(bytes) => ValueIr::Bytes(bytes.clone()),
+    }
+}
+
+fn convert_decimal(value: &Decimal) -> DecimalValueIr {
+    DecimalValueIr {
+        mantissa: value.mantissa().clone(),
+        scale: value.scale(),
+    }
+}
+
+fn convert_decimal_bound(bound: &Bound<Decimal>) -> BoundIr<DecimalValueIr> {
+    match bound {
+        Bound::Unbounded => BoundIr::Unbounded,
+        Bound::Inclusive(value) => BoundIr::Inclusive(convert_decimal(value)),
+        Bound::Exclusive(value) => BoundIr::Exclusive(convert_decimal(value)),
+    }
 }
 
 fn convert_text_language(language: &Language) -> TextLanguageIr {

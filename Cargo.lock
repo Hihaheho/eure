@@ -2087,6 +2087,7 @@ dependencies = [
 name = "eure-document"
 version = "0.2.0"
 dependencies = [
+ "foldhash",
  "indexmap",
  "num-bigint",
  "proptest",

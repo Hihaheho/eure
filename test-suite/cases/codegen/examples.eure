@@ -632,6 +632,23 @@ pub struct FloatType {
 
 pub struct FloatShorthandType(pub ::eure_document::document::EureDocument);
 
+pub struct DecimalType {
+    pub range: Option<RangeString>,
+    #[eure(rename = "multiple-of")]
+    pub multiple_of: Option<::eure_document::decimal::Decimal>,
+}
+
+pub struct DecimalShorthandType(pub ::eure_document::document::EureDocument);
+
+pub struct BytesType {
+    #[eure(rename = "min-length")]
+    pub min_length: Option<i64>,
+    #[eure(rename = "max-length")]
+    pub max_length: Option<i64>,
+}
+
+pub struct BytesShorthandType(pub ::eure_document::document::EureDocument);
+
 pub struct BooleanType(pub ::eure_document::document::EureDocument);
 
 pub struct NullType(pub ::eure_document::document::EureDocument);
@@ -659,6 +676,14 @@ pub struct ArrayShorthandType(pub Vec<Type>);
 pub struct MapType {
     pub key: Type,
     pub value: Type,
+    #[eure(rename = "min-size")]
+    pub min_size: Option<i64>,
+    #[eure(rename = "max-size")]
+    pub max_size: Option<i64>,
+}
+
+pub struct SetType {
+    pub item: Type,
     #[eure(rename = "min-size")]
     pub min_size: Option<i64>,
     #[eure(rename = "max-size")]
@@ -754,6 +779,14 @@ pub enum Type {
     Float(FloatType),
     #[eure(rename = "float-shorthand")]
     FloatShorthand(FloatShorthandType),
+    #[eure(rename = "decimal")]
+    Decimal(DecimalType),
+    #[eure(rename = "decimal-shorthand")]
+    DecimalShorthand(DecimalShorthandType),
+    #[eure(rename = "bytes")]
+    Bytes(BytesType),
+    #[eure(rename = "bytes-shorthand")]
+    BytesShorthand(BytesShorthandType),
     #[eure(rename = "boolean")]
     Boolean(BooleanType),
     #[eure(rename = "null")]
@@ -770,6 +803,8 @@ pub enum Type {
     ArrayShorthand(ArrayShorthandType),
     #[eure(rename = "map")]
     Map(MapType),
+    #[eure(rename = "set")]
+    Set(SetType),
     #[eure(rename = "tuple")]
     Tuple(TupleType),
     #[eure(rename = "tuple-shorthand")]

@@ -1846,3 +1846,94 @@ mod de_fixes {
         assert_eq!(actual, eure!({ value = 7.0, %variant = "measure" }));
     }
 }
+
+// ============================================================================
+// Decimal / Bytes / Set
+// ============================================================================
+
+mod new_types {
+    use super::*;
+    use eure::document::bytes::Bytes;
+    use eure_schema::{BytesSchema, DecimalSchema, SetSchema};
+
+    fn root_schema(content: SchemaNodeContent) -> SchemaDocument {
+        let mut s = SchemaDocument::new();
+        s.root = s.create_node(content);
+        s
+    }
+
+    fn set_schema(item: SchemaNodeContent) -> SchemaDocument {
+        let mut s = SchemaDocument::new();
+        let item = s.create_node(item);
+        s.root = s.create_node(SchemaNodeContent::Set(SetSchema {
+            item,
+            min_size: None,
+            max_size: None,
+        }));
+        s
+    }
+
+    fn de_json(json: &str, schema: &SchemaDocument) -> Result<EureDocument, String> {
+        let mut d = JsonDeserializer::from_str(json);
+        from_deserializer(&mut d, schema).map_err(|e| e.to_string())
+    }
+
+    fn ser_to_json(
+        doc: &EureDocument,
+        schema: &SchemaDocument,
+    ) -> Result<serde_json::Value, String> {
+        to_serializer(serde_json::value::Serializer, doc, schema).map_err(|e| e.to_string())
+    }
+
+    #[test]
+    fn decimal_from_number_and_string() {
+        let schema = root_schema(SchemaNodeContent::Decimal(DecimalSchema::default()));
+        assert_eq!(de_json("1.5", &schema).unwrap(), eure!({ = 1.5 }));
+        assert_eq!(de_json("7", &schema).unwrap(), eure!({ = 7 }));
+        // Strings keep digits that a JSON number would round away.
+        let exact = de_json(r#""0.1000000000000000000000001""#, &schema).unwrap();
+        let expected: eure::document::decimal::Decimal =
+            "0.1000000000000000000000001".parse().unwrap();
+        assert_eq!(exact, eure!({ = expected }));
+        assert!(de_json(r#""1.2.3""#, &schema).is_err());
+    }
+
+    #[test]
+    fn decimal_serializes_only_when_exact() {
+        let schema = root_schema(SchemaNodeContent::Decimal(DecimalSchema::default()));
+        assert_eq!(
+            ser_to_json(&eure!({ = 1.25 }), &schema).unwrap(),
+            json!(1.25)
+        );
+        let precise: eure::document::decimal::Decimal =
+            "0.1000000000000000000000001".parse().unwrap();
+        assert!(ser_to_json(&eure!({ = precise }), &schema).is_err());
+    }
+
+    #[test]
+    fn bytes_use_base64_in_json() {
+        let schema = root_schema(SchemaNodeContent::Bytes(BytesSchema::default()));
+        let hello = Bytes(b"Hello".to_vec());
+        let doc = eure!({ = hello });
+        let json = ser_to_json(&doc, &schema).unwrap();
+        assert_eq!(json, json!("SGVsbG8="));
+        assert_eq!(de_json(&json.to_string(), &schema).unwrap(), doc);
+        assert!(de_json(r#""not base64!""#, &schema).is_err());
+    }
+
+    #[test]
+    fn set_round_trip() {
+        let schema = set_schema(SchemaNodeContent::Integer(IntegerSchema::default()));
+        let doc = eure!({ = #{3, 1, 2} });
+        let json = ser_to_json(&doc, &schema).unwrap();
+        assert_eq!(json, json!([3, 1, 2]));
+        assert_eq!(de_json("[1, 2, 3]", &schema).unwrap(), doc);
+    }
+
+    #[test]
+    fn set_rejects_duplicates() {
+        let schema = set_schema(SchemaNodeContent::Text(TextSchema::default()));
+        let err = de_json(r#"["a", "b", "a"]"#, &schema).unwrap_err();
+        assert!(err.contains("Duplicate set element"), "{err}");
+    }
+}

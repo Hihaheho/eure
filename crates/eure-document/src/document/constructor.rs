@@ -1,5 +1,5 @@
+use crate::collections::IndexSet;
 use alloc::collections::BTreeMap;
-use indexmap::IndexSet;
 
 use crate::document::interpreter_sink::InterpreterSink;
 use crate::map::PartialNodeMap;
@@ -64,7 +64,7 @@ impl Default for DocumentConstructor {
             hole_bound: vec![false],
             scope_counter: 0,
             outstanding_scopes: vec![],
-            unbound_nodes: IndexSet::new(),
+            unbound_nodes: IndexSet::default(),
             block_scope_stack: vec![BlockScope::default()],
         }
     }

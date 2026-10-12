@@ -1,13 +1,15 @@
 //! Helpers for validating map/object keys against schema nodes.
 
+use eure_document::decimal::Decimal;
 use eure_document::document::EureDocument;
 use eure_document::document::node::NodeValue;
 use eure_document::value::{ObjectKey, PrimitiveValue};
 use num_bigint::BigInt;
 
-use crate::{Bound, IntegerSchema, SchemaNodeContent, SchemaNodeId, TextSchema};
+use crate::{Bound, DecimalSchema, IntegerSchema, SchemaNodeContent, SchemaNodeId, TextSchema};
 
 use super::context::ValidationContext;
+use super::primitive::within_bounds;
 
 const KEY_SCHEMA_RECURSION_LIMIT: usize = 100;
 
@@ -33,6 +35,7 @@ fn key_matches_schema_inner(
         SchemaNodeContent::Any => true,
         SchemaNodeContent::Text(schema) => matches_text_key(key, schema),
         SchemaNodeContent::Integer(schema) => matches_integer_key(key, schema),
+        SchemaNodeContent::Decimal(schema) => matches_decimal_key(key, schema),
         SchemaNodeContent::Boolean => matches_boolean_key(key),
         SchemaNodeContent::Tuple(schema) => matches_tuple_key(ctx, key, schema, depth + 1),
         SchemaNodeContent::Literal(expected) => key_matches_literal(key, expected),
@@ -53,9 +56,11 @@ fn key_matches_schema_inner(
             .resolve_reference(type_ref)
             .is_some_and(|resolved_id| key_matches_schema_inner(ctx, key, resolved_id, depth + 1)),
         SchemaNodeContent::Float(_)
+        | SchemaNodeContent::Bytes(_)
         | SchemaNodeContent::Null
         | SchemaNodeContent::Array(_)
         | SchemaNodeContent::Map(_)
+        | SchemaNodeContent::Set(_)
         | SchemaNodeContent::Record(_) => false,
     }
 }
@@ -101,6 +106,19 @@ fn matches_integer_key(key: &ObjectKey, schema: &IntegerSchema) -> bool {
     }
 
     true
+}
+
+/// Integer keys are exact decimals, mirroring how decimal values accept integers.
+fn matches_decimal_key(key: &ObjectKey, schema: &DecimalSchema) -> bool {
+    let ObjectKey::Number(value) = key else {
+        return false;
+    };
+    let value = Decimal::from(value.clone());
+    within_bounds(&value, &schema.min, &schema.max)
+        && schema
+            .multiple_of
+            .as_ref()
+            .is_none_or(|divisor| value.is_multiple_of(divisor))
 }
 
 fn integer_in_range(value: &BigInt, schema: &IntegerSchema) -> bool {

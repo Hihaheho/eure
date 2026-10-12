@@ -445,6 +445,36 @@ fn detail_paragraphs(nav: &SchemaNavigator<'_>, id: SchemaNodeId) -> Vec<String>
             }
             list_paragraph("Constraints", lines)
         }
+        SchemaNodeContent::Decimal(decimal) => {
+            let mut lines = Vec::new();
+            if let Some(range) = decimal.range_display() {
+                lines.push(format!("- range: `{range}`"));
+            }
+            if let Some(multiple_of) = &decimal.multiple_of {
+                lines.push(format!("- multiple-of: `{multiple_of}`"));
+            }
+            list_paragraph("Constraints", lines)
+        }
+        SchemaNodeContent::Bytes(bytes) => {
+            let mut lines = Vec::new();
+            if let Some(min) = bytes.min_length {
+                lines.push(format!("- min-length: `{min}`"));
+            }
+            if let Some(max) = bytes.max_length {
+                lines.push(format!("- max-length: `{max}`"));
+            }
+            list_paragraph("Constraints", lines)
+        }
+        SchemaNodeContent::Set(set) => {
+            let mut lines = Vec::new();
+            if let Some(min) = set.min_size {
+                lines.push(format!("- min-size: `{min}`"));
+            }
+            if let Some(max) = set.max_size {
+                lines.push(format!("- max-size: `{max}`"));
+            }
+            list_paragraph("Constraints", lines)
+        }
         SchemaNodeContent::Array(array) => {
             let mut lines = Vec::new();
             if let Some(min) = array.min_length {
@@ -465,6 +495,9 @@ fn detail_paragraphs(nav: &SchemaNavigator<'_>, id: SchemaNodeId) -> Vec<String>
             let mut lines = Vec::new();
             if let Some(min) = map.min_size {
                 lines.push(format!("- min-size: `{min}`"));
+            }
+            if let Some(max) = map.max_size {
+                lines.push(format!("- max-size: `{max}`"));
             }
             list_paragraph("Constraints", lines)
         }
@@ -537,6 +570,35 @@ mod tests {
         assert_eq!(
             markdown,
             "```eure\nport: integer (optional)\n```\n\nPort to listen on.\n\nDefault: `8080`\n\n**Constraints**\n- range: `[1, 65535]`"
+        );
+    }
+
+    #[test]
+    fn map_hover_shows_both_size_bounds() {
+        let schema = schema(
+            "@ headers\n$variant: map\nkey = `text`\nvalue = `text`\nmin-size = 1\nmax-size = 8\n",
+        );
+        let markdown = hover_markdown(&anchor(AnchorKind::Key, &["headers"]), &[], Some(&schema));
+        assert_eq!(
+            markdown,
+            "```eure\nheaders: { text => text }\n```\n\n**Constraints**\n- min-size: `1`\n- max-size: `8`"
+        );
+    }
+
+    #[test]
+    fn set_and_decimal_hover() {
+        let schema = schema(
+            "@ tags\n$variant: set\nitem = `text`\nmax-size = 3\n@ price\n$variant: decimal\nmultiple-of = 0.01\n",
+        );
+        let tags = hover_markdown(&anchor(AnchorKind::Key, &["tags"]), &[], Some(&schema));
+        assert_eq!(
+            tags,
+            "```eure\ntags: #{text}\n```\n\n**Constraints**\n- max-size: `3`"
+        );
+        let price = hover_markdown(&anchor(AnchorKind::Key, &["price"]), &[], Some(&schema));
+        assert_eq!(
+            price,
+            "```eure\nprice: decimal\n```\n\n**Constraints**\n- multiple-of: `0.01`"
         );
     }
 

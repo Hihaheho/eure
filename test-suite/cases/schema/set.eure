@@ -1,0 +1,146 @@
+// Test cases for set type schemas
+
+// ============================================================================
+// Valid Cases
+// ============================================================================
+
+@ cases.basic
+input_eure = ```eure
+tags = #{"rust", "eure"}
+ids = #{3, 1, 2}
+pairs = #{(1, "a"), (2, "b")}
+empty = #{}
+```
+
+schema = ```eure
+tags {
+  $variant = "set"
+  item = `text`
+}
+ids {
+  $variant = "set"
+  item = `integer`
+}
+pairs {
+  $variant = "set"
+  item = (`integer`, `text`)
+}
+empty {
+  $variant = "set"
+  item = `text`
+}
+```
+
+output_json_schema = ```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "tags": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "ids": { "type": "array", "items": { "type": "integer" }, "uniqueItems": true },
+    "pairs": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "prefixItems": [{ "type": "integer" }, { "type": "string" }],
+        "items": false,
+        "minItems": 2,
+        "maxItems": 2
+      },
+      "uniqueItems": true
+    },
+    "empty": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+  },
+  "required": ["tags", "ids", "pairs", "empty"]
+}
+```
+
+// ============================================================================
+// Error Cases
+// ============================================================================
+
+@ cases.element-type-mismatch
+input_eure = ```eure
+ids = #{1, "two", 3}
+```
+
+schema = ```eure
+ids {
+  $variant = "set"
+  item = `integer`
+}
+```
+
+schema_errors[] = ```text
+error: Type mismatch: expected integer, got text at path ids
+ --> input.eure:1:12
+  |
+1 | ids = #{1, "two", 3}
+  |            ^^^^^ Type mismatch: expected integer, got text at path ids
+  |
+note: constraint defined here
+ --> schema.eure:3:10
+  |
+3 |   item = `integer`
+  |          --------- constraint defined here
+```
+
+@ cases.size-out-of-bounds
+input_eure = ```eure
+tags = #{"a", "b", "c"}
+```
+
+schema = ```eure
+tags {
+  $variant = "set"
+  item = `text`
+  max-size = 2
+}
+```
+
+schema_errors[] = ```text
+error: Set size 3 is out of bounds at path tags
+ --> input.eure:1:8
+  |
+1 | tags = #{"a", "b", "c"}
+  |        ^^^^^^^^^^^^^^^^ Set size 3 is out of bounds at path tags
+  |
+note: constraint defined here
+ --> schema.eure:1:1
+  |
+1 | / tags {
+2 | |   $variant = "set"
+3 | |   item = `text`
+4 | |   max-size = 2
+5 | | }
+  | |_- constraint defined here
+```
+
+@ cases.array-is-not-set
+input_eure = ```eure
+tags = ["a", "b"]
+```
+
+schema = ```eure
+tags {
+  $variant = "set"
+  item = `text`
+}
+```
+
+schema_errors[] = ```text
+error: Type mismatch: expected set, got array at path tags
+ --> input.eure:1:8
+  |
+1 | tags = ["a", "b"]
+  |        ^^^^^^^^^^ Type mismatch: expected set, got array at path tags
+  |
+note: constraint defined here
+ --> schema.eure:1:1
+  |
+1 | / tags {
+2 | |   $variant = "set"
+3 | |   item = `text`
+4 | | }
+  | |_- constraint defined here
+```

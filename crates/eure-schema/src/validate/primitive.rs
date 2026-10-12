@@ -3,13 +3,16 @@
 //! Validators for: Text, Integer, Float, Boolean, Null, Literal, Any
 //! All implement `DocumentParser<Output = (), Error = ValidatorError>`.
 
+use eure_document::decimal::Decimal;
 use eure_document::document::EureDocument;
 use eure_document::document::node::NodeValue;
 use eure_document::parse::{DocumentParser, ParseContext};
 use eure_document::value::PrimitiveValue;
 use num_bigint::BigInt;
 
-use crate::{Bound, FloatSchema, IntegerSchema, SchemaNodeId, TextSchema};
+use crate::{
+    Bound, BytesSchema, DecimalSchema, FloatSchema, IntegerSchema, SchemaNodeId, TextSchema,
+};
 
 use super::context::ValidationContext;
 use super::error::{ValidationError, ValidatorError};
@@ -357,6 +360,135 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for FloatValidator<'a, 'doc, 's> {
                 node_id,
                 schema_node_id: self.schema_node_id,
             });
+        }
+
+        Ok(())
+    }
+}
+
+// =============================================================================
+// DecimalValidator
+// =============================================================================
+
+/// Validates exact decimal values against DecimalSchema constraints.
+///
+/// Integers are accepted as decimals; binary floats are not, since they are not exact.
+pub struct DecimalValidator<'a, 'doc, 's> {
+    pub ctx: &'a ValidationContext<'doc>,
+    pub schema: &'s DecimalSchema,
+    pub schema_node_id: SchemaNodeId,
+}
+
+impl<'a, 'doc, 's> DocumentParser<'doc> for DecimalValidator<'a, 'doc, 's> {
+    type Output = ();
+    type Error = ValidatorError;
+
+    fn parse(&mut self, parse_ctx: &ParseContext<'doc>) -> Result<(), ValidatorError> {
+        let node_id = parse_ctx.node_id();
+
+        let value: Decimal = match parse_ctx.parse() {
+            Ok(v) => v,
+            Err(e) => {
+                self.ctx.record_error(ValidationError::TypeMismatch {
+                    expected: "decimal".to_string(),
+                    actual: actual_type_from_error(&e.kind),
+                    path: self.ctx.path(),
+                    node_id,
+                    schema_node_id: self.schema_node_id,
+                });
+                return Ok(());
+            }
+        };
+
+        if !within_bounds(&value, &self.schema.min, &self.schema.max) {
+            self.ctx.record_error(ValidationError::OutOfRange {
+                value: value.to_string(),
+                path: self.ctx.path(),
+                node_id,
+                schema_node_id: self.schema_node_id,
+            });
+        }
+
+        if let Some(divisor) = &self.schema.multiple_of
+            && !value.is_multiple_of(divisor)
+        {
+            self.ctx.record_error(ValidationError::NotMultipleOf {
+                divisor: divisor.to_string(),
+                path: self.ctx.path(),
+                node_id,
+                schema_node_id: self.schema_node_id,
+            });
+        }
+
+        Ok(())
+    }
+}
+
+pub(crate) fn within_bounds<T: PartialOrd>(value: &T, min: &Bound<T>, max: &Bound<T>) -> bool {
+    let above_min = match min {
+        Bound::Unbounded => true,
+        Bound::Inclusive(min) => value >= min,
+        Bound::Exclusive(min) => value > min,
+    };
+    let below_max = match max {
+        Bound::Unbounded => true,
+        Bound::Inclusive(max) => value <= max,
+        Bound::Exclusive(max) => value < max,
+    };
+    above_min && below_max
+}
+
+// =============================================================================
+// BytesValidator
+// =============================================================================
+
+/// Validates binary data against BytesSchema constraints.
+pub struct BytesValidator<'a, 'doc, 's> {
+    pub ctx: &'a ValidationContext<'doc>,
+    pub schema: &'s BytesSchema,
+    pub schema_node_id: SchemaNodeId,
+}
+
+impl<'a, 'doc, 's> DocumentParser<'doc> for BytesValidator<'a, 'doc, 's> {
+    type Output = ();
+    type Error = ValidatorError;
+
+    fn parse(&mut self, parse_ctx: &ParseContext<'doc>) -> Result<(), ValidatorError> {
+        let node_id = parse_ctx.node_id();
+
+        let bytes: &[u8] = match parse_ctx.parse() {
+            Ok(v) => v,
+            Err(e) => {
+                self.ctx.record_error(ValidationError::TypeMismatch {
+                    expected: "bytes".to_string(),
+                    actual: actual_type_from_error(&e.kind),
+                    path: self.ctx.path(),
+                    node_id,
+                    schema_node_id: self.schema_node_id,
+                });
+                return Ok(());
+            }
+        };
+
+        let length = bytes.len();
+        let too_short = self
+            .schema
+            .min_length
+            .is_some_and(|min| length < min as usize);
+        let too_long = self
+            .schema
+            .max_length
+            .is_some_and(|max| length > max as usize);
+        if too_short || too_long {
+            self.ctx
+                .record_error(ValidationError::BytesLengthOutOfBounds {
+                    length,
+                    min: self.schema.min_length,
+                    max: self.schema.max_length,
+                    path: self.ctx.path(),
+                    node_id,
+                    schema_node_id: self.schema_node_id,
+                });
         }
 
         Ok(())

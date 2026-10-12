@@ -160,7 +160,7 @@ struct TomlParserConverter<'a> {
     saw_newline: bool,
 
     /// Array nodes that should be formatted multi-line
-    multiline_arrays: std::collections::HashSet<eure_document::document::NodeId>,
+    multiline_arrays: eure_document::collections::IndexSet<eure_document::document::NodeId>,
 }
 
 impl<'a> TomlParserConverter<'a> {
@@ -176,7 +176,7 @@ impl<'a> TomlParserConverter<'a> {
             parsing_key: false,
             pending_trivia: Vec::new(),
             saw_newline: false,
-            multiline_arrays: std::collections::HashSet::new(),
+            multiline_arrays: eure_document::collections::IndexSet::default(),
         }
     }
 

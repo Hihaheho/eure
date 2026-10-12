@@ -3,11 +3,13 @@
 use crate::identifiers::{CONTENT, EXT_TYPE, OPTIONAL, TAG, VARIANT, VARIANT_REPR};
 use crate::interop::VariantRepr;
 use crate::{
-    ArraySchema, BindingStyle, Bound, CodegenDefaults, Description, ExtTypeSchema, FieldCodegen,
-    FloatPrecision, FloatSchema, IntegerSchema, MapSchema, RecordCodegen, RecordFieldSchema,
-    RecordSchema, RootCodegen, SchemaDocument, SchemaMetadata, SchemaNodeContent, SchemaNodeId,
-    TupleSchema, TypeCodegen, TypeReference, UnionCodegen, UnionSchema, UnknownFieldsPolicy,
+    ArraySchema, BindingStyle, Bound, BytesSchema, CodegenDefaults, DecimalSchema, Description,
+    ExtTypeSchema, FieldCodegen, FloatPrecision, FloatSchema, IntegerSchema, MapSchema,
+    RecordCodegen, RecordFieldSchema, RecordSchema, RootCodegen, SchemaDocument, SchemaMetadata,
+    SchemaNodeContent, SchemaNodeId, SetSchema, TupleSchema, TypeCodegen, TypeReference,
+    UnionCodegen, UnionSchema, UnknownFieldsPolicy,
 };
+use eure_document::decimal::Decimal;
 use eure_document::document::constructor::DocumentConstructor;
 use eure_document::document::node::NodeValue;
 use eure_document::document::{EureDocument, NodeId};
@@ -161,9 +163,12 @@ fn write_schema_content(
         SchemaNodeContent::Null => c.write(Text::inline_implicit("null")),
         SchemaNodeContent::Integer(schema) => schema.write(c),
         SchemaNodeContent::Float(schema) => schema.write(c),
+        SchemaNodeContent::Decimal(schema) => schema.write(c),
+        SchemaNodeContent::Bytes(schema) => write_bytes_schema(schema, c),
         SchemaNodeContent::Text(schema) => schema.write(c),
         SchemaNodeContent::Array(schema) => write_array_schema(schema_doc, schema, c),
         SchemaNodeContent::Map(schema) => write_map_schema(schema_doc, schema, c),
+        SchemaNodeContent::Set(schema) => write_set_schema(schema_doc, schema, c),
         SchemaNodeContent::Record(schema) => write_record_schema(schema_doc, schema, c),
         SchemaNodeContent::Tuple(schema) => write_tuple_schema(schema_doc, schema, c),
         SchemaNodeContent::Union(schema) => write_union_schema(schema_doc, schema, c),
@@ -242,6 +247,66 @@ impl FloatSchema {
             Ok(())
         })
     }
+}
+
+impl DecimalSchema {
+    pub fn is_shorthand_compatible(&self) -> bool {
+        matches!(self.min, Bound::Unbounded)
+            && matches!(self.max, Bound::Unbounded)
+            && self.multiple_of.is_none()
+    }
+
+    /// The `range` constraint in schema notation (`[0.00, 1.00]`), if any.
+    pub fn range_display(&self) -> Option<String> {
+        format_bound_range(&self.min, &self.max, format_decimal)
+    }
+
+    pub fn shorthand(&self) -> Option<Text> {
+        self.is_shorthand_compatible()
+            .then(|| Text::inline_implicit("decimal"))
+    }
+
+    pub fn write(&self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        if let Some(shorthand) = self.shorthand() {
+            return c.write(shorthand);
+        }
+
+        c.record(|rec| {
+            rec.constructor().set_variant("decimal")?;
+            rec.field_optional(
+                "range",
+                format_bound_range(&self.min, &self.max, format_decimal),
+            )?;
+            rec.field_optional("multiple-of", self.multiple_of.clone())?;
+            Ok(())
+        })
+    }
+}
+
+fn write_bytes_schema(schema: &BytesSchema, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+    if schema.min_length.is_none() && schema.max_length.is_none() {
+        return c.write(Text::inline_implicit("bytes"));
+    }
+    c.record(|rec| {
+        rec.constructor().set_variant("bytes")?;
+        rec.field_optional("min-length", schema.min_length)?;
+        rec.field_optional("max-length", schema.max_length)?;
+        Ok(())
+    })
+}
+
+fn write_set_schema(
+    schema_doc: &SchemaDocument,
+    schema: &SetSchema,
+    c: &mut DocumentConstructor,
+) -> Result<(), WriteError> {
+    c.record(|rec| {
+        rec.constructor().set_variant("set")?;
+        rec.field_with("item", |c| write_schema_node(schema_doc, schema.item, c))?;
+        rec.field_optional("min-size", schema.min_size)?;
+        rec.field_optional("max-size", schema.max_size)?;
+        Ok(())
+    })
 }
 
 fn write_array_schema(
@@ -891,6 +956,10 @@ fn format_bound_range<T>(
 }
 
 fn format_bigint(value: &BigInt) -> String {
+    value.to_string()
+}
+
+fn format_decimal(value: &Decimal) -> String {
     value.to_string()
 }
 

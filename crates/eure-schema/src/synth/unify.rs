@@ -74,6 +74,9 @@ pub fn unify(t1: SynthType, t2: SynthType) -> SynthType {
         // Arrays: unify element types
         (SynthType::Array(a), SynthType::Array(b)) => SynthType::Array(Box::new(unify(*a, *b))),
 
+        // Sets: unify element types
+        (SynthType::Set(a), SynthType::Set(b)) => SynthType::Set(Box::new(unify(*a, *b))),
+
         // Tuples: unify element-wise if same length
         (SynthType::Tuple(a), SynthType::Tuple(b)) if a.len() == b.len() => {
             let unified: Vec<_> = a.into_iter().zip(b).map(|(x, y)| unify(x, y)).collect();

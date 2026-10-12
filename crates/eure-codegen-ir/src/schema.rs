@@ -2,7 +2,7 @@ use indexmap::{IndexMap, IndexSet};
 
 use crate::codegen::FieldCodegenIr;
 use crate::ids::{QualifiedTypeName, SchemaNodeIrId};
-use crate::value::{DecimalInt, ValueIr};
+use crate::value::{DecimalInt, DecimalValueIr, ValueIr};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SchemaNodeIr {
@@ -55,11 +55,14 @@ pub enum SchemaNodeContentIr {
     Text(TextSchemaIr),
     Integer(IntegerSchemaIr),
     Float(FloatSchemaIr),
+    Decimal(DecimalSchemaIr),
+    Bytes(BytesSchemaIr),
     Boolean,
     Null,
     Literal(ValueIr),
     Array(ArraySchemaIr),
     Map(MapSchemaIr),
+    Set(SetSchemaIr),
     Record(RecordSchemaIr),
     Tuple(TupleSchemaIr),
     Union(UnionSchemaIr),
@@ -88,6 +91,26 @@ pub struct FloatSchemaIr {
     pub max: BoundIr<f64>,
     pub multiple_of: Option<f64>,
     pub precision: FloatPrecisionIr,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DecimalSchemaIr {
+    pub min: BoundIr<DecimalValueIr>,
+    pub max: BoundIr<DecimalValueIr>,
+    pub multiple_of: Option<DecimalValueIr>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BytesSchemaIr {
+    pub min_length: Option<u32>,
+    pub max_length: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SetSchemaIr {
+    pub item: SchemaNodeIrId,
+    pub min_size: Option<u32>,
+    pub max_size: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

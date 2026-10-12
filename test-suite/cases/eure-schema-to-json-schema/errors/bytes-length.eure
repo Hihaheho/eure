@@ -1,0 +1,8 @@
+// Test error: byte-length limits have no exact equivalent on base64 string length
+
+schema = ```eure
+$variant = "bytes"
+max-length = 16
+```
+
+json_schema_errors[] = "Bytes length constraints cannot be represented in JSON Schema"

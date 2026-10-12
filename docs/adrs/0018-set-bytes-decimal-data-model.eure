@@ -107,11 +107,23 @@ consequences = ````markdown
 - `Vec<u8>` already means "array of integers", so binary data is read and written through the
   dedicated `eure_document::bytes::Bytes` type (or `&[u8]`).
 
-**Follow-up**
+## Schema types
 
-- Schema types `.decimal`, `.bytes`, and `.set` (with item schemas and codegen support). Until
-  then, schema synthesis reports decimals as `.float` and bytes/sets as `.any`.
-- `IntoEure` for Rust set types.
+- `` `decimal` `` / `$variant: decimal` with `range` and `multiple-of`, both exact. Integers are
+  accepted; binary floats are not, since they are not exact.
+- `` `bytes` `` / `$variant: bytes` with `min-length` / `max-length` counted in bytes.
+- `$variant: set` with `item`, `min-size`, and `max-size`. Element errors keep the set's path
+  and point at the element itself, since set elements have no path segment.
+- Codegen maps them to `eure_document::decimal::Decimal`, `eure_document::bytes::Bytes`, and
+  `BTreeSet<T>`. `BTreeSet` needs `Ord`, which generated types do not derive, so set items resolve
+  to built-in types (`String`, `i64`, `ObjectKey`, tuples of those, also through type
+  references); items that would need a generated type are a codegen error, as with map keys.
+  Rust sets also implement `IntoEure`, writing `#{...}`.
+- JSON Schema: decimal becomes `number` only when its constraints are exact `f64` values, bytes
+  become `string` with `contentEncoding: base64` (byte-length limits are rejected because they
+  have no exact base64-length equivalent), and sets become arrays with `uniqueItems`.
+- serde-eure: decimals deserialize from numbers or decimal strings and serialize as numbers only
+  when exact; bytes use base64 strings in human-readable formats and raw bytes otherwise.
 ````
 
 alternatives-considered = [

@@ -1,0 +1,132 @@
+// Test cases for decimal type schemas
+
+// ============================================================================
+// Valid Cases
+// ============================================================================
+
+@ cases.shorthand
+input_eure = ```eure
+price = 19.99
+count = 3
+big = 1e3
+```
+
+schema = ```eure
+price = `decimal`
+count = `decimal`
+big = `decimal`
+```
+
+@ cases.constraints
+input_eure = ```eure
+price = 12.30
+```
+
+schema = ```eure
+price {
+  $variant = "decimal"
+  range = "[0, 1000.00)"
+  multiple-of = 0.01
+}
+```
+
+output_json_schema = ```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "price": {
+      "type": "number",
+      "minimum": 0.0,
+      "exclusiveMaximum": 1000.0,
+      "multipleOf": 0.01
+    }
+  },
+  "required": ["price"]
+}
+```
+
+// ============================================================================
+// Error Cases
+// ============================================================================
+
+@ cases.float-is-not-decimal
+input_eure = ```eure
+price = 1.5f64
+```
+
+schema = ```eure
+price = `decimal`
+```
+
+schema_errors[] = ```text
+error: Type mismatch: expected decimal, got float at path price
+ --> input.eure:1:9
+  |
+1 | price = 1.5f64
+  |         ^^^^^^ Type mismatch: expected decimal, got float at path price
+  |
+note: constraint defined here
+ --> schema.eure:1:9
+  |
+1 | price = `decimal`
+  |         --------- constraint defined here
+```
+
+@ cases.not-multiple-of
+input_eure = ```eure
+price = 12.305
+```
+
+schema = ```eure
+price {
+  $variant = "decimal"
+  multiple-of = 0.01
+}
+```
+
+schema_errors[] = ```text
+error: Value is not a multiple of 0.01 at path price
+ --> input.eure:1:9
+  |
+1 | price = 12.305
+  |         ^^^^^^ Value is not a multiple of 0.01 at path price
+  |
+note: constraint defined here
+ --> schema.eure:1:1
+  |
+1 | / price {
+2 | |   $variant = "decimal"
+3 | |   multiple-of = 0.01
+4 | | }
+  | |_- constraint defined here
+```
+
+@ cases.out-of-range
+input_eure = ```eure
+price = 1000.00
+```
+
+schema = ```eure
+price {
+  $variant = "decimal"
+  range = "[0, 1000.00)"
+}
+```
+
+schema_errors[] = ```text
+error: Value 1000.00 is out of range at path price
+ --> input.eure:1:9
+  |
+1 | price = 1000.00
+  |         ^^^^^^^ Value 1000.00 is out of range at path price
+  |
+note: constraint defined here
+ --> schema.eure:1:1
+  |
+1 | / price {
+2 | |   $variant = "decimal"
+3 | |   range = "[0, 1000.00)"
+4 | | }
+  | |_- constraint defined here
+```

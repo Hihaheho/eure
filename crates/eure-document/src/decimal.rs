@@ -75,6 +75,17 @@ impl Decimal {
         Some(normalized.mantissa * BigInt::from(10u8).pow(exp))
     }
 
+    /// Returns true if `self` is an exact integer multiple of `divisor`.
+    ///
+    /// Only zero is a multiple of zero.
+    pub fn is_multiple_of(&self, divisor: &Self) -> bool {
+        if divisor.is_zero() {
+            return self.is_zero();
+        }
+        let (value, divisor) = self.aligned(divisor);
+        (value % divisor).sign() == Sign::NoSign
+    }
+
     /// Converts a finite `f64` to the shortest decimal that round-trips to it.
     ///
     /// Integral values get one fractional digit (`100.0`) so they stay fractional literals.
@@ -300,6 +311,16 @@ mod tests {
         assert_ne!(dec("1.1"), dec("1.01"));
         assert!(dec("1.09") < dec("1.1"));
         assert!(dec("-2.0") < dec("-1.5"));
+    }
+
+    #[test]
+    fn multiple_of() {
+        assert!(dec("1.50").is_multiple_of(&dec("0.25")));
+        assert!(dec("-0.3").is_multiple_of(&dec("0.1")));
+        assert!(dec("1e3").is_multiple_of(&dec("5")));
+        assert!(!dec("1.05").is_multiple_of(&dec("0.1")));
+        assert!(dec("0.0").is_multiple_of(&dec("0")));
+        assert!(!dec("1").is_multiple_of(&dec("0.0")));
     }
 
     #[test]

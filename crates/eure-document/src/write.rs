@@ -14,7 +14,7 @@ use alloc::borrow::{Cow, ToOwned};
 use alloc::string::String;
 use num_bigint::BigInt;
 
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 
 use crate::document::InsertError;
 use crate::document::constructor::ScopeError;
@@ -56,6 +56,18 @@ pub enum WriteError {
     /// Flatten target cannot be written as record fields.
     #[error("flatten target is not record-like: {type_name}")]
     FlattenTargetNotRecordLike { type_name: &'static str },
+
+    /// A set element must be an integer, a plaintext string, or a tuple of those.
+    #[error("invalid set element: expected integer, plaintext string, or tuple, got {actual}")]
+    InvalidSetElement { actual: ValueKind },
+
+    /// A set element cannot carry extensions.
+    #[error("set elements cannot have extensions")]
+    SetElementWithExtensions,
+
+    /// Two elements of a Rust set wrote the same Eure value.
+    #[error("duplicate set element: {element}")]
+    DuplicateSetElement { element: ObjectKey },
 }
 
 /// Trait for writing Rust types to Eure documents.
@@ -366,6 +378,96 @@ where
     }
 }
 
+/// Writes a Rust set as an Eure set (`#{...}`).
+///
+/// Each element is written on its own and must produce a value from the set element domain
+/// (integer, plaintext string, or tuple of those).
+fn write_set<M, T>(
+    elements: impl IntoIterator<Item = T>,
+    c: &mut DocumentConstructor,
+) -> Result<(), M::Error>
+where
+    M: IntoEure<T>,
+{
+    c.bind_empty_set().map_err(WriteError::from)?;
+    for element in elements {
+        let mut element_constructor = DocumentConstructor::new();
+        M::write(element, &mut element_constructor)?;
+        let element_doc = element_constructor.finish();
+        let key = set_element_key(&element_doc, element_doc.get_root_id())?;
+        c.add_set_element(key).map_err(|error| match error.kind {
+            InsertErrorKind::DuplicateSetElement { element } => {
+                WriteError::DuplicateSetElement { element }
+            }
+            _ => WriteError::from(error),
+        })?;
+    }
+    Ok(())
+}
+
+fn set_element_key(doc: &EureDocument, node_id: NodeId) -> Result<ObjectKey, WriteError> {
+    let node = doc.node(node_id);
+    if !node.extensions.is_empty() {
+        return Err(WriteError::SetElementWithExtensions);
+    }
+    match &node.content {
+        NodeValue::Primitive(PrimitiveValue::Integer(n)) => Ok(ObjectKey::Number(n.clone())),
+        NodeValue::Primitive(PrimitiveValue::Text(text))
+            if text.language == Language::Plaintext =>
+        {
+            Ok(ObjectKey::String(text.content.clone()))
+        }
+        NodeValue::Tuple(tuple) => tuple
+            .iter()
+            .map(|&child| set_element_key(doc, child))
+            .collect::<Result<Vec<_>, _>>()
+            .map(|keys| ObjectKey::Tuple(crate::value::Tuple(keys))),
+        other => Err(WriteError::InvalidSetElement {
+            actual: other.value_kind(),
+        }),
+    }
+}
+
+impl<M, T, S> IntoEure<IndexSet<T, S>> for IndexSet<M, S>
+where
+    M: IntoEure<T>,
+{
+    type Error = M::Error;
+
+    fn write(value: IndexSet<T, S>, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+        write_set::<M, T>(value, c)
+    }
+}
+
+#[cfg(feature = "std")]
+impl<M, T, S> IntoEure<std::collections::HashSet<T, S>> for std::collections::HashSet<M, S>
+where
+    M: IntoEure<T>,
+{
+    type Error = M::Error;
+
+    fn write(
+        value: std::collections::HashSet<T, S>,
+        c: &mut DocumentConstructor,
+    ) -> Result<(), Self::Error> {
+        write_set::<M, T>(value, c)
+    }
+}
+
+impl<M, T> IntoEure<alloc::collections::BTreeSet<T>> for alloc::collections::BTreeSet<M>
+where
+    M: IntoEure<T>,
+{
+    type Error = M::Error;
+
+    fn write(
+        value: alloc::collections::BTreeSet<T>,
+        c: &mut DocumentConstructor,
+    ) -> Result<(), Self::Error> {
+        write_set::<M, T>(value, c)
+    }
+}
+
 impl<M, T, const N: usize> IntoEure<[T; N]> for [M; N]
 where
     M: IntoEure<T>,
@@ -421,14 +523,14 @@ where
     }
 }
 
-impl<M, K, V> IntoEure<IndexMap<K, V>> for IndexMap<K, M>
+impl<M, K, V, S> IntoEure<IndexMap<K, V, S>> for IndexMap<K, M, S>
 where
     M: IntoEure<V>,
-    K: Into<ObjectKey> + Eq + std::hash::Hash,
+    K: Into<ObjectKey> + Eq + core::hash::Hash,
 {
     type Error = M::Error;
 
-    fn write(value: IndexMap<K, V>, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+    fn write(value: IndexMap<K, V, S>, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
         c.bind_empty_map().map_err(WriteError::from)?;
         for (key, v) in value {
             let scope = c.begin_scope();
@@ -440,13 +542,16 @@ where
         Ok(())
     }
 
-    fn write_flatten(value: IndexMap<K, V>, rec: &mut RecordWriter<'_>) -> Result<(), Self::Error> {
+    fn write_flatten(
+        value: IndexMap<K, V, S>,
+        rec: &mut RecordWriter<'_>,
+    ) -> Result<(), Self::Error> {
         for (key, v) in value {
             let key = match key.into() {
                 ObjectKey::String(name) => name,
                 _ => {
                     return Err(WriteError::FlattenTargetNotRecordLike {
-                        type_name: type_name::<IndexMap<K, V>>(),
+                        type_name: type_name::<IndexMap<K, V, S>>(),
                     }
                     .into());
                 }
@@ -722,6 +827,63 @@ mod tests {
         let doc = c.finish();
         let arr = doc.root().as_array().unwrap();
         assert_eq!(arr.len(), 3);
+    }
+
+    #[test]
+    fn test_btree_set() {
+        let mut c = DocumentConstructor::new();
+        c.write(alloc::collections::BTreeSet::from([3i32, 1, 2]))
+            .unwrap();
+        assert_eq!(c.finish(), eure!({ = #{1, 2, 3} }));
+    }
+
+    #[test]
+    fn test_set_of_strings_and_tuples() {
+        let mut c = DocumentConstructor::new();
+        c.write(
+            [("a".to_string(), 1i32), ("b".to_string(), 2)]
+                .into_iter()
+                .collect::<crate::collections::IndexSet<_>>(),
+        )
+        .unwrap();
+        let a = ObjectKey::Tuple(crate::value::Tuple(vec!["a".into(), 1.into()]));
+        let b = ObjectKey::Tuple(crate::value::Tuple(vec!["b".into(), 2.into()]));
+        assert_eq!(c.finish(), eure!({ = #{a, b} }));
+    }
+
+    #[test]
+    fn test_set_round_trip() {
+        let original = alloc::collections::BTreeSet::from(["x".to_string(), "y".to_string()]);
+        let mut c = DocumentConstructor::new();
+        c.write(original.clone()).unwrap();
+        let doc = c.finish();
+        let parsed: alloc::collections::BTreeSet<String> = doc.parse(doc.get_root_id()).unwrap();
+        assert_eq!(parsed, original);
+    }
+
+    #[test]
+    fn test_set_rejects_non_key_elements() {
+        let mut c = DocumentConstructor::new();
+        let result = c.write(alloc::collections::BTreeSet::from([true]));
+        assert!(matches!(
+            result,
+            Err(WriteError::InvalidSetElement {
+                actual: ValueKind::Bool
+            })
+        ));
+    }
+
+    #[test]
+    fn test_decimal_and_bytes() {
+        let price: crate::decimal::Decimal = "1.10".parse().unwrap();
+        let data = crate::bytes::Bytes(b"Hi".to_vec());
+        let mut c = DocumentConstructor::new();
+        c.write(price.clone()).unwrap();
+        assert_eq!(c.finish(), eure!({ = 1.10 }));
+        let mut c = DocumentConstructor::new();
+        c.write(data.clone()).unwrap();
+        let doc = c.finish();
+        assert_eq!(doc, eure!({ = data }));
     }
 
     #[test]

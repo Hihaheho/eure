@@ -54,15 +54,25 @@ pub fn canonicalize_decimal(value: &DecimalInt) -> DecimalInt {
     value.clone()
 }
 
+/// Exact decimal value `mantissa * 10^(-scale)`, mirroring Eure's decimal data model.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DecimalValueIr {
+    pub mantissa: BigInt,
+    pub scale: i64,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValueIr {
     Null,
     Bool(bool),
     Integer(DecimalInt),
     Float(f64),
+    Decimal(DecimalValueIr),
     Text(TextValueIr),
+    Bytes(Vec<u8>),
     Array(Vec<ValueIr>),
     Tuple(Vec<ValueIr>),
+    Set(Vec<ObjectKeyIr>),
     Map(IndexMap<ObjectKeyIr, ValueIr>),
 }
 

@@ -8,8 +8,10 @@ pub mod tuple;
 pub mod union;
 pub mod variant_path;
 
+use crate::collections::IndexSet as AccessedNames;
 use alloc::borrow::{Cow, ToOwned};
 use alloc::string::String;
+use core::hash::BuildHasher;
 use indexmap::{IndexMap, IndexSet};
 pub use object_key::ParseObjectKey;
 pub use record::RecordParser;
@@ -22,8 +24,10 @@ use alloc::rc::Rc;
 use core::cell::RefCell;
 use num_bigint::BigInt;
 
+use alloc::collections::{BTreeMap, BTreeSet};
 use core::marker::PhantomData;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+#[cfg(feature = "std")]
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     bytes::Bytes,
@@ -39,7 +43,7 @@ use crate::{
 // =============================================================================
 
 /// Snapshot of accessed state (fields, extensions).
-pub type AccessedSnapshot = (HashSet<String>, HashSet<Identifier>);
+pub type AccessedSnapshot = (AccessedNames<String>, AccessedNames<Identifier>);
 
 /// Tracks accessed fields and extensions with snapshot/rollback support for union parsing.
 ///
@@ -65,8 +69,8 @@ impl AccessedSet {
     pub fn new() -> Self {
         // Start with one empty state (the current working state)
         Self(Rc::new(RefCell::new(vec![(
-            HashSet::new(),
-            HashSet::new(),
+            AccessedNames::default(),
+            AccessedNames::default(),
         )])))
     }
 
@@ -96,7 +100,7 @@ impl AccessedSet {
     }
 
     /// Get all accessed extensions.
-    pub fn get_accessed_exts(&self) -> HashSet<Identifier> {
+    pub fn get_accessed_exts(&self) -> AccessedNames<Identifier> {
         self.0.borrow().last().unwrap().1.clone()
     }
 
@@ -1392,30 +1396,33 @@ macro_rules! parse_set {
 
 /// `IndexSet<M>` parses `IndexSet<T>` using M's FromEure implementation.
 #[diagnostic::do_not_recommend]
-impl<'doc, M, T> FromEure<'doc, IndexSet<T>> for IndexSet<M>
+impl<'doc, M, T, S> FromEure<'doc, IndexSet<T, S>> for IndexSet<M, S>
 where
     M: FromEure<'doc, T>,
-    T: Eq + std::hash::Hash,
+    T: Eq + core::hash::Hash,
+    S: BuildHasher + Default,
     M::Error: From<ParseError>,
 {
     type Error = M::Error;
-    fn parse(ctx: &ParseContext<'doc>) -> Result<IndexSet<T>, Self::Error> {
+    fn parse(ctx: &ParseContext<'doc>) -> Result<IndexSet<T, S>, Self::Error> {
         ctx.ensure_no_variant_path()?;
-        parse_set!(ctx, M, IndexSet<T>)
+        parse_set!(ctx, M, IndexSet<T, S>)
     }
 }
 
 /// `HashSet<M>` parses `HashSet<T>` using M's FromEure implementation.
+#[cfg(feature = "std")]
 #[diagnostic::do_not_recommend]
-impl<'doc, M, T> FromEure<'doc, HashSet<T>> for HashSet<M>
+impl<'doc, M, T, S> FromEure<'doc, HashSet<T, S>> for HashSet<M, S>
 where
     M: FromEure<'doc, T>,
-    T: Eq + std::hash::Hash,
+    T: Eq + core::hash::Hash,
+    S: BuildHasher + Default,
     M::Error: From<ParseError>,
 {
     type Error = M::Error;
-    fn parse(ctx: &ParseContext<'doc>) -> Result<HashSet<T>, Self::Error> {
-        parse_set!(ctx, M, HashSet<T>)
+    fn parse(ctx: &ParseContext<'doc>) -> Result<HashSet<T, S>, Self::Error> {
+        parse_set!(ctx, M, HashSet<T, S>)
     }
 }
 
@@ -1582,29 +1589,32 @@ where
 }
 
 /// `HashMap<K, M>` parses `HashMap<K, T>` using M's FromEure implementation.
+#[cfg(feature = "std")]
 #[diagnostic::do_not_recommend]
-impl<'doc, K, M, T> FromEure<'doc, HashMap<K, T>> for HashMap<K, M>
+impl<'doc, K, M, T, S> FromEure<'doc, HashMap<K, T, S>> for HashMap<K, M, S>
 where
     K: ParseObjectKey<'doc>,
     M: FromEure<'doc, T>,
+    S: BuildHasher + Default,
     M::Error: From<ParseError>,
 {
     type Error = M::Error;
-    fn parse(ctx: &ParseContext<'doc>) -> Result<HashMap<K, T>, Self::Error> {
+    fn parse(ctx: &ParseContext<'doc>) -> Result<HashMap<K, T, S>, Self::Error> {
         parse_map!(ctx, M, T)
     }
 }
 
 /// `IndexMap<K, M>` parses `IndexMap<K, T>` using M's FromEure implementation.
 #[diagnostic::do_not_recommend]
-impl<'doc, K, M, T> FromEure<'doc, IndexMap<K, T>> for IndexMap<K, M>
+impl<'doc, K, M, T, S> FromEure<'doc, IndexMap<K, T, S>> for IndexMap<K, M, S>
 where
     K: ParseObjectKey<'doc>,
     M: FromEure<'doc, T>,
+    S: BuildHasher + Default,
     M::Error: From<ParseError>,
 {
     type Error = M::Error;
-    fn parse(ctx: &ParseContext<'doc>) -> Result<IndexMap<K, T>, Self::Error> {
+    fn parse(ctx: &ParseContext<'doc>) -> Result<IndexMap<K, T, S>, Self::Error> {
         parse_map!(ctx, M, T)
     }
 }
@@ -2049,7 +2059,7 @@ mod tests {
     /// This causes deny_unknown_fields() to report them as unknown.
     #[test]
     fn test_flatten_indexmap_marks_fields_as_accessed() {
-        use indexmap::IndexMap;
+        use crate::collections::IndexMap;
 
         let doc = eure!({
             name = "test"
@@ -2178,6 +2188,8 @@ mod tests {
             long { secs = 10, nanos = 0 }
         });
         let root_id = doc.get_root_id();
+
+        use crate::collections::IndexMap;
 
         // Parse IndexMap<String, RemoteDuration> via IndexMap<String, RemoteDurationDef>
         let durations: IndexMap<String, RemoteDuration> = doc

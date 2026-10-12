@@ -7,7 +7,7 @@ use eure_document::document::node::NodeValue;
 use eure_document::parse::{DocumentParser, ParseContext};
 use eure_document::value::ObjectKey;
 
-use crate::{ArraySchema, MapSchema, SchemaNodeId, TupleSchema};
+use crate::{ArraySchema, MapSchema, SchemaNodeId, SetSchema, TupleSchema};
 
 use super::SchemaValidator;
 use super::context::ValidationContext;
@@ -102,6 +102,69 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for ArrayValidator<'a, 'doc, 's> {
         // Validate contains constraint
         if let Some(contains_schema) = self.schema.contains {
             self.validate_contains(&items, contains_schema, node_id);
+        }
+
+        Ok(())
+    }
+}
+
+// =============================================================================
+// SetValidator
+// =============================================================================
+
+/// Validates set values against SetSchema constraints.
+///
+/// Set elements have no path segment of their own, so element errors keep the set's path and
+/// point at the element through its node id.
+pub struct SetValidator<'a, 'doc, 's> {
+    pub ctx: &'a ValidationContext<'doc>,
+    pub schema: &'s SetSchema,
+    pub schema_node_id: SchemaNodeId,
+}
+
+impl<'a, 'doc, 's> DocumentParser<'doc> for SetValidator<'a, 'doc, 's> {
+    type Output = ();
+    type Error = ValidatorError;
+
+    fn parse(&mut self, parse_ctx: &ParseContext<'doc>) -> Result<(), ValidatorError> {
+        let node_id = parse_ctx.node_id();
+
+        let set = match &parse_ctx.node().content {
+            NodeValue::Set(set) => set,
+            _ => {
+                self.ctx.record_error(ValidationError::TypeMismatch {
+                    expected: "set".to_string(),
+                    actual: super::primitive::node_type_name(&parse_ctx.node().content),
+                    path: self.ctx.path(),
+                    node_id,
+                    schema_node_id: self.schema_node_id,
+                });
+                return Ok(());
+            }
+        };
+
+        let size = set.len();
+        let too_small = self.schema.min_size.is_some_and(|min| size < min as usize);
+        let too_large = self.schema.max_size.is_some_and(|max| size > max as usize);
+        if too_small || too_large {
+            self.ctx.record_error(ValidationError::SetSizeOutOfBounds {
+                size,
+                min: self.schema.min_size,
+                max: self.schema.max_size,
+                path: self.ctx.path(),
+                node_id,
+                schema_node_id: self.schema_node_id,
+            });
+        }
+
+        let items: Vec<_> = set.node_ids().copied().collect();
+        for item_id in items {
+            let item_ctx = self.ctx.parse_context(item_id);
+            let child_validator = SchemaValidator {
+                ctx: self.ctx,
+                schema_node_id: self.schema.item,
+            };
+            let _ = item_ctx.parse_with(child_validator);
         }
 
         Ok(())

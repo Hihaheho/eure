@@ -175,7 +175,7 @@ impl SourceConstructor {
     pub fn finish(mut self) -> SourceDocument {
         // Any remaining pending trivia becomes trailing trivia of the root source
         if !self.pending_trivia.is_empty() {
-            self.sources[0].trailing_trivia = std::mem::take(&mut self.pending_trivia);
+            self.sources[0].trailing_trivia = core::mem::take(&mut self.pending_trivia);
         }
         SourceDocument::new(self.inner.finish(), self.sources)
     }
@@ -490,7 +490,7 @@ impl SourceConstructor {
     /// Add a binding to the current context with pending trivia attached.
     fn push_binding(&mut self, mut binding: BindingSource) {
         // Attach pending trivia to this binding
-        binding.trivia_before = std::mem::take(&mut self.pending_trivia);
+        binding.trivia_before = core::mem::take(&mut self.pending_trivia);
 
         match self.builder_stack.last_mut() {
             Some(BuilderContext::SectionItems { bindings, .. }) => {
@@ -630,8 +630,8 @@ impl InterpreterSink for SourceConstructor {
         self.sources.push(EureSource::default());
 
         // Save the pending path and trivia, clear them for the inner block
-        let saved_path = std::mem::take(&mut self.pending_path);
-        let saved_trivia = std::mem::take(&mut self.pending_trivia);
+        let saved_path = core::mem::take(&mut self.pending_path);
+        let saved_trivia = core::mem::take(&mut self.pending_trivia);
 
         // Push context
         self.builder_stack.push(BuilderContext::EureBlock {
@@ -663,7 +663,7 @@ impl InterpreterSink for SourceConstructor {
                     });
                 }
             };
-            self.sources[source_id.0].trailing_trivia = std::mem::take(&mut self.pending_trivia);
+            self.sources[source_id.0].trailing_trivia = core::mem::take(&mut self.pending_trivia);
         }
 
         // Pop the EureBlock context and record its SourceId
@@ -694,7 +694,7 @@ impl InterpreterSink for SourceConstructor {
 
     fn end_binding_value(&mut self) -> Result<(), Self::Error> {
         // Pattern #1: path = value
-        let path = std::mem::take(&mut self.pending_path);
+        let path = core::mem::take(&mut self.pending_path);
         let node_id = self.last_bound_node.take().ok_or_else(|| InsertError {
             kind: ConstructorError::MissingBindBeforeEndBindingValue.into(),
             path: EurePath::from_iter(self.inner.current_path().iter().cloned()),
@@ -708,7 +708,7 @@ impl InterpreterSink for SourceConstructor {
 
     fn end_binding_block(&mut self) -> Result<(), Self::Error> {
         // Pattern #2/#3: path { eure }
-        let path = std::mem::take(&mut self.pending_path);
+        let path = core::mem::take(&mut self.pending_path);
         let source_id = self.last_block_id.take().ok_or_else(|| InsertError {
             kind: ConstructorError::MissingEndEureBlockBeforeEndBindingBlock.into(),
             path: EurePath::from_iter(self.inner.current_path().iter().cloned()),
@@ -728,8 +728,8 @@ impl InterpreterSink for SourceConstructor {
 
     fn begin_section_items(&mut self) {
         // Pattern #4: @ section (items follow)
-        let path = std::mem::take(&mut self.pending_path);
-        let trivia_before = std::mem::take(&mut self.pending_trivia);
+        let path = core::mem::take(&mut self.pending_path);
+        let trivia_before = core::mem::take(&mut self.pending_trivia);
 
         // Check if there was a value binding before this
         let value = self.last_bound_node.take();
@@ -765,8 +765,8 @@ impl InterpreterSink for SourceConstructor {
 
     fn end_section_block(&mut self) -> Result<(), Self::Error> {
         // Pattern #5/#6: @ section { eure }
-        let path = std::mem::take(&mut self.pending_path);
-        let trivia_before = std::mem::take(&mut self.pending_trivia);
+        let path = core::mem::take(&mut self.pending_path);
+        let trivia_before = core::mem::take(&mut self.pending_trivia);
         let source_id = self.last_block_id.take().ok_or_else(|| InsertError {
             kind: ConstructorError::MissingEndEureBlockBeforeEndSectionBlock.into(),
             path: EurePath::from_iter(self.inner.current_path().iter().cloned()),

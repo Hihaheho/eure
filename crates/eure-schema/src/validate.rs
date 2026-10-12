@@ -40,10 +40,10 @@ use eure_document::parse::{DocumentParser, ParseContext};
 use crate::type_path_trace::{NodeTypeTraceMap, SchemaNodePathMap};
 use crate::{SchemaDocument, SchemaNodeContent, SchemaNodeId, identifiers};
 
-use compound::{ArrayValidator, MapValidator, TupleValidator};
+use compound::{ArrayValidator, MapValidator, SetValidator, TupleValidator};
 use primitive::{
-    AnyValidator, BooleanValidator, FloatValidator, IntegerValidator, LiteralValidator,
-    NullValidator, TextValidator,
+    AnyValidator, BooleanValidator, BytesValidator, DecimalValidator, FloatValidator,
+    IntegerValidator, LiteralValidator, NullValidator, TextValidator,
 };
 use record::RecordValidator;
 use reference::ReferenceValidator;
@@ -179,6 +179,33 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
             SchemaNodeContent::Float(s) => {
                 self.warn_unknown_extensions(parse_ctx);
                 let mut v = FloatValidator {
+                    ctx: self.ctx,
+                    schema: s,
+                    schema_node_id: self.schema_node_id,
+                };
+                v.parse(parse_ctx)
+            }
+            SchemaNodeContent::Decimal(s) => {
+                self.warn_unknown_extensions(parse_ctx);
+                let mut v = DecimalValidator {
+                    ctx: self.ctx,
+                    schema: s,
+                    schema_node_id: self.schema_node_id,
+                };
+                v.parse(parse_ctx)
+            }
+            SchemaNodeContent::Bytes(s) => {
+                self.warn_unknown_extensions(parse_ctx);
+                let mut v = BytesValidator {
+                    ctx: self.ctx,
+                    schema: s,
+                    schema_node_id: self.schema_node_id,
+                };
+                v.parse(parse_ctx)
+            }
+            SchemaNodeContent::Set(s) => {
+                self.warn_unknown_extensions(parse_ctx);
+                let mut v = SetValidator {
                     ctx: self.ctx,
                     schema: s,
                     schema_node_id: self.schema_node_id,

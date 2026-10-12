@@ -1,0 +1,8 @@
+// Test error: decimal bounds that f64 cannot represent exactly are rejected instead of rounded
+
+schema = ```eure
+$variant = "decimal"
+range = "[0.10000000000000000000001, 1]"
+```
+
+json_schema_errors[] = "Decimal value 0.10000000000000000000001 cannot be represented as a JSON Schema number without losing precision"

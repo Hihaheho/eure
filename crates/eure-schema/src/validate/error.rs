@@ -186,6 +186,26 @@ pub enum ValidationError {
         schema_node_id: SchemaNodeId,
     },
 
+    #[error("Bytes length {length} is out of bounds at path {path}")]
+    BytesLengthOutOfBounds {
+        length: usize,
+        min: Option<u32>,
+        max: Option<u32>,
+        path: EurePath,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
+    },
+
+    #[error("Set size {size} is out of bounds at path {path}")]
+    SetSizeOutOfBounds {
+        size: usize,
+        min: Option<u32>,
+        max: Option<u32>,
+        path: EurePath,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
+    },
+
     #[error("Map size {size} is out of bounds at path {path}")]
     MapSizeOutOfBounds {
         size: usize,
@@ -296,7 +316,7 @@ pub enum ValidationError {
         schema_node_id: SchemaNodeId,
     },
 
-    #[error("Integer not a multiple of {divisor} at path {path}")]
+    #[error("Value is not a multiple of {divisor} at path {path}")]
     NotMultipleOf {
         divisor: String,
         path: EurePath,
@@ -474,6 +494,16 @@ impl ValidationError {
                 schema_node_id,
                 ..
             }
+            | Self::BytesLengthOutOfBounds {
+                node_id,
+                schema_node_id,
+                ..
+            }
+            | Self::SetSizeOutOfBounds {
+                node_id,
+                schema_node_id,
+                ..
+            }
             | Self::TupleLengthMismatch {
                 node_id,
                 schema_node_id,
@@ -611,6 +641,8 @@ impl ValidationError {
             | Self::PatternMismatch { path, .. }
             | Self::ArrayLengthOutOfBounds { path, .. }
             | Self::MapSizeOutOfBounds { path, .. }
+            | Self::BytesLengthOutOfBounds { path, .. }
+            | Self::SetSizeOutOfBounds { path, .. }
             | Self::TupleLengthMismatch { path, .. }
             | Self::ArrayNotUnique { path, .. }
             | Self::ArrayMissingContains { path, .. }
@@ -655,6 +687,8 @@ impl ValidationError {
             Self::FlattenMapKeyMismatch { .. } => 30, // Similar to PatternMismatch
             Self::ArrayLengthOutOfBounds { .. } => 30,
             Self::MapSizeOutOfBounds { .. } => 30,
+            Self::BytesLengthOutOfBounds { .. } => 30,
+            Self::SetSizeOutOfBounds { .. } => 30,
             Self::NotMultipleOf { .. } => 30,
             Self::ArrayNotUnique { .. } => 25,
             Self::ArrayMissingContains { .. } => 25,

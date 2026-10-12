@@ -7,13 +7,17 @@
 # Disable incremental compilation to prevent cache bloat
 export CARGO_INCREMENTAL=0
 
-.PHONY: check clippy eure-ls-wasm test test-no-default-features fmt-check test-suite eure-check
+.PHONY: check clippy eure-ls-wasm eure-document-no-std test test-no-default-features fmt-check test-suite eure-check
 
-check: fmt-check clippy test-no-default-features test test-suite eure-check eure-ls-wasm
+check: fmt-check clippy test-no-default-features test test-suite eure-check eure-ls-wasm eure-document-no-std
 	@echo "All checks passed."
 
 clippy:
 	@cargo clippy -q --offline --all-targets --all-features -- -D warnings && echo "clippy passed"
+
+# Builds for a target without std, so std leaking in through code or dependencies is caught.
+eure-document-no-std:
+	@rustup target add thumbv7em-none-eabihf && cargo check -q -p eure-document --no-default-features --target thumbv7em-none-eabihf --offline && echo "eure-document-no-std passed"
 
 eure-ls-wasm:
 	@rustup target add wasm32-unknown-unknown && cargo clippy -p eure-ls --target wasm32-unknown-unknown --offline -- -D warnings && echo "eure-ls-wasm passed"

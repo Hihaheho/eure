@@ -43,19 +43,20 @@
 //! **Type reference:** `` `$types.my-type` `` or `` `$types.namespace.type` ``
 
 use crate::parse::{
-    ParsedArraySchema, ParsedExports, ParsedExtTypeSchema, ParsedFloatSchema, ParsedImports,
-    ParsedIntegerSchema, ParsedMapSchema, ParsedRecordSchema, ParsedSchemaMetadata,
-    ParsedSchemaNode, ParsedSchemaNodeContent, ParsedTupleSchema, ParsedUnionSchema,
-    ParsedUnknownFieldsPolicy, parse_root_exports, parse_root_imports,
+    ParsedArraySchema, ParsedDecimalSchema, ParsedExports, ParsedExtTypeSchema, ParsedFloatSchema,
+    ParsedImports, ParsedIntegerSchema, ParsedMapSchema, ParsedRecordSchema, ParsedSchemaMetadata,
+    ParsedSchemaNode, ParsedSchemaNodeContent, ParsedSetSchema, ParsedTupleSchema,
+    ParsedUnionSchema, ParsedUnknownFieldsPolicy, parse_root_exports, parse_root_imports,
 };
 use crate::resolver::{LoadedSchemaSet, ResolvedSchemaUri, ResolverError};
 use crate::type_path_trace::LayoutStrategies;
 use crate::{
-    ArraySchema, Bound, CodegenDefaults, ExtTypeSchema, FloatPrecision, FloatSchema, IntegerSchema,
-    MapSchema, RecordCodegen, RecordFieldSchema, RecordSchema, RootCodegen, SchemaDocument,
-    SchemaImport, SchemaMetadata, SchemaNodeContent, SchemaNodeId, TupleSchema, TypeCodegen,
-    TypeReference, UnionCodegen, UnionSchema, UnknownFieldsPolicy,
+    ArraySchema, Bound, CodegenDefaults, DecimalSchema, ExtTypeSchema, FloatPrecision, FloatSchema,
+    IntegerSchema, MapSchema, RecordCodegen, RecordFieldSchema, RecordSchema, RootCodegen,
+    SchemaDocument, SchemaImport, SchemaMetadata, SchemaNodeContent, SchemaNodeId, SetSchema,
+    TupleSchema, TypeCodegen, TypeReference, UnionCodegen, UnionSchema, UnknownFieldsPolicy,
 };
+use eure_document::decimal::Decimal;
 use eure_document::document::node::{Node, NodeValue};
 use eure_document::document::{EureDocument, InsertErrorKind, NodeId};
 use eure_document::identifier::Identifier;
@@ -602,6 +603,13 @@ impl<'a> Converter<'a> {
             ParsedSchemaNodeContent::Float(parsed) => {
                 Ok(SchemaNodeContent::Float(self.convert_float_schema(parsed)?))
             }
+            ParsedSchemaNodeContent::Decimal(parsed) => Ok(SchemaNodeContent::Decimal(
+                self.convert_decimal_schema(parsed)?,
+            )),
+            ParsedSchemaNodeContent::Bytes(schema) => Ok(SchemaNodeContent::Bytes(schema)),
+            ParsedSchemaNodeContent::Set(parsed) => {
+                Ok(SchemaNodeContent::Set(self.convert_set_schema(parsed)?))
+            }
             ParsedSchemaNodeContent::Literal(node_id) => {
                 Ok(SchemaNodeContent::Literal(self.node_to_document(node_id)?))
             }
@@ -665,6 +673,36 @@ impl<'a> Converter<'a> {
             max,
             multiple_of: parsed.multiple_of,
             precision,
+        })
+    }
+
+    /// Convert parsed decimal schema (with range string) to final decimal schema (with Bound)
+    fn convert_decimal_schema(
+        &self,
+        parsed: ParsedDecimalSchema,
+    ) -> Result<DecimalSchema, ConversionError> {
+        let (min, max) = if let Some(range_str) = &parsed.range {
+            parse_decimal_range(range_str)?
+        } else {
+            (Bound::Unbounded, Bound::Unbounded)
+        };
+
+        Ok(DecimalSchema {
+            min,
+            max,
+            multiple_of: parsed.multiple_of,
+        })
+    }
+
+    /// Convert parsed set schema to final set schema
+    fn convert_set_schema(
+        &mut self,
+        parsed: ParsedSetSchema,
+    ) -> Result<SetSchema, ConversionError> {
+        Ok(SetSchema {
+            item: self.convert_node(parsed.item)?,
+            min_size: parsed.min_size,
+            max_size: parsed.max_size,
         })
     }
 
@@ -944,148 +982,64 @@ impl<'a> Converter<'a> {
 
 /// Parse an integer range string (Rust-style or interval notation)
 fn parse_integer_range(s: &str) -> Result<(Bound<BigInt>, Bound<BigInt>), ConversionError> {
-    let s = s.trim();
-
-    // Try interval notation first: [a, b], (a, b), [a, b), (a, b]
-    if s.starts_with('[') || s.starts_with('(') {
-        return parse_interval_integer(s);
-    }
-
-    // Rust-style: a..b, a..=b, a.., ..b, ..=b
-    if let Some(eq_pos) = s.find("..=") {
-        let left = &s[..eq_pos];
-        let right = &s[eq_pos + 3..];
-        let min = if left.is_empty() {
-            Bound::Unbounded
-        } else {
-            Bound::Inclusive(parse_bigint(left)?)
-        };
-        let max = if right.is_empty() {
-            Bound::Unbounded
-        } else {
-            Bound::Inclusive(parse_bigint(right)?)
-        };
-        Ok((min, max))
-    } else if let Some(dot_pos) = s.find("..") {
-        let left = &s[..dot_pos];
-        let right = &s[dot_pos + 2..];
-        let min = if left.is_empty() {
-            Bound::Unbounded
-        } else {
-            Bound::Inclusive(parse_bigint(left)?)
-        };
-        let max = if right.is_empty() {
-            Bound::Unbounded
-        } else {
-            Bound::Exclusive(parse_bigint(right)?)
-        };
-        Ok((min, max))
-    } else {
-        Err(ConversionError::InvalidRangeString(s.to_string()))
-    }
-}
-
-/// Parse interval notation for integers: [a, b], (a, b), etc.
-fn parse_interval_integer(s: &str) -> Result<(Bound<BigInt>, Bound<BigInt>), ConversionError> {
-    let left_inclusive = s.starts_with('[');
-    let right_inclusive = s.ends_with(']');
-
-    let inner = &s[1..s.len() - 1];
-    let parts: Vec<&str> = inner.split(',').map(|p| p.trim()).collect();
-    if parts.len() != 2 {
-        return Err(ConversionError::InvalidRangeString(s.to_string()));
-    }
-
-    let min = if parts[0].is_empty() {
-        Bound::Unbounded
-    } else if left_inclusive {
-        Bound::Inclusive(parse_bigint(parts[0])?)
-    } else {
-        Bound::Exclusive(parse_bigint(parts[0])?)
-    };
-
-    let max = if parts[1].is_empty() {
-        Bound::Unbounded
-    } else if right_inclusive {
-        Bound::Inclusive(parse_bigint(parts[1])?)
-    } else {
-        Bound::Exclusive(parse_bigint(parts[1])?)
-    };
-
-    Ok((min, max))
+    parse_range(s, parse_bigint)
 }
 
 /// Parse a float range string
 fn parse_float_range(s: &str) -> Result<(Bound<f64>, Bound<f64>), ConversionError> {
-    let s = s.trim();
+    parse_range(s, parse_f64)
+}
 
-    // Try interval notation first
+/// Parse a decimal range string
+fn parse_decimal_range(s: &str) -> Result<(Bound<Decimal>, Bound<Decimal>), ConversionError> {
+    parse_range(s, parse_decimal)
+}
+
+/// Parse a range string with the given bound parser.
+///
+/// Supports Rust-style ranges (`a..b`, `a..=b`, `a..`, `..b`, `..=b`) and interval notation
+/// (`[a, b]`, `(a, b)`, `[a, b)`, `(a, b]`, with empty sides meaning unbounded).
+fn parse_range<T>(
+    s: &str,
+    parse: impl Fn(&str) -> Result<T, ConversionError>,
+) -> Result<(Bound<T>, Bound<T>), ConversionError> {
+    let s = s.trim();
+    let bound = |text: &str, inclusive: bool| -> Result<Bound<T>, ConversionError> {
+        if text.is_empty() {
+            Ok(Bound::Unbounded)
+        } else if inclusive {
+            Ok(Bound::Inclusive(parse(text)?))
+        } else {
+            Ok(Bound::Exclusive(parse(text)?))
+        }
+    };
+
+    // Interval notation: [a, b], (a, b), [a, b), (a, b]
     if s.starts_with('[') || s.starts_with('(') {
-        return parse_interval_float(s);
+        let left_inclusive = s.starts_with('[');
+        let right_inclusive = s.ends_with(']');
+        let inner = &s[1..s.len() - 1];
+        let parts: Vec<&str> = inner.split(',').map(|p| p.trim()).collect();
+        if parts.len() != 2 {
+            return Err(ConversionError::InvalidRangeString(s.to_string()));
+        }
+        return Ok((
+            bound(parts[0], left_inclusive)?,
+            bound(parts[1], right_inclusive)?,
+        ));
     }
 
-    // Rust-style
+    // Rust-style: a..b, a..=b, a.., ..b, ..=b
     if let Some(eq_pos) = s.find("..=") {
-        let left = &s[..eq_pos];
-        let right = &s[eq_pos + 3..];
-        let min = if left.is_empty() {
-            Bound::Unbounded
-        } else {
-            Bound::Inclusive(parse_f64(left)?)
-        };
-        let max = if right.is_empty() {
-            Bound::Unbounded
-        } else {
-            Bound::Inclusive(parse_f64(right)?)
-        };
-        Ok((min, max))
+        Ok((bound(&s[..eq_pos], true)?, bound(&s[eq_pos + 3..], true)?))
     } else if let Some(dot_pos) = s.find("..") {
-        let left = &s[..dot_pos];
-        let right = &s[dot_pos + 2..];
-        let min = if left.is_empty() {
-            Bound::Unbounded
-        } else {
-            Bound::Inclusive(parse_f64(left)?)
-        };
-        let max = if right.is_empty() {
-            Bound::Unbounded
-        } else {
-            Bound::Exclusive(parse_f64(right)?)
-        };
-        Ok((min, max))
+        Ok((
+            bound(&s[..dot_pos], true)?,
+            bound(&s[dot_pos + 2..], false)?,
+        ))
     } else {
         Err(ConversionError::InvalidRangeString(s.to_string()))
     }
-}
-
-/// Parse interval notation for floats
-fn parse_interval_float(s: &str) -> Result<(Bound<f64>, Bound<f64>), ConversionError> {
-    let left_inclusive = s.starts_with('[');
-    let right_inclusive = s.ends_with(']');
-
-    let inner = &s[1..s.len() - 1];
-    let parts: Vec<&str> = inner.split(',').map(|p| p.trim()).collect();
-    if parts.len() != 2 {
-        return Err(ConversionError::InvalidRangeString(s.to_string()));
-    }
-
-    let min = if parts[0].is_empty() {
-        Bound::Unbounded
-    } else if left_inclusive {
-        Bound::Inclusive(parse_f64(parts[0])?)
-    } else {
-        Bound::Exclusive(parse_f64(parts[0])?)
-    };
-
-    let max = if parts[1].is_empty() {
-        Bound::Unbounded
-    } else if right_inclusive {
-        Bound::Inclusive(parse_f64(parts[1])?)
-    } else {
-        Bound::Exclusive(parse_f64(parts[1])?)
-    };
-
-    Ok((min, max))
 }
 
 fn collect_document_node_paths(doc: &EureDocument) -> IndexMap<NodeId, EurePath> {
@@ -1248,6 +1202,11 @@ fn parse_f64(s: &str) -> Result<f64, ConversionError> {
         .map_err(|_| ConversionError::InvalidRangeString(format!("Invalid float: {}", s)))
 }
 
+fn parse_decimal(s: &str) -> Result<Decimal, ConversionError> {
+    s.parse()
+        .map_err(|_| ConversionError::InvalidRangeString(format!("Invalid decimal: {}", s)))
+}
+
 /// Convert an EureDocument containing schema definitions to a SchemaDocument
 ///
 /// This function traverses the document and extracts schema information from:
@@ -1404,6 +1363,11 @@ fn remap_node_content(content: &SchemaNodeContent, remap: &[SchemaNodeId]) -> Sc
                 unknown_fields,
             })
         }
+        SchemaNodeContent::Set(set) => SchemaNodeContent::Set(SetSchema {
+            item: map_id(set.item),
+            min_size: set.min_size,
+            max_size: set.max_size,
+        }),
         SchemaNodeContent::Tuple(t) => SchemaNodeContent::Tuple(TupleSchema {
             elements: t.elements.iter().map(|id| map_id(*id)).collect(),
             binding_style: t.binding_style,
@@ -1427,6 +1391,8 @@ fn remap_node_content(content: &SchemaNodeContent, remap: &[SchemaNodeId]) -> Sc
         SchemaNodeContent::Text(t) => SchemaNodeContent::Text(t.clone()),
         SchemaNodeContent::Integer(i) => SchemaNodeContent::Integer(i.clone()),
         SchemaNodeContent::Float(f) => SchemaNodeContent::Float(f.clone()),
+        SchemaNodeContent::Decimal(d) => SchemaNodeContent::Decimal(d.clone()),
+        SchemaNodeContent::Bytes(b) => SchemaNodeContent::Bytes(b.clone()),
         SchemaNodeContent::Literal(d) => SchemaNodeContent::Literal(d.clone()),
     }
 }

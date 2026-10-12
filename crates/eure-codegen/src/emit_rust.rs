@@ -22,6 +22,9 @@ pub enum EmitRustUnsupportedReason {
     #[error("map keys other than text")]
     MapKeysOtherThanText,
 
+    #[error("set items other than text, integer, any, or tuples of those")]
+    SetItemsOtherThanKeyTypes,
+
     #[error("flattened struct variant `{variant_wire_name}`")]
     FlattenedStructVariant { variant_wire_name: String },
 }
@@ -508,8 +511,21 @@ fn schema_node_type(
         SchemaNodeContentIr::Text(_) => "String".to_string(),
         SchemaNodeContentIr::Integer(_) => "i64".to_string(),
         SchemaNodeContentIr::Float(_) => "f64".to_string(),
+        SchemaNodeContentIr::Decimal(_) => "::eure_document::decimal::Decimal".to_string(),
+        SchemaNodeContentIr::Bytes(_) => "::eure_document::bytes::Bytes".to_string(),
         SchemaNodeContentIr::Boolean => "bool".to_string(),
         SchemaNodeContentIr::Null => "()".to_string(),
+        SchemaNodeContentIr::Set(set) => {
+            // `BTreeSet` needs `Ord`, which generated types do not derive, so items resolve to
+            // built-in types only (set elements are integers, strings, or tuples of those).
+            let item =
+                resolve_set_item_type(emitter, schema_owner, set.item, &mut BTreeSet::new())?
+                    .ok_or_else(|| EmitRustError::NotYetSupported {
+                        type_id: emitter.type_id().to_string(),
+                        reason: EmitRustUnsupportedReason::SetItemsOtherThanKeyTypes,
+                    })?;
+            format!("::std::collections::BTreeSet<{item}>")
+        }
         SchemaNodeContentIr::Array(array) => {
             let item = schema_node_type(
                 emitter,
@@ -995,6 +1011,55 @@ fn resolve_map_key_type(
             }
             let result =
                 resolve_map_key_type(emitter, target_ty, target_ty.semantic_root(), visited_types);
+            visited_types.remove(&target_ty.id().0);
+            result
+        }
+        _ => Ok(None),
+    }
+}
+
+/// Resolves a set item schema to a built-in Rust type that implements `Ord`.
+///
+/// Returns `None` when the item would need a generated type.
+fn resolve_set_item_type(
+    emitter: &NestedTypeEmitter<'_>,
+    schema_owner: &TypeDefIr,
+    node_id: SchemaNodeIrId,
+    visited_types: &mut BTreeSet<String>,
+) -> Result<Option<String>, EmitRustError> {
+    let node = lookup_schema_node(emitter, schema_owner, node_id)?;
+    match node.content() {
+        SchemaNodeContentIr::Any => Ok(Some("::eure_document::value::ObjectKey".to_string())),
+        SchemaNodeContentIr::Text(_) => Ok(Some("String".to_string())),
+        SchemaNodeContentIr::Integer(_) => Ok(Some("i64".to_string())),
+        SchemaNodeContentIr::Tuple(tuple) => {
+            let mut items = Vec::with_capacity(tuple.elements.len());
+            for &element in &tuple.elements {
+                let Some(item) =
+                    resolve_set_item_type(emitter, schema_owner, element, visited_types)?
+                else {
+                    return Ok(None);
+                };
+                items.push(item);
+            }
+            Ok(Some(match items.as_slice() {
+                [] => "()".to_string(),
+                [single] => format!("({single},)"),
+                _ => format!("({})", items.join(", ")),
+            }))
+        }
+        SchemaNodeContentIr::Reference(reference) => {
+            let Some(target_ty) = emitter.module.get_type_by_name(reference) else {
+                return Ok(None);
+            };
+            if !visited_types.insert(target_ty.id().0.clone()) {
+                return Err(EmitRustError::NotYetSupported {
+                    type_id: emitter.type_id().to_string(),
+                    reason: EmitRustUnsupportedReason::RecursiveInlineNodeGraph { node: node_id },
+                });
+            }
+            let result =
+                resolve_set_item_type(emitter, target_ty, target_ty.semantic_root(), visited_types);
             visited_types.remove(&target_ty.id().0);
             result
         }
@@ -2411,6 +2476,34 @@ mod tests {
         assert!(
             generated.contains("coords: (String,),"),
             "expected single-element tuple type syntax with trailing comma, got:\n{generated}"
+        );
+    }
+
+    #[test]
+    fn set_items_that_need_generated_types_are_rejected() {
+        // A literal union would become a generated enum, which does not implement `Ord`.
+        let doc = eure_document::eure!({
+            flags {
+                %variant = "set",
+                item {
+                    %variant = "union",
+                    variants.read = "read",
+                    variants.write = "write",
+                },
+            },
+        });
+        let (schema, _) = eure_schema::convert::document_to_schema(&doc).unwrap();
+        let module = crate::schema_to_ir_module(&schema).unwrap();
+        let err = emit_rust_types(&module, &GenerationConfig::builder().build()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                EmitRustError::NotYetSupported {
+                    reason: EmitRustUnsupportedReason::SetItemsOtherThanKeyTypes,
+                    ..
+                }
+            ),
+            "{err:?}"
         );
     }
 }

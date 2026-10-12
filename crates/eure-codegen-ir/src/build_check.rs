@@ -210,6 +210,15 @@ fn validate_schema_graph(
             SchemaNodeContentIr::Map(schema) => {
                 validate_map_refs(type_id_str, *node_id, schema, nodes)?;
             }
+            SchemaNodeContentIr::Set(schema) => {
+                ensure_node_exists(
+                    type_id_str,
+                    *node_id,
+                    schema.item,
+                    "set.item".to_string(),
+                    nodes,
+                )?;
+            }
             SchemaNodeContentIr::Record(schema) => {
                 validate_record_refs(type_id_str, *node_id, schema, nodes)?;
                 validate_record_field_codegen(type_id_str, *node_id, schema)?;

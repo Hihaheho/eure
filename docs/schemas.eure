@@ -138,6 +138,12 @@ age.$optional = true
 // Float type
 score = `float`
 
+// Exact decimal type (accepts `1.10` and integers, not `1.5f64`)
+price = `decimal`
+
+// Binary data type (base64`...` or hex`...`)
+avatar = `bytes`
+
 // Boolean type
 active = `boolean`
 
@@ -149,7 +155,7 @@ metadata = `any`
 ```
 
     "body" = ```markdown
-**Shorthands:** `text`, `integer`, `float`, `boolean`, `null`, `any`
+**Shorthands:** `text`, `integer`, `float`, `decimal`, `bytes`, `boolean`, `null`, `any`
 
 Shorthands are for simple types without constraints. For constraints, use the full form.
 ```
@@ -205,6 +211,36 @@ age.$range = "0..=150"  // 0 <= x <= 150
 // Rust-style
 temperature = `float`
 temperature.$range = "-273.15.."  // x >= -273.15
+```
+
+  }
+
+  @ "decimal-type-with-constraints" {
+    "###": Decimal Type with Constraints
+
+    "body" = ```markdown
+Decimals are exact, so `range` bounds and `multiple-of` are checked without float rounding.
+```
+
+    "eure-snippet" = ```eure
+@ price {
+  $variant: decimal
+  range = "[0, 1000.00)"
+  multiple-of = 0.01      // at most two fractional digits
+}
+```
+
+  }
+
+  @ "bytes-type-with-constraints" {
+    "###": Bytes Type with Constraints
+
+    "eure-snippet" = ```eure
+@ digest {
+  $variant: bytes
+  min-length = 32         // lengths are in bytes, not encoded characters
+  max-length = 32
+}
 ```
 
   }
@@ -338,6 +374,25 @@ Dynamic key-value pairs where all keys have the same type and all values have th
   value = `text`
   min-size = 0
   max-size = 100
+}
+```
+
+  }
+
+  @ "set-type" {
+    "###": Set Type
+
+    "body" = ```markdown
+Unordered collection of unique elements, written `#{...}`. Elements are integers, strings, or
+tuples of those, so `item` should be one of these types.
+```
+
+    "eure-snippet" = ```eure
+@ tags {
+  $variant: set
+  item = `text`
+  min-size = 1
+  max-size = 10
 }
 ```
 
@@ -1106,11 +1161,14 @@ check(value, schema) -> Result<(), TypeError>
 | Bool | Boolean | const constraint |
 | Integer | Integer | min/max, multiple_of, const, enum |
 | Float | Float | min/max, const, enum |
+| Decimal, Integer | Decimal | min/max, multiple_of (exact) |
+| Bytes | Bytes | min/max length in bytes |
 | Text | Text | length, pattern, language, const, enum |
 | Path | Path | path constraints |
 | Hole | Any | Always passes (but marks document incomplete) |
 | Array | Array | item type, min/max_items, unique, contains |
 | Map | Map | key/value types, min/max_pairs |
+| Set | Set | item type, min/max size |
 | Tuple | Tuple | element types at each position |
 | Map | Record | field types + unknown_fields_policy |
 ```

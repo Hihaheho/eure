@@ -40,13 +40,14 @@
 ///    All types are variants of a union type:
 ///
 ///    Primitives:
-///    - text, integer, float, boolean, null, any
-///    - With shorthands: `text`, `integer`, `float`, `boolean`, `null`, `any`
+///    - text, integer, float, decimal, bytes, boolean, null, any
+///    - With shorthands: `text`, `integer`, `float`, `decimal`, `bytes`, `boolean`, `null`, `any`
 ///
 ///    Containers:
 ///    - record: Fixed named fields { field1 = <type>, field2 = <type>, ... }
 ///    - array: Ordered list { $variant: array, item = <type> }
 ///    - map: Dynamic key-value pairs { $variant: map, key = <type>, value = <type> }
+///    - set: Unordered unique elements { $variant: set, item = <type> }
 ///    - tuple: Fixed-length ordered elements { $variant: tuple, elements = [<types>] }
 ///    - union: Tagged union { $variant: union, variants = { ... } }
 ///
@@ -480,6 +481,29 @@ variants {
   /// For constraints, use the full form with $variant: float
   @variants.float-shorthand = { = `float`, $variant => "literal" }
 
+  /// Exact decimal type with optional range and multiple-of constraints.
+  /// Accepts decimal literals (`1.10`) and integers, never binary floats (`1.5f64`).
+  @variants.decimal
+  range = `$types.range-string`
+  range.$optional = true
+  multiple-of = `decimal`
+  multiple-of.$optional = true
+
+  /// Shorthand: field.$type = `decimal`
+  /// For constraints, use the full form with $variant: decimal
+  @variants.decimal-shorthand = { = `decimal`, $variant => "literal" }
+
+  /// Binary data type (written as base64`...` or hex`...`) with optional length constraints.
+  @variants.bytes
+  min-length = `integer`
+  min-length.$optional = true
+  max-length = `integer`
+  max-length.$optional = true
+
+  /// Shorthand: field.$type = `bytes`
+  /// For constraints, use the full form with $variant: bytes
+  @variants.bytes-shorthand = { = `bytes`, $variant => "literal" }
+
   /// Boolean type (true/false).
   /// Usage: field.$type = `boolean`
   @variants.boolean = { = `boolean`, $variant => "literal" }
@@ -567,6 +591,17 @@ variants {
   @variants.map
   key = `$types.type`
   value = `$types.type`
+  min-size = `integer`
+  min-size.$optional = true
+  max-size = `integer`
+  max-size.$optional = true
+
+  /// Set type: an unordered collection of unique elements.
+  /// Elements are integers, strings, or tuples of those, so the item type should be one of these.
+  /// Example: { $variant: set, item = `text` }
+  ///          Allows: #{"a", "b"}
+  @variants.set
+  item = `$types.type`
   min-size = `integer`
   min-size.$optional = true
   max-size = `integer`

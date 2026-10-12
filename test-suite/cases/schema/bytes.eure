@@ -1,0 +1,99 @@
+// Test cases for bytes type schemas
+
+// ============================================================================
+// Valid Cases
+// ============================================================================
+
+@ cases.shorthand
+input_eure = ```eure
+a = base64`SGVsbG8=`
+b = hex`48656c6c6f`
+```
+
+schema = ```eure
+a = `bytes`
+b = `bytes`
+```
+
+output_json_schema = ```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "a": { "type": "string", "contentEncoding": "base64" },
+    "b": { "type": "string", "contentEncoding": "base64" }
+  },
+  "required": ["a", "b"]
+}
+```
+
+@ cases.length
+input_eure = ```eure
+digest = hex`deadbeef`
+```
+
+schema = ```eure
+digest {
+  $variant = "bytes"
+  min-length = 4
+  max-length = 4
+}
+```
+
+// ============================================================================
+// Error Cases
+// ============================================================================
+
+@ cases.text-is-not-bytes
+input_eure = ```eure
+a = "SGVsbG8="
+```
+
+schema = ```eure
+a = `bytes`
+```
+
+schema_errors[] = ```text
+error: Type mismatch: expected bytes, got text at path a
+ --> input.eure:1:5
+  |
+1 | a = "SGVsbG8="
+  |     ^^^^^^^^^^ Type mismatch: expected bytes, got text at path a
+  |
+note: constraint defined here
+ --> schema.eure:1:5
+  |
+1 | a = `bytes`
+  |     ------- constraint defined here
+```
+
+@ cases.length-out-of-bounds
+input_eure = ```eure
+digest = hex`dead`
+```
+
+schema = ```eure
+digest {
+  $variant = "bytes"
+  min-length = 4
+  max-length = 4
+}
+```
+
+schema_errors[] = ```text
+error: Bytes length 2 is out of bounds at path digest
+ --> input.eure:1:10
+  |
+1 | digest = hex`dead`
+  |          ^^^^^^^^^ Bytes length 2 is out of bounds at path digest
+  |
+note: constraint defined here
+ --> schema.eure:1:1
+  |
+1 | / digest {
+2 | |   $variant = "bytes"
+3 | |   min-length = 4
+4 | |   max-length = 4
+5 | | }
+  | |_- constraint defined here
+```

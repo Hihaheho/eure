@@ -1,7 +1,9 @@
 use std::fmt;
 
 use eure::document::InsertError;
+use eure::document::bytes::BytesDecodeError;
 use eure::document::constructor::ScopeError;
+use eure::document::decimal::DecimalParseError;
 use eure::document::write::WriteError;
 use thiserror::Error;
 
@@ -26,6 +28,12 @@ pub enum DeError {
     InvalidVariantName(String),
     #[error("PartialMap unsupported in serde-eure v1")]
     PartialMapUnsupported,
+    #[error("non-finite float {0} cannot be a decimal")]
+    NonFiniteDecimal(f64),
+    #[error("invalid decimal: {0}")]
+    InvalidDecimal(#[from] DecimalParseError),
+    #[error("invalid base64 bytes: {0}")]
+    InvalidBytes(#[from] BytesDecodeError),
     #[error(transparent)]
     Write(#[from] WriteError),
     #[error(transparent)]

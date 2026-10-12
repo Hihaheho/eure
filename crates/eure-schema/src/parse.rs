@@ -18,6 +18,7 @@
 //! SchemaDocument, SchemaNode, ArraySchema, ...
 //! ```
 
+use eure_document::decimal::Decimal;
 use eure_document::document::NodeId;
 use eure_document::identifier::Identifier;
 use eure_document::parse::{FromEure, ParseContext, ParseError, ParseErrorKind};
@@ -25,7 +26,7 @@ use indexmap::{IndexMap, IndexSet};
 use num_bigint::BigInt;
 
 use crate::interop::UnionInterop;
-use crate::{BindingStyle, Description, FieldCodegen, TextSchema, TypeReference};
+use crate::{BindingStyle, BytesSchema, Description, FieldCodegen, TextSchema, TypeReference};
 
 impl FromEure<'_> for TypeReference {
     type Error = ParseError;
@@ -214,6 +215,32 @@ pub struct ParsedFloatSchema {
     /// Precision constraint ("f32" or "f64")
     #[eure(default)]
     pub precision: Option<String>,
+}
+
+/// Parsed decimal schema - syntactic representation with range as string.
+#[derive(Debug, Clone, eure_macros::FromEure)]
+#[eure(crate = eure_document, rename_all = "kebab-case")]
+pub struct ParsedDecimalSchema {
+    /// Range constraint as string
+    #[eure(default)]
+    pub range: Option<String>,
+    /// Multiple-of constraint
+    #[eure(default)]
+    pub multiple_of: Option<Decimal>,
+}
+
+/// Parsed set schema with NodeId references.
+#[derive(Debug, Clone, eure_macros::FromEure)]
+#[eure(crate = eure_document, rename_all = "kebab-case")]
+pub struct ParsedSetSchema {
+    /// Schema for set elements
+    pub item: NodeId,
+    /// Minimum number of elements
+    #[eure(default)]
+    pub min_size: Option<u32>,
+    /// Maximum number of elements
+    #[eure(default)]
+    pub max_size: Option<u32>,
 }
 
 /// Parsed array schema with NodeId references.
@@ -499,6 +526,10 @@ pub enum ParsedSchemaNodeContent {
     Integer(ParsedIntegerSchema),
     /// Float type with constraints
     Float(ParsedFloatSchema),
+    /// Decimal type with constraints
+    Decimal(ParsedDecimalSchema),
+    /// Bytes type with constraints
+    Bytes(BytesSchema),
     /// Boolean type (no constraints)
     Boolean,
     /// Null type
@@ -509,6 +540,8 @@ pub enum ParsedSchemaNodeContent {
     Array(ParsedArraySchema),
     /// Map type with dynamic keys
     Map(ParsedMapSchema),
+    /// Set type with item schema
+    Set(ParsedSetSchema),
     /// Record type with fixed named fields
     Record(ParsedRecordSchema),
     /// Tuple type with fixed-length ordered elements
@@ -591,6 +624,11 @@ fn parse_type_reference_string(
             multiple_of: None,
             precision: None,
         })),
+        ["decimal"] => Ok(ParsedSchemaNodeContent::Decimal(ParsedDecimalSchema {
+            range: None,
+            multiple_of: None,
+        })),
+        ["bytes"] => Ok(ParsedSchemaNodeContent::Bytes(BytesSchema::default())),
         ["boolean"] => Ok(ParsedSchemaNodeContent::Boolean),
         ["null"] => Ok(ParsedSchemaNodeContent::Null),
         ["any"] => Ok(ParsedSchemaNodeContent::Any),
@@ -676,11 +714,14 @@ fn parse_map_as_schema(
         Some("text") => Ok(ParsedSchemaNodeContent::Text(ctx.parse()?)),
         Some("integer") => Ok(ParsedSchemaNodeContent::Integer(ctx.parse()?)),
         Some("float") => Ok(ParsedSchemaNodeContent::Float(ctx.parse()?)),
+        Some("decimal") => Ok(ParsedSchemaNodeContent::Decimal(ctx.parse()?)),
+        Some("bytes") => Ok(ParsedSchemaNodeContent::Bytes(ctx.parse()?)),
         Some("boolean") => Ok(ParsedSchemaNodeContent::Boolean),
         Some("null") => Ok(ParsedSchemaNodeContent::Null),
         Some("any") => Ok(ParsedSchemaNodeContent::Any),
         Some("array") => Ok(ParsedSchemaNodeContent::Array(ctx.parse()?)),
         Some("map") => Ok(ParsedSchemaNodeContent::Map(ctx.parse()?)),
+        Some("set") => Ok(ParsedSchemaNodeContent::Set(ctx.parse()?)),
         Some("tuple") => Ok(ParsedSchemaNodeContent::Tuple(ctx.parse()?)),
         Some("union") => Ok(ParsedSchemaNodeContent::Union(ctx.parse()?)),
         Some("literal") => Ok(ParsedSchemaNodeContent::Literal(node_id)),

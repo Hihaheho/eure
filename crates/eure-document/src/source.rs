@@ -31,7 +31,7 @@
 //!
 //! Trivia (comments and blank lines) is preserved for round-trip formatting.
 
-use std::collections::HashSet;
+use crate::collections::IndexSet;
 
 use crate::document::{EureDocument, NodeId};
 use crate::prelude_internal::*;
@@ -158,7 +158,7 @@ pub struct SourceDocument {
     /// Root source index (always 0)
     pub root: SourceId,
     /// Array nodes that should be formatted multi-line (even without trivia)
-    pub multiline_arrays: HashSet<NodeId>,
+    pub multiline_arrays: IndexSet<NodeId>,
 }
 
 impl SourceDocument {
@@ -169,7 +169,7 @@ impl SourceDocument {
             document,
             sources,
             root: SourceId(0),
-            multiline_arrays: HashSet::new(),
+            multiline_arrays: IndexSet::default(),
         }
     }
 
@@ -179,7 +179,7 @@ impl SourceDocument {
             document: EureDocument::new_empty(),
             sources: vec![EureSource::default()],
             root: SourceId(0),
-            multiline_arrays: HashSet::new(),
+            multiline_arrays: IndexSet::default(),
         }
     }
 

@@ -1,31 +1,37 @@
-use indexmap::IndexMap;
+use crate::collections::IndexMap;
 
 use crate::{prelude_internal::*, value::PartialObjectKey};
 
 #[derive(Debug, Clone, Plural)]
-#[plural(len, is_empty, iter, into_iter, into_iter_ref, new)]
+#[plural(len, is_empty, iter, into_iter, into_iter_ref)]
 pub struct Map<K, V>(IndexMap<K, V>);
 
-impl<K: Eq + std::hash::Hash, V: Eq> Eq for Map<K, V> {}
-impl<K: Eq + std::hash::Hash, V: PartialEq> PartialEq for Map<K, V> {
+impl<K, V> Map<K, V> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl<K: Eq + core::hash::Hash, V: Eq> Eq for Map<K, V> {}
+impl<K: Eq + core::hash::Hash, V: PartialEq> PartialEq for Map<K, V> {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
-impl<K: Eq + std::hash::Hash, V> FromIterator<(K, V)> for Map<K, V> {
+impl<K: Eq + core::hash::Hash, V> FromIterator<(K, V)> for Map<K, V> {
     fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
-        Self(IndexMap::from_iter(iter))
+        Self(iter.into_iter().collect())
     }
 }
 
 impl<K, V> Default for Map<K, V> {
     fn default() -> Self {
-        Self(IndexMap::new())
+        Self(IndexMap::default())
     }
 }
 
-impl<K: std::hash::Hash + Eq, V> Map<K, V> {
+impl<K: core::hash::Hash + Eq, V> Map<K, V> {
     pub fn get(&self, key: &K) -> Option<&V> {
         self.0.get(key)
     }
