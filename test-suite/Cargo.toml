@@ -17,7 +17,6 @@ path = "src/main.rs"
 ahash.workspace = true
 annotate-snippets.workspace = true
 clap = { workspace = true, features = ["derive"] }
-eros.workspace = true
 eure = { workspace = true }
 eure-document.workspace = true
 query-flow.workspace = true

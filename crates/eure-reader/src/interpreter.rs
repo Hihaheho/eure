@@ -15,7 +15,7 @@ use num_bigint::BigInt;
 use regex::Regex;
 use std::sync::LazyLock;
 
-use crate::document::{
+use crate::{
     CodeBlockError, DocumentConstructionError, InlineCodeError, OriginMap, UnsupportedSetElement,
 };
 
@@ -24,7 +24,7 @@ struct TerminalTokens {
     terminals: Vec<TerminalToken>,
 }
 
-#[derive(Debug, Clone)] // Added derive
+#[derive(Debug, Clone)]
 enum TerminalToken {
     Input(InputSpan),
     Dynamic(DynamicTokenId),
@@ -2352,7 +2352,7 @@ mod tests {
 
     // Tests for parse_code_block_start
     mod parse_code_block_start_tests {
-        use crate::document::CodeBlockError;
+        use crate::CodeBlockError;
 
         use super::*;
 

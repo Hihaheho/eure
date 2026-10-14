@@ -1,0 +1,21 @@
+[package]
+name = "eure-reader"
+version.workspace = true
+edition.workspace = true
+description = "Reads Eure source text into an EureDocument"
+readme = "README.md"
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords = ["config", "deserialization", "eure", "parser"]
+
+[dependencies]
+eure-document = { workspace = true }
+eure-parol = { workspace = true }
+eure-tree = { workspace = true }
+num-bigint = { workspace = true }
+regex = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+eure-fmt = { workspace = true }

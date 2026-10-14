@@ -3,7 +3,6 @@ use std::fmt::{Display, Write as _};
 use std::path::Path;
 use std::str::FromStr;
 
-use eros::ErrorUnion;
 use num_bigint::BigInt;
 use thiserror::Error;
 
@@ -21,7 +20,9 @@ use eure_document::text::{Text, TextParseError};
 use eure_document::value::{ObjectKey, Tuple};
 use eure_fmt::format_source_document;
 
-use crate::document::{DocumentConstructionError, parse_to_document, parse_to_source_document};
+use crate::document::{
+    DocumentConstructionError, ReadError, parse_to_document, parse_to_source_document,
+};
 use crate::parol::EureParseError;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -391,7 +392,7 @@ pub struct EditableDocument {
 
 impl EditableDocument {
     pub fn parse(input: &str, name: impl AsRef<Path>) -> Result<Self, EditError> {
-        let source = parse_to_source_document(input, name).map_err(map_parse_union_error)?;
+        let source = parse_to_source_document(input, name).map_err(map_read_error)?;
         Ok(Self { source })
     }
 
@@ -473,18 +474,16 @@ fn parse_edit_value_document(input: &str) -> Result<EureDocument, EditError> {
             let wrapped = format!("= {input}");
             parse_to_document(&wrapped, "<input>").map_err(|_| EditError::ValueParse {
                 input: input.to_string(),
-                message: format!("{}", map_parse_union_error(first_error)),
+                message: format!("{}", map_read_error(first_error)),
             })
         }
     }
 }
 
-fn map_parse_union_error(
-    error: ErrorUnion<(EureParseError, DocumentConstructionError)>,
-) -> EditError {
-    match error.narrow::<EureParseError, _>() {
-        Ok(parse_error) => EditError::ParseSyntax(parse_error),
-        Err(error) => EditError::ParseDocument(error.take()),
+fn map_read_error(error: ReadError) -> EditError {
+    match error {
+        ReadError::Syntax(error) => EditError::ParseSyntax(error),
+        ReadError::Construction(error) => EditError::ParseDocument(error),
     }
 }
 

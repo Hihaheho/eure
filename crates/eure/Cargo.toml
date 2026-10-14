@@ -17,13 +17,13 @@ native = ["http", "eure-env/native"]
 [dependencies]
 annotate-snippets = { workspace = true }
 anyhow = { workspace = true }
-eros = { workspace = true }
 eure-env = { workspace = true }
 eure-document = { workspace = true }
 eure-fmt = { workspace = true }
 eure-lint = { workspace = true }
 eure-macros = { workspace = true }
 eure-parol = { workspace = true }
+eure-reader = { workspace = true }
 eure-schema = { workspace = true }
 eure-tree = { workspace = true }
 indexmap = { workspace = true }

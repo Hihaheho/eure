@@ -1,9 +1,7 @@
 use std::str::FromStr;
 
-use eros::ErrorUnion;
-use eure::document::{DocumentConstructionError, parse_to_document};
+use eure::document::parse_to_document;
 use eure::edit::{EditCommand, EditPath, EditValue, EditableDocument};
-use eure::parol::EureParseError;
 use eure::query::TextFile;
 use query_flow::Db;
 
@@ -91,17 +89,8 @@ fn parse_fixture_value(input: &str) -> Result<eure::document::EureDocument, Scen
         Err(first_error) => {
             let wrapped = format!("= {input}");
             parse_to_document(&wrapped, "<input>").map_err(|_| ScenarioError::EditingError {
-                message: format_parse_union_error(first_error),
+                message: first_error.to_string(),
             })
         }
-    }
-}
-
-fn format_parse_union_error(
-    error: ErrorUnion<(EureParseError, DocumentConstructionError)>,
-) -> String {
-    match error.narrow::<EureParseError, _>() {
-        Ok(parse_error) => parse_error.to_string(),
-        Err(error) => error.take::<DocumentConstructionError>().to_string(),
     }
 }
