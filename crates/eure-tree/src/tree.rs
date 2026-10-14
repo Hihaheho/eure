@@ -1,8 +1,10 @@
 mod span;
 
-use ahash::HashMap;
 use std::{collections::BTreeMap, convert::Infallible};
 use thiserror::Error;
+
+/// Seeded without OS randomness, so building for targets like wasm32 does not pull in getrandom.
+type HashMap<K, V> = std::collections::HashMap<K, V, foldhash::fast::RandomState>;
 
 pub use span::*;
 

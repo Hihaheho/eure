@@ -2306,8 +2306,8 @@ dependencies = [
 name = "eure-tree"
 version = "0.2.0"
 dependencies = [
- "ahash",
  "bon",
+ "foldhash",
  "thiserror 2.0.18",
  "thisisplural",
 ]

@@ -10,8 +10,8 @@ license.workspace = true
 keywords = ["ast", "data-structure", "eure", "tree"]
 
 [dependencies]
-ahash = { workspace = true, optional = true }
 bon = "3.0"
+foldhash = { version = "0.1", default-features = false }
 thiserror = { workspace = true }
 thisisplural = { workspace = true }
 
@@ -19,4 +19,4 @@ thisisplural = { workspace = true }
 
 [features]
 default = ["std"]
-std = ["ahash/runtime-rng", "ahash/std", "dep:ahash"]
+std = []
