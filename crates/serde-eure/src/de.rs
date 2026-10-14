@@ -2,15 +2,16 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 use std::fmt;
 
-use eure::document::EureDocument;
-use eure::document::bytes::BytesEncoding;
-use eure::document::constructor::DocumentConstructor;
-use eure::document::decimal::Decimal;
-use eure::document::identifier::Identifier;
-use eure::document::node::NodeValue;
-use eure::document::parse::VariantPath;
-use eure::document::path::{ArrayIndexKind, PathSegment};
-use eure::value::{ObjectKey, PrimitiveValue, Text, Tuple};
+use eure_document::bytes::BytesEncoding;
+use eure_document::decimal::Decimal;
+use eure_document::document::EureDocument;
+use eure_document::document::constructor::DocumentConstructor;
+use eure_document::document::node::NodeValue;
+use eure_document::identifier::Identifier;
+use eure_document::parse::VariantPath;
+use eure_document::path::{ArrayIndexKind, PathSegment};
+use eure_document::text::Text;
+use eure_document::value::{ObjectKey, PrimitiveValue, Tuple};
 use eure_schema::interop::VariantRepr;
 use eure_schema::{
     SchemaDocument, SchemaNodeContent, SchemaNodeId, UnionSchema, UnknownFieldsPolicy,
@@ -2802,7 +2803,7 @@ fn resolve_schema_node_id(
 
 fn extract_variant_path(
     doc: &EureDocument,
-    node_id: eure::document::NodeId,
+    node_id: eure_document::document::NodeId,
 ) -> Result<Option<VariantPath>, DeError> {
     let Some(variant_id) = doc
         .node(node_id)
@@ -3105,7 +3106,7 @@ fn union_key_from_bool(
 
 #[cfg(test)]
 mod tests {
-    use eure::eure;
+    use eure_document::eure;
     use eure_schema::TextSchema;
     use eure_schema::interop::{UnionInterop, VariantRepr};
     use eure_schema::{

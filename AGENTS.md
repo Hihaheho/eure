@@ -35,8 +35,8 @@ cargo run -p test-suite -- [--filter <filter>]# Run Eure test suite.
 ## Architecture
 
 **Workspace Structure:**
-- 22 crates organized by functionality in a Rust workspace
-- Core libraries: `eure-document` (data types), `eure-tree` (AST/CST), `eure-parol` (parser)
+- 24 crates organized by functionality in a Rust workspace
+- Core libraries: `eure-document` (data types), `eure-tree` (AST/CST), `eure-parol` (parser: text → CST), `eure-reader` (text → `EureDocument`)
 - Format support: `eure-json`, `eure-toml`, `eure-yaml`, `serde-eure`
 - Tooling: `eure-cli`, `eure-ls` (LSP), `eure-fmt` (formatter), `eure-lint`
 - Schema system: `eure-schema`, `eure-json-schema`, `eure-template`

@@ -1230,7 +1230,7 @@ fn parse_decimal(s: &str) -> Result<Decimal, ConversionError> {
 /// # Examples
 ///
 /// ```ignore
-/// use eure::parse_to_document;
+/// use eure_reader::parse_to_document;
 /// use eure_schema::convert::document_to_schema;
 ///
 /// let input = r#"
@@ -1238,7 +1238,7 @@ fn parse_decimal(s: &str) -> Result<Decimal, ConversionError> {
 /// age = `integer`
 /// "#;
 ///
-/// let doc = parse_to_document(input).unwrap();
+/// let doc = parse_to_document(input, "<input>").unwrap();
 /// let (schema, source_map) = document_to_schema(&doc).unwrap();
 /// ```
 /// Recursive entry point for schema conversion. Performs cycle detection by

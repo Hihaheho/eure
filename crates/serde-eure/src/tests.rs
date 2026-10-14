@@ -6,11 +6,12 @@
 //! - Ser: all primitive types, array, tuple, map, record, union (all 4 modes)
 //! - Roundtrip: ser → JSON string → de → compare original document
 
-use eure::document::EureDocument;
-use eure::document::constructor::DocumentConstructor;
-use eure::document::path::{ArrayIndexKind, PathSegment};
-use eure::eure;
-use eure::value::{ObjectKey, PrimitiveValue, Text};
+use eure_document::document::EureDocument;
+use eure_document::document::constructor::DocumentConstructor;
+use eure_document::eure;
+use eure_document::path::{ArrayIndexKind, PathSegment};
+use eure_document::text::Text;
+use eure_document::value::{ObjectKey, PrimitiveValue};
 use eure_schema::interop::{UnionInterop, VariantRepr};
 use eure_schema::{
     ArraySchema, FloatSchema, IntegerSchema, MapSchema, RecordFieldSchema, RecordSchema,
@@ -1853,7 +1854,7 @@ mod de_fixes {
 
 mod new_types {
     use super::*;
-    use eure::document::bytes::Bytes;
+    use eure_document::bytes::Bytes;
     use eure_schema::{BytesSchema, DecimalSchema, SetSchema};
 
     fn root_schema(content: SchemaNodeContent) -> SchemaDocument {
@@ -1892,7 +1893,7 @@ mod new_types {
         assert_eq!(de_json("7", &schema).unwrap(), eure!({ = 7 }));
         // Strings keep digits that a JSON number would round away.
         let exact = de_json(r#""0.1000000000000000000000001""#, &schema).unwrap();
-        let expected: eure::document::decimal::Decimal =
+        let expected: eure_document::decimal::Decimal =
             "0.1000000000000000000000001".parse().unwrap();
         assert_eq!(exact, eure!({ = expected }));
         assert!(de_json(r#""1.2.3""#, &schema).is_err());
@@ -1905,7 +1906,7 @@ mod new_types {
             ser_to_json(&eure!({ = 1.25 }), &schema).unwrap(),
             json!(1.25)
         );
-        let precise: eure::document::decimal::Decimal =
+        let precise: eure_document::decimal::Decimal =
             "0.1000000000000000000000001".parse().unwrap();
         assert!(ser_to_json(&eure!({ = precise }), &schema).is_err());
     }

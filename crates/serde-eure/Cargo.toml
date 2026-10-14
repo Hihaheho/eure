@@ -10,12 +10,8 @@ license.workspace = true
 keywords = ["deserialization", "eure", "serde", "serialization"]
 
 [dependencies]
-ahash = { workspace = true }
-eure = { workspace = true }
-eure-json = { workspace = true }
-eure-parol = { workspace = true }
+eure-document = { workspace = true }
 eure-schema = { workspace = true }
-eure-tree = { workspace = true }
 num-bigint = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }

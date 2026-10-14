@@ -1,10 +1,10 @@
 use std::fmt;
 
-use eure::document::InsertError;
-use eure::document::bytes::BytesDecodeError;
-use eure::document::constructor::ScopeError;
-use eure::document::decimal::DecimalParseError;
-use eure::document::write::WriteError;
+use eure_document::bytes::BytesDecodeError;
+use eure_document::decimal::DecimalParseError;
+use eure_document::document::InsertError;
+use eure_document::document::constructor::ScopeError;
+use eure_document::write::WriteError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

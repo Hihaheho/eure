@@ -1,14 +1,14 @@
 use std::collections::{HashMap, HashSet};
 
-use eure::document::EureDocument;
-use eure::document::NodeId;
-use eure::document::bytes::BytesEncoding;
-use eure::document::decimal::Decimal;
-use eure::document::identifier::Identifier;
-use eure::document::node::NodeValue;
-use eure::document::parse::VariantPath;
-use eure::value::ObjectKey;
-use eure::value::PrimitiveValue;
+use eure_document::bytes::BytesEncoding;
+use eure_document::decimal::Decimal;
+use eure_document::document::EureDocument;
+use eure_document::document::NodeId;
+use eure_document::document::node::NodeValue;
+use eure_document::identifier::Identifier;
+use eure_document::parse::VariantPath;
+use eure_document::value::ObjectKey;
+use eure_document::value::PrimitiveValue;
 use eure_schema::UnknownFieldsPolicy;
 use eure_schema::interop::VariantRepr;
 use eure_schema::{SchemaDocument, SchemaNodeContent, SchemaNodeId};
@@ -1367,7 +1367,7 @@ fn node_value_type(value: &NodeValue) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use eure::eure;
+    use eure_document::eure;
     use eure_schema::TextSchema;
     use eure_schema::interop::UnionInterop;
     use eure_schema::{

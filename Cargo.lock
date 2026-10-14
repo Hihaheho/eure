@@ -2142,7 +2142,6 @@ dependencies = [
  "criterion",
  "eure",
  "eure-document",
- "eure-fmt",
  "eure-parol",
  "eure-schema",
  "eure-tree",
@@ -2232,7 +2231,6 @@ version = "0.2.0"
 dependencies = [
  "eure",
  "eure-document",
- "eure-parol",
  "eure-tree",
  "giallo",
  "markdown",
@@ -2277,8 +2275,6 @@ dependencies = [
  "convert_case 0.9.0",
  "eure-document",
  "eure-macros",
- "eure-parol",
- "eure-tree",
  "indexmap",
  "num-bigint",
  "regex",
@@ -5008,12 +5004,8 @@ dependencies = [
 name = "serde-eure"
 version = "0.2.0"
 dependencies = [
- "ahash",
- "eure",
- "eure-json",
- "eure-parol",
+ "eure-document",
  "eure-schema",
- "eure-tree",
  "num-bigint",
  "serde",
  "serde_json",
