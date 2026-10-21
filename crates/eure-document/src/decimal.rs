@@ -33,6 +33,7 @@ pub enum DecimalParseError {
 }
 
 impl Decimal {
+    /// Constructs an exact decimal. Every `i64` scale is supported.
     pub fn new(mantissa: BigInt, scale: i64) -> Self {
         Self { mantissa, scale }
     }
@@ -50,7 +51,7 @@ impl Decimal {
         self.mantissa.sign() == Sign::NoSign
     }
 
-    /// Returns the numerically equal value with the smallest scale.
+    /// Returns the numerically equal value with the smallest representable scale.
     pub fn normalized(&self) -> Self {
         if self.is_zero() {
             return Self::new(BigInt::ZERO, 0);
@@ -58,20 +59,22 @@ impl Decimal {
         let ten = BigInt::from(10u8);
         let mut mantissa = self.mantissa.clone();
         let mut scale = self.scale;
-        while (&mantissa % &ten).sign() == Sign::NoSign {
+        while scale > i64::MIN && (&mantissa % &ten).sign() == Sign::NoSign {
             mantissa /= &ten;
             scale -= 1;
         }
         Self::new(mantissa, scale)
     }
 
-    /// Returns the value as an integer if it has no fractional part.
+    /// Returns the value as an integer if it has no fractional part and the
+    /// required power of ten fits in `u32`. This explicitly materializes the
+    /// integer, so memory usage grows with its number of digits.
     pub fn to_integer(&self) -> Option<BigInt> {
         let normalized = self.normalized();
         if normalized.scale > 0 {
             return None;
         }
-        let exp = u32::try_from(-normalized.scale).ok()?;
+        let exp = u32::try_from(normalized.scale.unsigned_abs()).ok()?;
         Some(normalized.mantissa * BigInt::from(10u8).pow(exp))
     }
 
@@ -82,8 +85,30 @@ impl Decimal {
         if divisor.is_zero() {
             return self.is_zero();
         }
-        let (value, divisor) = self.aligned(divisor);
-        (value % divisor).sign() == Sign::NoSign
+        if self.is_zero() {
+            return true;
+        }
+        let shift = i128::from(divisor.scale) - i128::from(self.scale);
+        let modulus = BigInt::from(divisor.mantissa.magnitude().clone());
+        if shift >= 0 {
+            // Compute the remainder without allocating 10^shift.
+            let power = BigInt::from(10u8).modpow(&BigInt::from(shift), &modulus);
+            (&self.mantissa * power % modulus).sign() == Sign::NoSign
+        } else {
+            // The dividend must contain all the extra factors of ten. This loop is
+            // bounded by its mantissa's digits, even for an enormous scale gap.
+            let ten = BigInt::from(10u8);
+            let mut value = self.mantissa.clone();
+            let mut remaining = -shift;
+            while remaining > 0 {
+                if (&value % &ten).sign() != Sign::NoSign {
+                    return false;
+                }
+                value /= &ten;
+                remaining -= 1;
+            }
+            (value % modulus).sign() == Sign::NoSign
+        }
     }
 
     /// Converts a finite `f64` to the shortest decimal that round-trips to it.
@@ -129,17 +154,6 @@ impl Decimal {
             .parse()
             .expect("Decimal display is always a valid float literal")
     }
-
-    /// Mantissas of both values rescaled to the larger scale.
-    fn aligned(&self, other: &Self) -> (BigInt, BigInt) {
-        let ten = BigInt::from(10u8);
-        let rescale = |d: &Self, to: i64| {
-            let diff = u32::try_from(to - d.scale).expect("scale difference fits in u32");
-            &d.mantissa * ten.pow(diff)
-        };
-        let scale = self.scale.max(other.scale);
-        (rescale(self, scale), rescale(other, scale))
-    }
 }
 
 impl From<BigInt> for Decimal {
@@ -164,8 +178,30 @@ impl PartialOrd for Decimal {
 
 impl Ord for Decimal {
     fn cmp(&self, other: &Self) -> Ordering {
-        let (a, b) = self.normalized().aligned(&other.normalized());
-        a.cmp(&b)
+        let sign = self.mantissa.sign().cmp(&other.mantissa.sign());
+        if sign != Ordering::Equal {
+            return sign;
+        }
+        if self.is_zero() {
+            return Ordering::Equal;
+        }
+        let a = self.mantissa.magnitude().to_string();
+        let b = other.mantissa.magnitude().to_string();
+        let a_exponent = a.len() as i128 - i128::from(self.scale);
+        let b_exponent = b.len() as i128 - i128::from(other.scale);
+        let magnitude = a_exponent.cmp(&b_exponent).then_with(|| {
+            // Compare significands with virtual trailing zeros, never 10^scale.
+            let width = a.len().max(b.len());
+            a.bytes()
+                .chain(core::iter::repeat(b'0'))
+                .take(width)
+                .cmp(b.bytes().chain(core::iter::repeat(b'0')).take(width))
+        });
+        if self.mantissa.sign() == Sign::Minus {
+            magnitude.reverse()
+        } else {
+            magnitude
+        }
     }
 }
 
@@ -218,18 +254,15 @@ impl FromStr for Decimal {
             Some(exp) => parse_exponent(exp)?,
             None => 0,
         };
-        let scale = frac_len
+        let scale = i128::from(frac_len)
             .checked_sub(exponent)
+            .and_then(|scale| i64::try_from(scale).ok())
             .ok_or(DecimalParseError::ExponentOutOfRange)?;
-        // Keep scale differences representable as u32 powers of ten.
-        if scale.unsigned_abs() > u64::from(u32::MAX / 2) {
-            return Err(DecimalParseError::ExponentOutOfRange);
-        }
         Ok(Self::new(mantissa, scale))
     }
 }
 
-fn parse_exponent(s: &str) -> Result<i64, DecimalParseError> {
+fn parse_exponent(s: &str) -> Result<i128, DecimalParseError> {
     let digits = s.strip_prefix(['-', '+']).unwrap_or(s);
     if digits.is_empty() {
         return Err(DecimalParseError::MissingDigits);
@@ -242,17 +275,18 @@ fn parse_exponent(s: &str) -> Result<i64, DecimalParseError> {
 
 impl core::fmt::Display for Decimal {
     /// Always produces a valid Eure float literal that round-trips with the same scale:
-    /// `1.10`, `0.005`, `-3.0`, or scientific form `1.2e4` when the scale is zero or negative.
+    /// `1.10`, `0.005`, `-3.0`, or scientific form `1.2e4` when the scale is zero,
+    /// negative, or would otherwise require more than 20 leading fractional zeros.
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let digits = self.mantissa.magnitude().to_string();
         if self.mantissa.sign() == Sign::Minus {
             write!(f, "-")?;
         }
-        if self.scale <= 0 {
+        if self.scale <= 0 || i128::from(self.scale) - digits.len() as i128 > 20 {
             // Scientific notation keeps every mantissa digit, so the scale round-trips:
             // mantissa 10 with scale -9 is `1.0e10`.
             let (first, rest) = digits.split_at(1);
-            let exponent = (digits.len() as i64 - 1) - self.scale;
+            let exponent = (digits.len() as i128 - 1) - i128::from(self.scale);
             if rest.is_empty() {
                 return write!(f, "{first}e{exponent}");
             }
@@ -345,6 +379,76 @@ mod tests {
         assert_eq!(dec("0.1").to_f64_exact(), Some(0.1));
         assert_eq!(dec("1.10").to_f64_exact(), Some(1.1));
         assert_eq!(dec("0.10000000000000000000001").to_f64_exact(), None);
+    }
+
+    #[test]
+    fn extreme_scales_round_trip_and_compare() {
+        for scale in [i64::MIN, i64::MAX] {
+            for mantissa in [-100, -1, 0, 1, 100] {
+                let d = Decimal::new(mantissa.into(), scale);
+                let rendered = d.to_string();
+                assert!(rendered.len() < 32);
+                let parsed = dec(&rendered);
+                assert_eq!(parsed.scale(), scale);
+                assert_eq!(parsed.mantissa(), d.mantissa());
+                assert_eq!(d, d.normalized());
+                assert_eq!(d.cmp(&dec("0")), mantissa.cmp(&0));
+                assert!(!d.to_f64().is_nan());
+            }
+        }
+        let large = Decimal::new(1.into(), i64::MIN);
+        let tiny = Decimal::new(1.into(), i64::MAX);
+        assert!(large > tiny);
+        assert!(large.is_multiple_of(&tiny));
+        assert!(!tiny.is_multiple_of(&large));
+        assert!(!large.is_multiple_of(&Decimal::new(3.into(), i64::MAX)));
+        assert_eq!(large.to_integer(), None);
+        assert_eq!(tiny.to_f64(), 0.0);
+        assert_eq!(large.to_f64(), f64::INFINITY);
+    }
+
+    #[test]
+    fn large_exponents_do_not_expand() {
+        let tiny = dec("1.00e-1000000");
+        assert_eq!(tiny.to_string(), "1.00e-1000000");
+        assert_eq!(tiny.to_f64(), 0.0);
+        assert_eq!(tiny.to_f32(), 0.0);
+        assert_eq!(tiny.to_f64_exact(), None);
+        assert!(tiny > dec("0"));
+        assert!(tiny < dec("1"));
+        assert!(dec("1e1000000").is_multiple_of(&dec("0.25")));
+        assert!(!tiny.is_multiple_of(&dec("0.25")));
+    }
+
+    #[test]
+    fn normalized_boundary_hashes_match() {
+        use core::hash::BuildHasher;
+        let a = Decimal::new(10.into(), i64::MIN);
+        let b = Decimal::new(100.into(), i64::MIN + 1);
+        assert_eq!(a, b);
+        let hash = |d: &Decimal| {
+            let state = foldhash::fast::FixedState::with_seed(0);
+            state.hash_one(d)
+        };
+        assert_eq!(hash(&a), hash(&b));
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn comparison_and_multiples_match_integer_arithmetic(
+            a in -100000i64..100000,
+            b in -100000i64..100000,
+            a_scale in -8i64..8,
+            b_scale in -8i64..8,
+        ) {
+            let left = Decimal::new(a.into(), a_scale);
+            let right = Decimal::new(b.into(), b_scale);
+            let common = a_scale.max(b_scale);
+            let a = i128::from(a) * 10i128.pow((common - a_scale) as u32);
+            let b = i128::from(b) * 10i128.pow((common - b_scale) as u32);
+            proptest::prop_assert_eq!(left.cmp(&right), a.cmp(&b));
+            proptest::prop_assert_eq!(left.is_multiple_of(&right), if b == 0 { a == 0 } else { a % b == 0 });
+        }
     }
 
     #[test]

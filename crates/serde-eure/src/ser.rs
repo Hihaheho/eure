@@ -166,7 +166,12 @@ fn serialize_node<S: serde::Serializer>(
             }
             // A float schema reads decimals as the nearest float.
             NodeValue::Primitive(PrimitiveValue::Decimal(value)) => {
-                ser.serialize_f64(value.to_f64())
+                let value = value.to_f64();
+                if value.is_finite() {
+                    ser.serialize_f64(value)
+                } else {
+                    Err(S::Error::custom(SerError::NonFiniteFloat.to_string()))
+                }
             }
             other => Err(S::Error::custom(
                 SerError::Custom(format!(

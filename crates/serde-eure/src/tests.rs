@@ -1229,6 +1229,21 @@ mod ser {
     }
 
     #[test]
+    fn decimal_float_overflow_is_rejected() {
+        for literal in ["1e400", "-1e400"] {
+            let value = literal.parse::<eure_document::decimal::Decimal>().unwrap();
+            let doc = eure!({ = value });
+            let error = to_serializer(serde_json::value::Serializer, &doc, &make_float_schema())
+                .unwrap_err();
+            assert_eq!(error.to_string(), "non-finite float");
+        }
+        assert_eq!(
+            ser_to_json(&eure!({ = 3.5 }), &make_float_schema()),
+            json!(3.5)
+        );
+    }
+
+    #[test]
     fn primitive_bool_true() {
         let doc = bool_doc(true);
         assert_eq!(ser_to_json(&doc, &make_bool_schema()), json!(true));
