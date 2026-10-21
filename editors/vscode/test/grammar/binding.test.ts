@@ -203,14 +203,14 @@ test('value type: integer', async (t: TestContext) => {
   )
 })
 
-test('value type: float', async (t: TestContext) => {
+test('value type: decimal', async (t: TestContext) => {
   const results = await tokenize(['key = 3.14'])
   printTokens(results)
 
   const { line, tokens } = results[0]
   t.assert.ok(
-    hasTokenWithScopeAndText(line, tokens, 'constant.numeric.float.eure', '3.14'),
-    'value should be constant.numeric.float'
+    hasTokenWithScopeAndText(line, tokens, 'constant.numeric.decimal.eure', '3.14'),
+    'value should be constant.numeric.decimal'
   )
 })
 
@@ -494,4 +494,10 @@ test('regression: string key followed by array index and code block', async (t: 
   t.assert.ok(results[3].tokens.some(tok =>
     tok.scopes.includes('punctuation.definition.code.begin.eure')
   ), 'line 3: should have code block begin')
+})
+
+test('value type: explicit binary float', async (t: TestContext) => {
+  const results = await tokenize(['key = 3.14f64'])
+  const { line, tokens } = results[0]
+  t.assert.ok(hasTokenWithScopeAndText(line, tokens, 'constant.numeric.float.eure', '3.14f64'))
 })
