@@ -51,9 +51,14 @@ pub enum SchemaToIrError {
 
     #[error("generated IR failed build checks: {source}")]
     InvalidIr {
-        #[from]
         source: eure_codegen_ir::IrBuildError,
     },
+}
+
+impl From<eure_codegen_ir::IrBuildError> for SchemaToIrError {
+    fn from(source: eure_codegen_ir::IrBuildError) -> Self {
+        Self::InvalidIr { source }
+    }
 }
 
 pub fn schema_to_ir_module(schema: &SchemaDocument) -> Result<IrModule, SchemaToIrError> {
