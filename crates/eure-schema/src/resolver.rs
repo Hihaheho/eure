@@ -32,7 +32,7 @@ impl std::fmt::Display for ResolvedSchemaUri {
 /// Errors raised while resolving a `$import` entry.
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum ResolverError {
-    #[error("imported path {resolved} escapes workspace root {workspace_root}")]
+    #[error("imported path {} escapes workspace root {}", resolved.display(), workspace_root.display())]
     EscapesWorkspaceRoot {
         resolved: PathBuf,
         workspace_root: PathBuf,
