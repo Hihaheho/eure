@@ -149,6 +149,11 @@ impl From<ParserError> for EureParseError {
                 format!("Too many errors: {count}"),
                 ParseErrorKind::Other,
             ),
+            ParserError::MaxParsingDepthExceeded { depth } => EureParseError::new_entry(
+                None,
+                format!("Max parsing depth exceeded: {depth}"),
+                ParseErrorKind::Other,
+            ),
             ParserError::RecoveryFailed => EureParseError::new_entry(
                 None,
                 "Recovery failed".to_string(),

@@ -266,6 +266,21 @@ scanner! {
 }
 
 const MAX_K: usize = 1;
+pub const SKIP_TOKENS_BY_SCANNER_STATE: &[&[parol_runtime::TerminalIndex]; 13] = &[
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+];
 
 pub const NON_TERMINALS: &[&str; 171] = &[
     /*   0 */ "Array",
@@ -2102,61 +2117,73 @@ pub const PRODUCTIONS: &[Production; 270] = &[
     Production {
         lhs: 66,
         production: &[ParseType::N(68), ParseType::N(67), ParseType::N(69)],
+        is_push_production: false,
     },
     // 1 - EureList0: Section EureList0;
     Production {
         lhs: 68,
         production: &[ParseType::N(68), ParseType::N(137)],
+        is_push_production: true,
     },
     // 2 - EureList0: ;
     Production {
         lhs: 68,
         production: &[],
+        is_push_production: false,
     },
     // 3 - EureList: Binding EureList;
     Production {
         lhs: 67,
         production: &[ParseType::N(67), ParseType::N(19)],
+        is_push_production: true,
     },
     // 4 - EureList: ;
     Production {
         lhs: 67,
         production: &[],
+        is_push_production: false,
     },
     // 5 - EureOpt: TopLevelBinding;
     Production {
         lhs: 69,
         production: &[ParseType::N(159)],
+        is_push_production: false,
     },
     // 6 - EureOpt: ;
     Production {
         lhs: 69,
         production: &[],
+        is_push_production: false,
     },
     // 7 - TopLevelBinding: ValueBinding;
     Production {
         lhs: 159,
         production: &[ParseType::N(169)],
+        is_push_production: false,
     },
     // 8 - TopLevelBinding: TextBinding;
     Production {
         lhs: 159,
         production: &[ParseType::N(154)],
+        is_push_production: false,
     },
     // 9 - RootBinding: RootValueBinding;
     Production {
         lhs: 130,
         production: &[ParseType::N(135)],
+        is_push_production: false,
     },
     // 10 - RootBinding: RootTextBinding;
     Production {
         lhs: 130,
         production: &[ParseType::N(131)],
+        is_push_production: false,
     },
     // 11 - RootValueBinding: NewlineBind Value;
     Production {
         lhs: 135,
         production: &[ParseType::N(168), ParseType::N(116)],
+        is_push_production: false,
     },
     // 12 - RootTextBinding: NewlineTextStart RootTextBindingOpt /* Option */ RootTextBindingOpt0 /* Option */ RootTextBindingOpt1 /* Option */;
     Production {
@@ -2167,66 +2194,79 @@ pub const PRODUCTIONS: &[Production; 270] = &[
             ParseType::N(132),
             ParseType::N(119),
         ],
+        is_push_production: false,
     },
     // 13 - RootTextBindingOpt1: GrammarNewline;
     Production {
         lhs: 134,
         production: &[ParseType::N(78)],
+        is_push_production: false,
     },
     // 14 - RootTextBindingOpt1: ;
     Production {
         lhs: 134,
         production: &[],
+        is_push_production: false,
     },
     // 15 - RootTextBindingOpt0: Text;
     Production {
         lhs: 133,
         production: &[ParseType::N(153)],
+        is_push_production: false,
     },
     // 16 - RootTextBindingOpt0: ;
     Production {
         lhs: 133,
         production: &[],
+        is_push_production: false,
     },
     // 17 - RootTextBindingOpt: Ws^ /* Clipped */;
     Production {
         lhs: 132,
         production: &[ParseType::N(170)],
+        is_push_production: false,
     },
     // 18 - RootTextBindingOpt: ;
     Production {
         lhs: 132,
         production: &[],
+        is_push_production: false,
     },
     // 19 - Binding: Keys BindingRhs;
     Production {
         lhs: 19,
         production: &[ParseType::N(20), ParseType::N(95)],
+        is_push_production: false,
     },
     // 20 - BindingRhs: ValueBinding;
     Production {
         lhs: 20,
         production: &[ParseType::N(169)],
+        is_push_production: false,
     },
     // 21 - BindingRhs: SectionBinding;
     Production {
         lhs: 20,
         production: &[ParseType::N(138)],
+        is_push_production: false,
     },
     // 22 - BindingRhs: TextBinding;
     Production {
         lhs: 20,
         production: &[ParseType::N(154)],
+        is_push_production: false,
     },
     // 23 - ValueBinding: Bind Value;
     Production {
         lhs: 169,
         production: &[ParseType::N(168), ParseType::N(18)],
+        is_push_production: false,
     },
     // 24 - SectionBinding: Begin Eure End;
     Production {
         lhs: 138,
         production: &[ParseType::N(65), ParseType::N(66), ParseType::N(17)],
+        is_push_production: false,
     },
     // 25 - TextBinding: TextStart TextBindingOpt /* Option */ TextBindingOpt0 /* Option */ TextBindingOpt1 /* Option */;
     Production {
@@ -2237,376 +2277,451 @@ pub const PRODUCTIONS: &[Production; 270] = &[
             ParseType::N(155),
             ParseType::N(158),
         ],
+        is_push_production: false,
     },
     // 26 - TextBindingOpt1: GrammarNewline;
     Production {
         lhs: 157,
         production: &[ParseType::N(78)],
+        is_push_production: false,
     },
     // 27 - TextBindingOpt1: ;
     Production {
         lhs: 157,
         production: &[],
+        is_push_production: false,
     },
     // 28 - TextBindingOpt0: Text;
     Production {
         lhs: 156,
         production: &[ParseType::N(153)],
+        is_push_production: false,
     },
     // 29 - TextBindingOpt0: ;
     Production {
         lhs: 156,
         production: &[],
+        is_push_production: false,
     },
     // 30 - TextBindingOpt: Ws^ /* Clipped */;
     Production {
         lhs: 155,
         production: &[ParseType::N(170)],
+        is_push_production: false,
     },
     // 31 - TextBindingOpt: ;
     Production {
         lhs: 155,
         production: &[],
+        is_push_production: false,
     },
     // 32 - Section: At Keys SectionBody;
     Production {
         lhs: 137,
         production: &[ParseType::N(139), ParseType::N(95), ParseType::N(11)],
+        is_push_production: false,
     },
     // 33 - SectionBody: SectionBodyOpt /* Option */;
     Production {
         lhs: 139,
         production: &[ParseType::N(140)],
+        is_push_production: false,
     },
     // 34 - SectionBody: BlockBody;
     Production {
         lhs: 139,
         production: &[ParseType::N(21)],
+        is_push_production: false,
     },
     // 35 - SectionBodyOpt: FlatBody;
     Production {
         lhs: 140,
         production: &[ParseType::N(74)],
+        is_push_production: false,
     },
     // 36 - SectionBodyOpt: ;
     Production {
         lhs: 140,
         production: &[],
+        is_push_production: false,
     },
     // 37 - FlatBody: SectionHead FlatBodyList /* Vec */;
     Production {
         lhs: 74,
         production: &[ParseType::N(75), ParseType::N(141)],
+        is_push_production: false,
     },
     // 38 - FlatBodyList: Binding FlatBodyList;
     Production {
         lhs: 75,
         production: &[ParseType::N(75), ParseType::N(19)],
+        is_push_production: true,
     },
     // 39 - FlatBodyList: ;
     Production {
         lhs: 75,
         production: &[],
+        is_push_production: false,
     },
     // 40 - SectionHead: RootBinding;
     Production {
         lhs: 141,
         production: &[ParseType::N(130)],
+        is_push_production: false,
     },
     // 41 - SectionHead: NewlineHead;
     Production {
         lhs: 141,
         production: &[ParseType::N(117)],
+        is_push_production: false,
     },
     // 42 - NewlineHead: GrammarNewline NewlineHeadOpt /* Option */;
     Production {
         lhs: 117,
         production: &[ParseType::N(118), ParseType::N(78)],
+        is_push_production: false,
     },
     // 43 - NewlineHeadOpt: FlatRootBinding;
     Production {
         lhs: 118,
         production: &[ParseType::N(76)],
+        is_push_production: false,
     },
     // 44 - NewlineHeadOpt: ;
     Production {
         lhs: 118,
         production: &[],
+        is_push_production: false,
     },
     // 45 - FlatRootBinding: ValueBinding;
     Production {
         lhs: 76,
         production: &[ParseType::N(169)],
+        is_push_production: false,
     },
     // 46 - FlatRootBinding: TextBinding;
     Production {
         lhs: 76,
         production: &[ParseType::N(154)],
+        is_push_production: false,
     },
     // 47 - BlockBody: Begin Eure End;
     Production {
         lhs: 21,
         production: &[ParseType::N(65), ParseType::N(66), ParseType::N(17)],
+        is_push_production: false,
     },
     // 48 - Keys: FirstKey KeysList /* Vec */;
     Production {
         lhs: 95,
         production: &[ParseType::N(96), ParseType::N(73)],
+        is_push_production: false,
     },
     // 49 - KeysList: KeyTail KeysList;
     Production {
         lhs: 96,
         production: &[ParseType::N(96), ParseType::N(87)],
+        is_push_production: true,
     },
     // 50 - KeysList: ;
     Production {
         lhs: 96,
         production: &[],
+        is_push_production: false,
     },
     // 51 - FirstKey: Key;
     Production {
         lhs: 73,
         production: &[ParseType::N(85)],
+        is_push_production: false,
     },
     // 52 - FirstKey: ArrayMarker;
     Production {
         lhs: 73,
         production: &[ParseType::N(7)],
+        is_push_production: false,
     },
     // 53 - KeyTail: DotKey;
     Production {
         lhs: 87,
         production: &[ParseType::N(64)],
+        is_push_production: false,
     },
     // 54 - KeyTail: ArrayMarker;
     Production {
         lhs: 87,
         production: &[ParseType::N(7)],
+        is_push_production: false,
     },
     // 55 - DotKey: Dot Key;
     Production {
         lhs: 64,
         production: &[ParseType::N(85), ParseType::N(63)],
+        is_push_production: false,
     },
     // 56 - ArrayMarker: ArrayBegin ArrayMarkerOpt /* Option */ ArrayEnd;
     Production {
         lhs: 7,
         production: &[ParseType::N(6), ParseType::N(8), ParseType::N(1)],
+        is_push_production: false,
     },
     // 57 - ArrayMarkerOpt: ArrayMarkerOptGroup;
     Production {
         lhs: 8,
         production: &[ParseType::N(9)],
+        is_push_production: false,
     },
     // 58 - ArrayMarkerOptGroup: Integer;
     Production {
         lhs: 9,
         production: &[ParseType::N(84)],
+        is_push_production: false,
     },
     // 59 - ArrayMarkerOptGroup: Caret;
     Production {
         lhs: 9,
         production: &[ParseType::N(23)],
+        is_push_production: false,
     },
     // 60 - ArrayMarkerOpt: ;
     Production {
         lhs: 8,
         production: &[],
+        is_push_production: false,
     },
     // 61 - Key: KeyIdent;
     Production {
         lhs: 85,
         production: &[ParseType::N(86)],
+        is_push_production: false,
     },
     // 62 - Key: ExtensionNameSpace;
     Production {
         lhs: 85,
         production: &[ParseType::N(71)],
+        is_push_production: false,
     },
     // 63 - Key: String;
     Production {
         lhs: 85,
         production: &[ParseType::N(150)],
+        is_push_production: false,
     },
     // 64 - Key: Integer;
     Production {
         lhs: 85,
         production: &[ParseType::N(84)],
+        is_push_production: false,
     },
     // 65 - Key: Float;
     Production {
         lhs: 85,
         production: &[ParseType::N(77)],
+        is_push_production: false,
     },
     // 66 - Key: KeyTuple;
     Production {
         lhs: 85,
         production: &[ParseType::N(88)],
+        is_push_production: false,
     },
     // 67 - Key: TupleIndex;
     Production {
         lhs: 85,
         production: &[ParseType::N(166)],
+        is_push_production: false,
     },
     // 68 - Key: Hole;
     Production {
         lhs: 85,
         production: &[ParseType::N(79)],
+        is_push_production: false,
     },
     // 69 - TupleIndex: '#' Integer;
     Production {
         lhs: 166,
         production: &[ParseType::N(84), ParseType::T(5)],
+        is_push_production: false,
     },
     // 70 - ExtensionNameSpace: Ext KeyIdent;
     Production {
         lhs: 71,
         production: &[ParseType::N(86), ParseType::N(70)],
+        is_push_production: false,
     },
     // 71 - KeyTuple: LParen KeyTupleOpt /* Option */ RParen;
     Production {
         lhs: 88,
         production: &[ParseType::N(129), ParseType::N(93), ParseType::N(97)],
+        is_push_production: false,
     },
     // 72 - KeyTupleOpt: KeyTupleElements;
     Production {
         lhs: 93,
         production: &[ParseType::N(89)],
+        is_push_production: false,
     },
     // 73 - KeyTupleOpt: ;
     Production {
         lhs: 93,
         production: &[],
+        is_push_production: false,
     },
     // 74 - KeyTupleElements: KeyValue KeyTupleElementsOpt /* Option */;
     Production {
         lhs: 89,
         production: &[ParseType::N(90), ParseType::N(94)],
+        is_push_production: false,
     },
     // 75 - KeyTupleElementsOpt: KeyTupleElementsTail;
     Production {
         lhs: 90,
         production: &[ParseType::N(91)],
+        is_push_production: false,
     },
     // 76 - KeyTupleElementsOpt: ;
     Production {
         lhs: 90,
         production: &[],
+        is_push_production: false,
     },
     // 77 - KeyTupleElementsTail: Comma KeyTupleElementsTailOpt /* Option */;
     Production {
         lhs: 91,
         production: &[ParseType::N(92), ParseType::N(45)],
+        is_push_production: false,
     },
     // 78 - KeyTupleElementsTailOpt: KeyTupleElements;
     Production {
         lhs: 92,
         production: &[ParseType::N(89)],
+        is_push_production: false,
     },
     // 79 - KeyTupleElementsTailOpt: ;
     Production {
         lhs: 92,
         production: &[],
+        is_push_production: false,
     },
     // 80 - KeyValue: Integer;
     Production {
         lhs: 94,
         production: &[ParseType::N(84)],
+        is_push_production: false,
     },
     // 81 - KeyValue: Boolean;
     Production {
         lhs: 94,
         production: &[ParseType::N(22)],
+        is_push_production: false,
     },
     // 82 - KeyValue: Str;
     Production {
         lhs: 94,
         production: &[ParseType::N(149)],
+        is_push_production: false,
     },
     // 83 - KeyValue: KeyTuple;
     Production {
         lhs: 94,
         production: &[ParseType::N(88)],
+        is_push_production: false,
     },
     // 84 - KeyValue: Hole;
     Production {
         lhs: 94,
         production: &[ParseType::N(79)],
+        is_push_production: false,
     },
     // 85 - KeyIdent: Ident;
     Production {
         lhs: 86,
         production: &[ParseType::N(80)],
+        is_push_production: false,
     },
     // 86 - KeyIdent: True;
     Production {
         lhs: 86,
         production: &[ParseType::N(160)],
+        is_push_production: false,
     },
     // 87 - KeyIdent: False;
     Production {
         lhs: 86,
         production: &[ParseType::N(72)],
+        is_push_production: false,
     },
     // 88 - KeyIdent: Null;
     Production {
         lhs: 86,
         production: &[ParseType::N(122)],
+        is_push_production: false,
     },
     // 89 - Value: Object;
     Production {
         lhs: 168,
         production: &[ParseType::N(124)],
+        is_push_production: false,
     },
     // 90 - Value: Set;
     Production {
         lhs: 168,
         production: &[ParseType::N(142)],
+        is_push_production: false,
     },
     // 91 - Value: Array;
     Production {
         lhs: 168,
         production: &[ParseType::N(0)],
+        is_push_production: false,
     },
     // 92 - Value: Tuple;
     Production {
         lhs: 168,
         production: &[ParseType::N(161)],
+        is_push_production: false,
     },
     // 93 - Value: Number;
     Production {
         lhs: 168,
         production: &[ParseType::N(123)],
+        is_push_production: false,
     },
     // 94 - Value: Boolean;
     Production {
         lhs: 168,
         production: &[ParseType::N(22)],
+        is_push_production: false,
     },
     // 95 - Value: Null;
     Production {
         lhs: 168,
         production: &[ParseType::N(122)],
+        is_push_production: false,
     },
     // 96 - Value: Strings;
     Production {
         lhs: 168,
         production: &[ParseType::N(151)],
+        is_push_production: false,
     },
     // 97 - Value: Hole;
     Production {
         lhs: 168,
         production: &[ParseType::N(79)],
+        is_push_production: false,
     },
     // 98 - Value: CodeBlock;
     Production {
         lhs: 168,
         production: &[ParseType::N(24)],
+        is_push_production: false,
     },
     // 99 - Value: InlineCode;
     Production {
         lhs: 168,
         production: &[ParseType::N(82)],
+        is_push_production: false,
     },
     // 100 - Object: Begin ObjectOpt /* Option */ ObjectList /* Vec */ End;
     Production {
@@ -2617,6 +2732,7 @@ pub const PRODUCTIONS: &[Production; 270] = &[
             ParseType::N(126),
             ParseType::N(17),
         ],
+        is_push_production: false,
     },
     // 101 - ObjectList: Keys MapBind Value ObjectOpt0 /* Option */ ObjectList;
     Production {
@@ -2628,846 +2744,1015 @@ pub const PRODUCTIONS: &[Production; 270] = &[
             ParseType::N(114),
             ParseType::N(95),
         ],
+        is_push_production: true,
     },
     // 102 - ObjectList: ;
     Production {
         lhs: 125,
         production: &[],
+        is_push_production: false,
     },
     // 103 - ObjectOpt0: Comma;
     Production {
         lhs: 127,
         production: &[ParseType::N(45)],
+        is_push_production: false,
     },
     // 104 - ObjectOpt0: ;
     Production {
         lhs: 127,
         production: &[],
+        is_push_production: false,
     },
     // 105 - ObjectOpt: ValueBinding ObjectOpt1 /* Option */;
     Production {
         lhs: 126,
         production: &[ParseType::N(128), ParseType::N(169)],
+        is_push_production: false,
     },
     // 106 - ObjectOpt1: Comma;
     Production {
         lhs: 128,
         production: &[ParseType::N(45)],
+        is_push_production: false,
     },
     // 107 - ObjectOpt1: ;
     Production {
         lhs: 128,
         production: &[],
+        is_push_production: false,
     },
     // 108 - ObjectOpt: ;
     Production {
         lhs: 126,
         production: &[],
+        is_push_production: false,
     },
     // 109 - MapBind: '=>';
     Production {
         lhs: 114,
         production: &[ParseType::T(6)],
+        is_push_production: false,
     },
     // 110 - Set: SetBegin SetOpt /* Option */ End;
     Production {
         lhs: 142,
         production: &[ParseType::N(65), ParseType::N(148), ParseType::N(143)],
+        is_push_production: false,
     },
     // 111 - SetOpt: SetElements;
     Production {
         lhs: 148,
         production: &[ParseType::N(144)],
+        is_push_production: false,
     },
     // 112 - SetOpt: ;
     Production {
         lhs: 148,
         production: &[],
+        is_push_production: false,
     },
     // 113 - SetElements: KeyValue SetElementsOpt /* Option */;
     Production {
         lhs: 144,
         production: &[ParseType::N(145), ParseType::N(94)],
+        is_push_production: false,
     },
     // 114 - SetElementsOpt: SetElementsTail;
     Production {
         lhs: 145,
         production: &[ParseType::N(146)],
+        is_push_production: false,
     },
     // 115 - SetElementsOpt: ;
     Production {
         lhs: 145,
         production: &[],
+        is_push_production: false,
     },
     // 116 - SetElementsTail: Comma SetElementsTailOpt /* Option */;
     Production {
         lhs: 146,
         production: &[ParseType::N(147), ParseType::N(45)],
+        is_push_production: false,
     },
     // 117 - SetElementsTailOpt: SetElements;
     Production {
         lhs: 147,
         production: &[ParseType::N(144)],
+        is_push_production: false,
     },
     // 118 - SetElementsTailOpt: ;
     Production {
         lhs: 147,
         production: &[],
+        is_push_production: false,
     },
     // 119 - Array: ArrayBegin ArrayOpt /* Option */ ArrayEnd;
     Production {
         lhs: 0,
         production: &[ParseType::N(6), ParseType::N(10), ParseType::N(1)],
+        is_push_production: false,
     },
     // 120 - ArrayOpt: ArrayElements;
     Production {
         lhs: 10,
         production: &[ParseType::N(2)],
+        is_push_production: false,
     },
     // 121 - ArrayOpt: ;
     Production {
         lhs: 10,
         production: &[],
+        is_push_production: false,
     },
     // 122 - ArrayElements: Value ArrayElementsOpt /* Option */;
     Production {
         lhs: 2,
         production: &[ParseType::N(3), ParseType::N(168)],
+        is_push_production: false,
     },
     // 123 - ArrayElementsOpt: ArrayElementsTail;
     Production {
         lhs: 3,
         production: &[ParseType::N(4)],
+        is_push_production: false,
     },
     // 124 - ArrayElementsOpt: ;
     Production {
         lhs: 3,
         production: &[],
+        is_push_production: false,
     },
     // 125 - ArrayElementsTail: Comma ArrayElementsTailOpt /* Option */;
     Production {
         lhs: 4,
         production: &[ParseType::N(5), ParseType::N(45)],
+        is_push_production: false,
     },
     // 126 - ArrayElementsTailOpt: ArrayElements;
     Production {
         lhs: 5,
         production: &[ParseType::N(2)],
+        is_push_production: false,
     },
     // 127 - ArrayElementsTailOpt: ;
     Production {
         lhs: 5,
         production: &[],
+        is_push_production: false,
     },
     // 128 - Tuple: LParen TupleOpt /* Option */ RParen;
     Production {
         lhs: 161,
         production: &[ParseType::N(129), ParseType::N(167), ParseType::N(97)],
+        is_push_production: false,
     },
     // 129 - TupleOpt: TupleElements;
     Production {
         lhs: 167,
         production: &[ParseType::N(162)],
+        is_push_production: false,
     },
     // 130 - TupleOpt: ;
     Production {
         lhs: 167,
         production: &[],
+        is_push_production: false,
     },
     // 131 - TupleElements: Value TupleElementsOpt /* Option */;
     Production {
         lhs: 162,
         production: &[ParseType::N(163), ParseType::N(168)],
+        is_push_production: false,
     },
     // 132 - TupleElementsOpt: TupleElementsTail;
     Production {
         lhs: 163,
         production: &[ParseType::N(164)],
+        is_push_production: false,
     },
     // 133 - TupleElementsOpt: ;
     Production {
         lhs: 163,
         production: &[],
+        is_push_production: false,
     },
     // 134 - TupleElementsTail: Comma TupleElementsTailOpt /* Option */;
     Production {
         lhs: 164,
         production: &[ParseType::N(165), ParseType::N(45)],
+        is_push_production: false,
     },
     // 135 - TupleElementsTailOpt: TupleElements;
     Production {
         lhs: 165,
         production: &[ParseType::N(162)],
+        is_push_production: false,
     },
     // 136 - TupleElementsTailOpt: ;
     Production {
         lhs: 165,
         production: &[],
+        is_push_production: false,
     },
     // 137 - Number: Float;
     Production {
         lhs: 123,
         production: &[ParseType::N(77)],
+        is_push_production: false,
     },
     // 138 - Number: Integer;
     Production {
         lhs: 123,
         production: &[ParseType::N(84)],
+        is_push_production: false,
     },
     // 139 - Number: Inf;
     Production {
         lhs: 123,
         production: &[ParseType::N(81)],
+        is_push_production: false,
     },
     // 140 - Number: NaN;
     Production {
         lhs: 123,
         production: &[ParseType::N(115)],
+        is_push_production: false,
     },
     // 141 - Integer: /[-+]?\d[\d_]*/;
     Production {
         lhs: 84,
         production: &[ParseType::T(7)],
+        is_push_production: false,
     },
     // 142 - Float: /[-+]?\d[\d_]*\.\d+([eE][-+]?\d+)?(f32|f64)?|[-+]?\d[\d_]*[eE][-+]?\d+(f32|f64)?/;
     Production {
         lhs: 77,
         production: &[ParseType::T(8)],
+        is_push_production: false,
     },
     // 143 - Inf: /[-+]?[Ii]nf/;
     Production {
         lhs: 81,
         production: &[ParseType::T(9)],
+        is_push_production: false,
     },
     // 144 - NaN: /[Nn]a[Nn]/;
     Production {
         lhs: 115,
         production: &[ParseType::T(10)],
+        is_push_production: false,
     },
     // 145 - Boolean: True;
     Production {
         lhs: 22,
         production: &[ParseType::N(160)],
+        is_push_production: false,
     },
     // 146 - Boolean: False;
     Production {
         lhs: 22,
         production: &[ParseType::N(72)],
+        is_push_production: false,
     },
     // 147 - True: 'true';
     Production {
         lhs: 160,
         production: &[ParseType::T(11)],
+        is_push_production: false,
     },
     // 148 - False: 'false';
     Production {
         lhs: 72,
         production: &[ParseType::T(12)],
+        is_push_production: false,
     },
     // 149 - Null: 'null';
     Production {
         lhs: 122,
         production: &[ParseType::T(13)],
+        is_push_production: false,
     },
     // 150 - Hole: /![\p{XID_Start}_]?[\p{XID_Continue}-]*/;
     Production {
         lhs: 79,
         production: &[ParseType::T(14)],
+        is_push_production: false,
     },
     // 151 - String: Str;
     Production {
         lhs: 150,
         production: &[ParseType::N(149)],
+        is_push_production: false,
     },
     // 152 - String: LitStr;
     Production {
         lhs: 150,
         production: &[ParseType::N(98)],
+        is_push_production: false,
     },
     // 153 - String: LitStr1;
     Production {
         lhs: 150,
         production: &[ParseType::N(99)],
+        is_push_production: false,
     },
     // 154 - String: LitStr2;
     Production {
         lhs: 150,
         production: &[ParseType::N(104)],
+        is_push_production: false,
     },
     // 155 - String: LitStr3;
     Production {
         lhs: 150,
         production: &[ParseType::N(109)],
+        is_push_production: false,
     },
     // 156 - Strings: String StringsList /* Vec */;
     Production {
         lhs: 151,
         production: &[ParseType::N(152), ParseType::N(150)],
+        is_push_production: false,
     },
     // 157 - StringsList: Continue String StringsList;
     Production {
         lhs: 152,
         production: &[ParseType::N(152), ParseType::N(150), ParseType::N(46)],
+        is_push_production: true,
     },
     // 158 - StringsList: ;
     Production {
         lhs: 152,
         production: &[],
+        is_push_production: false,
     },
     // 159 - Str: /"([^"]|\\")*"/;
     Production {
         lhs: 149,
         production: &[ParseType::T(15)],
+        is_push_production: false,
     },
     // 160 - LitStr: /'[^']*'/;
     Production {
         lhs: 98,
         production: &[ParseType::T(16)],
+        is_push_production: false,
     },
     // 161 - Text: /[^\r\n]*/;
     Production {
         lhs: 153,
         production: &[ParseType::T(17)],
+        is_push_production: false,
     },
     // 162 - InlineCode: DelimCode;
     Production {
         lhs: 82,
         production: &[ParseType::N(47)],
+        is_push_production: false,
     },
     // 163 - InlineCode: InlineCode1;
     Production {
         lhs: 82,
         production: &[ParseType::N(83)],
+        is_push_production: false,
     },
     // 164 - InlineCode1: /[a-zA-Z0-9-_]*`[^`\r\n]*`/;
     Production {
         lhs: 83,
         production: &[ParseType::T(18)],
+        is_push_production: false,
     },
     // 165 - LitStr1: LitStr1Start LitStr1List /* Vec */ LitStr1End;
     Production {
         lhs: 99,
         production: &[ParseType::N(100), ParseType::N(101), ParseType::N(103)],
+        is_push_production: false,
     },
     // 166 - LitStr1List: LitStr1ListGroup LitStr1List;
     Production {
         lhs: 101,
         production: &[ParseType::N(101), ParseType::N(102)],
+        is_push_production: true,
     },
     // 167 - LitStr1ListGroup: NoSQuote;
     Production {
         lhs: 102,
         production: &[ParseType::N(121)],
+        is_push_production: false,
     },
     // 168 - LitStr1ListGroup: SQuote;
     Production {
         lhs: 102,
         production: &[ParseType::N(136)],
+        is_push_production: false,
     },
     // 169 - LitStr1List: ;
     Production {
         lhs: 101,
         production: &[],
+        is_push_production: false,
     },
     // 170 - LitStr2: LitStr2Start LitStr2List /* Vec */ LitStr2End;
     Production {
         lhs: 104,
         production: &[ParseType::N(105), ParseType::N(106), ParseType::N(108)],
+        is_push_production: false,
     },
     // 171 - LitStr2List: LitStr2ListGroup LitStr2List;
     Production {
         lhs: 106,
         production: &[ParseType::N(106), ParseType::N(107)],
+        is_push_production: true,
     },
     // 172 - LitStr2ListGroup: NoSQuote;
     Production {
         lhs: 107,
         production: &[ParseType::N(121)],
+        is_push_production: false,
     },
     // 173 - LitStr2ListGroup: SQuote;
     Production {
         lhs: 107,
         production: &[ParseType::N(136)],
+        is_push_production: false,
     },
     // 174 - LitStr2List: ;
     Production {
         lhs: 106,
         production: &[],
+        is_push_production: false,
     },
     // 175 - LitStr3: LitStr3Start LitStr3List /* Vec */ LitStr3End;
     Production {
         lhs: 109,
         production: &[ParseType::N(110), ParseType::N(111), ParseType::N(113)],
+        is_push_production: false,
     },
     // 176 - LitStr3List: LitStr3ListGroup LitStr3List;
     Production {
         lhs: 111,
         production: &[ParseType::N(111), ParseType::N(112)],
+        is_push_production: true,
     },
     // 177 - LitStr3ListGroup: NoSQuote;
     Production {
         lhs: 112,
         production: &[ParseType::N(121)],
+        is_push_production: false,
     },
     // 178 - LitStr3ListGroup: SQuote;
     Production {
         lhs: 112,
         production: &[ParseType::N(136)],
+        is_push_production: false,
     },
     // 179 - LitStr3List: ;
     Production {
         lhs: 111,
         production: &[],
+        is_push_production: false,
     },
     // 180 - DelimCode: DelimCode3;
     Production {
         lhs: 47,
         production: &[ParseType::N(54)],
+        is_push_production: false,
     },
     // 181 - DelimCode: DelimCode2;
     Production {
         lhs: 47,
         production: &[ParseType::N(51)],
+        is_push_production: false,
     },
     // 182 - DelimCode: DelimCode1;
     Production {
         lhs: 47,
         production: &[ParseType::N(48)],
+        is_push_production: false,
     },
     // 183 - DelimCode1: DelimCodeStart1 DelimCode1List /* Vec */ DelimCodeEnd1;
     Production {
         lhs: 48,
         production: &[ParseType::N(57), ParseType::N(49), ParseType::N(60)],
+        is_push_production: false,
     },
     // 184 - DelimCode1List: DelimCode1ListGroup DelimCode1List;
     Production {
         lhs: 49,
         production: &[ParseType::N(49), ParseType::N(50)],
+        is_push_production: true,
     },
     // 185 - DelimCode1ListGroup: NoBacktick;
     Production {
         lhs: 50,
         production: &[ParseType::N(120)],
+        is_push_production: false,
     },
     // 186 - DelimCode1ListGroup: BacktickDelim;
     Production {
         lhs: 50,
         production: &[ParseType::N(16)],
+        is_push_production: false,
     },
     // 187 - DelimCode1List: ;
     Production {
         lhs: 49,
         production: &[],
+        is_push_production: false,
     },
     // 188 - DelimCode2: DelimCodeStart2 DelimCode2List /* Vec */ DelimCodeEnd2;
     Production {
         lhs: 51,
         production: &[ParseType::N(58), ParseType::N(52), ParseType::N(61)],
+        is_push_production: false,
     },
     // 189 - DelimCode2List: DelimCode2ListGroup DelimCode2List;
     Production {
         lhs: 52,
         production: &[ParseType::N(52), ParseType::N(53)],
+        is_push_production: true,
     },
     // 190 - DelimCode2ListGroup: NoBacktick;
     Production {
         lhs: 53,
         production: &[ParseType::N(120)],
+        is_push_production: false,
     },
     // 191 - DelimCode2ListGroup: BacktickDelim;
     Production {
         lhs: 53,
         production: &[ParseType::N(16)],
+        is_push_production: false,
     },
     // 192 - DelimCode2List: ;
     Production {
         lhs: 52,
         production: &[],
+        is_push_production: false,
     },
     // 193 - DelimCode3: DelimCodeStart3 DelimCode3List /* Vec */ DelimCodeEnd3;
     Production {
         lhs: 54,
         production: &[ParseType::N(59), ParseType::N(55), ParseType::N(62)],
+        is_push_production: false,
     },
     // 194 - DelimCode3List: DelimCode3ListGroup DelimCode3List;
     Production {
         lhs: 55,
         production: &[ParseType::N(55), ParseType::N(56)],
+        is_push_production: true,
     },
     // 195 - DelimCode3ListGroup: NoBacktick;
     Production {
         lhs: 56,
         production: &[ParseType::N(120)],
+        is_push_production: false,
     },
     // 196 - DelimCode3ListGroup: BacktickDelim;
     Production {
         lhs: 56,
         production: &[ParseType::N(16)],
+        is_push_production: false,
     },
     // 197 - DelimCode3List: ;
     Production {
         lhs: 55,
         production: &[],
+        is_push_production: false,
     },
     // 198 - CodeBlock: CodeBlock3;
     Production {
         lhs: 24,
         production: &[ParseType::N(25)],
+        is_push_production: false,
     },
     // 199 - CodeBlock: CodeBlock4;
     Production {
         lhs: 24,
         production: &[ParseType::N(28)],
+        is_push_production: false,
     },
     // 200 - CodeBlock: CodeBlock5;
     Production {
         lhs: 24,
         production: &[ParseType::N(31)],
+        is_push_production: false,
     },
     // 201 - CodeBlock: CodeBlock6;
     Production {
         lhs: 24,
         production: &[ParseType::N(34)],
+        is_push_production: false,
     },
     // 202 - CodeBlock3: CodeBlockStart3 CodeBlock3List /* Vec */ CodeBlockEnd3;
     Production {
         lhs: 25,
         production: &[ParseType::N(37), ParseType::N(26), ParseType::N(41)],
+        is_push_production: false,
     },
     // 203 - CodeBlock3List: CodeBlock3ListGroup CodeBlock3List;
     Production {
         lhs: 26,
         production: &[ParseType::N(26), ParseType::N(27)],
+        is_push_production: true,
     },
     // 204 - CodeBlock3ListGroup: NoBacktick;
     Production {
         lhs: 27,
         production: &[ParseType::N(120)],
+        is_push_production: false,
     },
     // 205 - CodeBlock3ListGroup: Backtick2;
     Production {
         lhs: 27,
         production: &[ParseType::N(12)],
+        is_push_production: false,
     },
     // 206 - CodeBlock3List: ;
     Production {
         lhs: 26,
         production: &[],
+        is_push_production: false,
     },
     // 207 - CodeBlock4: CodeBlockStart4 CodeBlock4List /* Vec */ CodeBlockEnd4;
     Production {
         lhs: 28,
         production: &[ParseType::N(38), ParseType::N(29), ParseType::N(42)],
+        is_push_production: false,
     },
     // 208 - CodeBlock4List: CodeBlock4ListGroup CodeBlock4List;
     Production {
         lhs: 29,
         production: &[ParseType::N(29), ParseType::N(30)],
+        is_push_production: true,
     },
     // 209 - CodeBlock4ListGroup: NoBacktick;
     Production {
         lhs: 30,
         production: &[ParseType::N(120)],
+        is_push_production: false,
     },
     // 210 - CodeBlock4ListGroup: Backtick3;
     Production {
         lhs: 30,
         production: &[ParseType::N(13)],
+        is_push_production: false,
     },
     // 211 - CodeBlock4List: ;
     Production {
         lhs: 29,
         production: &[],
+        is_push_production: false,
     },
     // 212 - CodeBlock5: CodeBlockStart5 CodeBlock5List /* Vec */ CodeBlockEnd5;
     Production {
         lhs: 31,
         production: &[ParseType::N(39), ParseType::N(32), ParseType::N(43)],
+        is_push_production: false,
     },
     // 213 - CodeBlock5List: CodeBlock5ListGroup CodeBlock5List;
     Production {
         lhs: 32,
         production: &[ParseType::N(32), ParseType::N(33)],
+        is_push_production: true,
     },
     // 214 - CodeBlock5ListGroup: NoBacktick;
     Production {
         lhs: 33,
         production: &[ParseType::N(120)],
+        is_push_production: false,
     },
     // 215 - CodeBlock5ListGroup: Backtick4;
     Production {
         lhs: 33,
         production: &[ParseType::N(14)],
+        is_push_production: false,
     },
     // 216 - CodeBlock5List: ;
     Production {
         lhs: 32,
         production: &[],
+        is_push_production: false,
     },
     // 217 - CodeBlock6: CodeBlockStart6 CodeBlock6List /* Vec */ CodeBlockEnd6;
     Production {
         lhs: 34,
         production: &[ParseType::N(40), ParseType::N(35), ParseType::N(44)],
+        is_push_production: false,
     },
     // 218 - CodeBlock6List: CodeBlock6ListGroup CodeBlock6List;
     Production {
         lhs: 35,
         production: &[ParseType::N(35), ParseType::N(36)],
+        is_push_production: true,
     },
     // 219 - CodeBlock6ListGroup: NoBacktick;
     Production {
         lhs: 36,
         production: &[ParseType::N(120)],
+        is_push_production: false,
     },
     // 220 - CodeBlock6ListGroup: Backtick5;
     Production {
         lhs: 36,
         production: &[ParseType::N(15)],
+        is_push_production: false,
     },
     // 221 - CodeBlock6List: ;
     Production {
         lhs: 35,
         production: &[],
+        is_push_production: false,
     },
     // 222 - LitStr3Start: "<<<'";
     Production {
         lhs: 113,
         production: &[ParseType::T(19)],
+        is_push_production: false,
     },
     // 223 - LitStr2Start: "<<'";
     Production {
         lhs: 108,
         production: &[ParseType::T(20)],
+        is_push_production: false,
     },
     // 224 - LitStr1Start: "<'";
     Production {
         lhs: 103,
         production: &[ParseType::T(21)],
+        is_push_production: false,
     },
     // 225 - DelimCodeStart3: /[a-zA-Z0-9-_]*<<<`/;
     Production {
         lhs: 62,
         production: &[ParseType::T(22)],
+        is_push_production: false,
     },
     // 226 - DelimCodeStart2: /[a-zA-Z0-9-_]*<<`/;
     Production {
         lhs: 61,
         production: &[ParseType::T(23)],
+        is_push_production: false,
     },
     // 227 - DelimCodeStart1: /[a-zA-Z0-9-_]*<`/;
     Production {
         lhs: 60,
         production: &[ParseType::T(24)],
+        is_push_production: false,
     },
     // 228 - CodeBlockStart3: /`{3}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;
     Production {
         lhs: 41,
         production: &[ParseType::T(25)],
+        is_push_production: false,
     },
     // 229 - CodeBlockStart4: /`{4}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;
     Production {
         lhs: 42,
         production: &[ParseType::T(26)],
+        is_push_production: false,
     },
     // 230 - CodeBlockStart5: /`{5}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;
     Production {
         lhs: 43,
         production: &[ParseType::T(27)],
+        is_push_production: false,
     },
     // 231 - CodeBlockStart6: /`{6}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;
     Production {
         lhs: 44,
         production: &[ParseType::T(28)],
+        is_push_production: false,
     },
     // 232 - CodeBlockEnd3: /`{3}/;
     Production {
         lhs: 37,
         production: &[ParseType::T(29)],
+        is_push_production: false,
     },
     // 233 - Backtick2: /`{1,2}/;
     Production {
         lhs: 12,
         production: &[ParseType::T(30)],
+        is_push_production: false,
     },
     // 234 - CodeBlockEnd4: /`{4}/;
     Production {
         lhs: 38,
         production: &[ParseType::T(31)],
+        is_push_production: false,
     },
     // 235 - Backtick3: /`{1,3}/;
     Production {
         lhs: 13,
         production: &[ParseType::T(32)],
+        is_push_production: false,
     },
     // 236 - CodeBlockEnd5: /`{5}/;
     Production {
         lhs: 39,
         production: &[ParseType::T(33)],
+        is_push_production: false,
     },
     // 237 - Backtick4: /`{1,4}/;
     Production {
         lhs: 14,
         production: &[ParseType::T(34)],
+        is_push_production: false,
     },
     // 238 - CodeBlockEnd6: /`{6}/;
     Production {
         lhs: 40,
         production: &[ParseType::T(35)],
+        is_push_production: false,
     },
     // 239 - Backtick5: /`{1,5}/;
     Production {
         lhs: 15,
         production: &[ParseType::T(36)],
+        is_push_production: false,
     },
     // 240 - NoBacktick: /[^`]+/;
     Production {
         lhs: 120,
         production: &[ParseType::T(37)],
+        is_push_production: false,
     },
     // 241 - LitStr3End: "'>>>";
     Production {
         lhs: 110,
         production: &[ParseType::T(38)],
+        is_push_production: false,
     },
     // 242 - LitStr2End: "'>>";
     Production {
         lhs: 105,
         production: &[ParseType::T(39)],
+        is_push_production: false,
     },
     // 243 - LitStr1End: "'>";
     Production {
         lhs: 100,
         production: &[ParseType::T(40)],
+        is_push_production: false,
     },
     // 244 - SQuote: "'";
     Production {
         lhs: 136,
         production: &[ParseType::T(41)],
+        is_push_production: false,
     },
     // 245 - NoSQuote: /[^']+/;
     Production {
         lhs: 121,
         production: &[ParseType::T(42)],
+        is_push_production: false,
     },
     // 246 - DelimCodeEnd3: '`>>>';
     Production {
         lhs: 59,
         production: &[ParseType::T(43)],
+        is_push_production: false,
     },
     // 247 - DelimCodeEnd2: '`>>';
     Production {
         lhs: 58,
         production: &[ParseType::T(44)],
+        is_push_production: false,
     },
     // 248 - DelimCodeEnd1: '`>';
     Production {
         lhs: 57,
         production: &[ParseType::T(45)],
+        is_push_production: false,
     },
     // 249 - BacktickDelim: '`';
     Production {
         lhs: 16,
         production: &[ParseType::T(46)],
+        is_push_production: false,
     },
     // 250 - GrammarNewline: /\r\n|\r|\n/;
     Production {
         lhs: 78,
         production: &[ParseType::T(47)],
+        is_push_production: false,
     },
     // 251 - Ws: /[\s--\r\n]+/;
     Production {
         lhs: 170,
         production: &[ParseType::T(48)],
+        is_push_production: false,
     },
     // 252 - At: '@';
     Production {
         lhs: 11,
         production: &[ParseType::T(49)],
+        is_push_production: false,
     },
     // 253 - Ext: '$';
     Production {
         lhs: 70,
         production: &[ParseType::T(50)],
+        is_push_production: false,
     },
     // 254 - Dot: '.';
     Production {
         lhs: 63,
         production: &[ParseType::T(51)],
+        is_push_production: false,
     },
     // 255 - SetBegin: '#{';
     Production {
         lhs: 143,
         production: &[ParseType::T(52)],
+        is_push_production: false,
     },
     // 256 - Begin: '{';
     Production {
         lhs: 17,
         production: &[ParseType::T(53)],
+        is_push_production: false,
     },
     // 257 - End: '}';
     Production {
         lhs: 65,
         production: &[ParseType::T(54)],
+        is_push_production: false,
     },
     // 258 - ArrayBegin: '[';
     Production {
         lhs: 1,
         production: &[ParseType::T(55)],
+        is_push_production: false,
     },
     // 259 - ArrayEnd: ']';
     Production {
         lhs: 6,
         production: &[ParseType::T(56)],
+        is_push_production: false,
     },
     // 260 - Caret: '^';
     Production {
         lhs: 23,
         production: &[ParseType::T(57)],
+        is_push_production: false,
     },
     // 261 - LParen: '(';
     Production {
         lhs: 97,
         production: &[ParseType::T(58)],
+        is_push_production: false,
     },
     // 262 - RParen: ')';
     Production {
         lhs: 129,
         production: &[ParseType::T(59)],
+        is_push_production: false,
     },
     // 263 - NewlineBind: /(\r\n|\r|\n)*=/;
     Production {
         lhs: 116,
         production: &[ParseType::T(60)],
+        is_push_production: false,
     },
     // 264 - Bind: '=';
     Production {
         lhs: 18,
         production: &[ParseType::T(61)],
+        is_push_production: false,
     },
     // 265 - Comma: ',';
     Production {
         lhs: 45,
         production: &[ParseType::T(62)],
+        is_push_production: false,
     },
     // 266 - Continue: '\';
     Production {
         lhs: 46,
         production: &[ParseType::T(63)],
+        is_push_production: false,
     },
     // 267 - NewlineTextStart: /(\r\n|\r|\n)*:/;
     Production {
         lhs: 119,
         production: &[ParseType::T(64)],
+        is_push_production: false,
     },
     // 268 - TextStart: ":";
     Production {
         lhs: 158,
         production: &[ParseType::T(65)],
+        is_push_production: false,
     },
     // 269 - Ident: /[\p{XID_Start}_][\p{XID_Continue}-]*/;
     Production {
         lhs: 80,
         production: &[ParseType::T(66)],
+        is_push_production: false,
     },
 ];
 
@@ -3510,12 +3795,13 @@ where
     let mut user_actions = GrammarAuto::new(user_actions);
     llk_parser.parse_into(
         tree_builder,
-        TokenStream::new(
+        TokenStream::new_with_skip_tokens(
             input,
             file_name,
             scanner.scanner_impl.clone(),
             &GrammarScanner::match_function,
             MAX_K,
+            SKIP_TOKENS_BY_SCANNER_STATE,
         )
         .unwrap(),
         &mut user_actions,
