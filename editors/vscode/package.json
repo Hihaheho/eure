@@ -4,7 +4,7 @@
   "description": "Eure Language Server extension for Visual Studio Code",
   "homepage": "https://eure.dev",
   "icon": "assets/icons/eure-icon.png",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "categories": [
     "Programming Languages",
     "Formatters",
@@ -181,5 +181,10 @@
         }
       }
     ]
+  },
+  "pnpm": {
+    "overrides": {
+      "@azure/identity>@azure/msal-node": "7.1.1"
+    }
   }
 }

@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*", "test-suite"]
 
 [workspace.package]
-version = "0.3.1"
+version = "0.3.2"
 license = "MIT OR Apache-2.0"
 edition = "2024"
 repository = "https://github.com/Hihaheho/eure"
@@ -11,27 +11,27 @@ homepage = "https://eure.dev"
 
 [workspace.dependencies]
 # eure
-eure = { path = "crates/eure", version = "0.3.1" }
-eure-codegen = { path = "crates/eure-codegen", version = "0.3.1" }
-eure-codegen-ir = { path = "crates/eure-codegen-ir", version = "0.3.1" }
-eure-doc-builder = { path = "crates/eure-doc-builder", version = "0.3.1" }
-eure-env = { path = "crates/eure-env", version = "0.3.1" }
-eure-document = { path = "crates/eure-document", version = "0.3.1" }
-eure-fmt = { path = "crates/eure-fmt", version = "0.3.1" }
-eure-json = { path = "crates/eure-json", version = "0.3.1" }
-eure-json-schema = { path = "crates/eure-json-schema", version = "0.3.1" }
-eure-lint = { path = "crates/eure-lint", version = "0.3.1" }
-eure-ls = { path = "crates/eure-ls", version = "0.3.1" }
-eure-macros = { path = "crates/eure-macros", version = "0.3.1" }
-eure-mark = { path = "crates/eure-mark", version = "0.3.1" }
-eure-parol = { path = "crates/eure-parol", version = "0.3.1" }
-eure-reader = { path = "crates/eure-reader", version = "0.3.1" }
-eure-schema = { path = "crates/eure-schema", version = "0.3.1" }
-eure-template = { path = "crates/eure-template", version = "0.3.1" }
-eure-toml = { path = "crates/eure-toml", version = "0.3.1" }
-eure-tree = { path = "crates/eure-tree", version = "0.3.1" }
-eure-yaml = { path = "crates/eure-yaml", version = "0.3.1" }
-serde-eure = { path = "crates/serde-eure", version = "0.3.1" }
+eure = { path = "crates/eure", version = "0.3.2" }
+eure-codegen = { path = "crates/eure-codegen", version = "0.3.2" }
+eure-codegen-ir = { path = "crates/eure-codegen-ir", version = "0.3.2" }
+eure-doc-builder = { path = "crates/eure-doc-builder", version = "0.3.2" }
+eure-env = { path = "crates/eure-env", version = "0.3.2" }
+eure-document = { path = "crates/eure-document", version = "0.3.2" }
+eure-fmt = { path = "crates/eure-fmt", version = "0.3.2" }
+eure-json = { path = "crates/eure-json", version = "0.3.2" }
+eure-json-schema = { path = "crates/eure-json-schema", version = "0.3.2" }
+eure-lint = { path = "crates/eure-lint", version = "0.3.2" }
+eure-ls = { path = "crates/eure-ls", version = "0.3.2" }
+eure-macros = { path = "crates/eure-macros", version = "0.3.2" }
+eure-mark = { path = "crates/eure-mark", version = "0.3.2" }
+eure-parol = { path = "crates/eure-parol", version = "0.3.2" }
+eure-reader = { path = "crates/eure-reader", version = "0.3.2" }
+eure-schema = { path = "crates/eure-schema", version = "0.3.2" }
+eure-template = { path = "crates/eure-template", version = "0.3.2" }
+eure-toml = { path = "crates/eure-toml", version = "0.3.2" }
+eure-tree = { path = "crates/eure-tree", version = "0.3.2" }
+eure-yaml = { path = "crates/eure-yaml", version = "0.3.2" }
+serde-eure = { path = "crates/serde-eure", version = "0.3.2" }
 
 # other
 ahash = { version = "0.8.11", default-features = false }
